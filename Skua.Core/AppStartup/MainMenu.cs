@@ -1,7 +1,9 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using CommunityToolkit.Mvvm.DependencyInjection;
 using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.Messaging;
 using Skua.Core.Interfaces;
+using Skua.Core.Messaging;
 using Skua.Core.ViewModels;
 
 namespace Skua.Core.AppStartup;
@@ -47,12 +49,7 @@ internal class MainMenu
             new("Logs"),
             new("PVP FPS", new RelayCommand(() =>
             {
-                var scriptOption = Ioc.Default.GetRequiredService<IScriptOption>();
-                var input = Microsoft.VisualBasic.Interaction.InputBox("Enter FPS (1-60):", "PVP FPS Adjustment", scriptOption.SetFPS.ToString());
-                if (int.TryParse(input, out int newFps) && newFps >= 1 && newFps <= 60)
-                {
-                    scriptOption.SetFPS = newFps;
-                }
+                StrongReferenceMessenger.Default.Send(new ShowFPSWindowMessage());
             }))
         };
 

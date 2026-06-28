@@ -27,7 +27,7 @@
             DoubleClickCommand="{Binding ShowMainWindowCommand}"
             IconSource="SkuaIcon.ico"
             MenuActivation="RightClick"
-            ToolTipText="Skua"
+            ToolTipText="PVP Hero 2.0"
             Visibility="Visible">
             <tb:TaskbarIcon.ContextMenu>
                 <ContextMenu>

@@ -1,0 +1,49 @@
+﻿<Window x:Class="Skua.App.WPF.FPSAdjustmentWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="PVP FPS Adjustment"
+        Height="280" Width="350"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="NoResize"
+        Icon="{x:Null}"
+        Background="#1a237e">
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="auto"/>
+            <RowDefinition Height="auto"/>
+            <RowDefinition Height="auto"/>
+            <RowDefinition Height="auto"/>
+            <RowDefinition Height="auto"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0" Text="PVP FPS Adjustment" Foreground="White" FontSize="16" FontWeight="Bold" Margin="0,0,0,10"/>
+
+        <TextBlock Grid.Row="1" Foreground="#90CAF9" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,15">
+            ⚠ Regular AQW FPS = 24. Higher FPS may cause door lag.
+        </TextBlock>
+
+        <TextBlock Grid.Row="2" Foreground="White" FontSize="14" Margin="0,0,0,5">
+            <Run Text="FPS: "/>
+            <Run x:Name="FpsValueText" Text="24"/>
+        </TextBlock>
+
+        <Slider Grid.Row="3"
+                x:Name="FpsSlider"
+                Minimum="1" Maximum="60"
+                Value="24"
+                TickFrequency="1"
+                IsSnapToTickEnabled="True"
+                Foreground="White"
+                Margin="0,0,0,20"
+                ValueChanged="FpsSlider_ValueChanged"/>
+
+        <Button Grid.Row="4"
+                Content="Apply"
+                Click="Apply_Click"
+                Background="#3949ab"
+                Foreground="White"
+                BorderThickness="0"
+                Height="35"
+                FontSize="14"/>
+    </Grid>
+</Window>

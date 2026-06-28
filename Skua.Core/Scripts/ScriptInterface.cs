@@ -369,6 +369,22 @@ public class ScriptInterface : IScriptInterface, IScriptInterfaceManager, IDispo
                                 Messenger.Send<PlayerDeathMessage, int>((int)MessageChannels.GameEvents);
                                 break;
                             }
+                            // PvP kill: check if any opponent in this combat packet has 0 HP
+                            if (data.p is Newtonsoft.Json.Linq.JObject pvpPlayers)
+                            {
+                                string selfName = Player.Username.ToLower();
+                                foreach (var kvp in pvpPlayers)
+                                {
+                                    if (kvp.Key == selfName) continue;
+                                    if (kvp.Value is Newtonsoft.Json.Linq.JObject opData &&
+                                        opData.TryGetValue("intHP", out var hpTok) &&
+                                        hpTok.ToObject<int>() == 0)
+                                    {
+                                        Messenger.Send<PvpKillMessage, int>((int)MessageChannels.GameEvents);
+                                        break;
+                                    }
+                                }
+                            }
                             dynamic anims = data.anims?[0]!;
                             if (anims is not null)
                             {

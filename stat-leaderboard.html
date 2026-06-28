@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Skua PVP Leaderboard</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: #0d0d1a;
+            color: #e0e0ff;
+            font-family: 'Segoe UI', sans-serif;
+            min-height: 100vh;
+            padding: 30px 20px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 28px;
+        }
+
+        header h1 {
+            font-size: 2rem;
+            font-weight: 800;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            color: #fff;
+        }
+
+        header p { color: #7986cb; font-size: 0.85rem; margin-top: 6px; letter-spacing: 1px; }
+
+        .status-bar {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 28px;
+            flex-wrap: wrap;
+        }
+
+        .badge {
+            background: #1a1f4e;
+            border: 1px solid #3949ab;
+            border-radius: 20px;
+            padding: 6px 16px;
+            font-size: 0.8rem;
+            color: #90caf9;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .badge b { color: #fff; }
+
+        .dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+        .dot.on  { background: #4caf50; box-shadow: 0 0 6px #4caf50; }
+        .dot.off { background: #f44336; }
+
+        /* Sort bar */
+        .sort-bar {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .sort-btn {
+            background: #1a1f4e;
+            border: 1px solid #3949ab;
+            color: #90caf9;
+            padding: 6px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.78rem;
+            transition: all 0.15s;
+        }
+
+        .sort-btn:hover, .sort-btn.active {
+            background: #3949ab;
+            color: #fff;
+        }
+
+        /* Table */
+        .lb-wrap { max-width: 960px; margin: 0 auto; }
+
+        .lb-header {
+            display: grid;
+            grid-template-columns: 44px 1fr 90px 90px 110px 110px 90px;
+            gap: 8px;
+            padding: 0 18px 8px;
+            font-size: 0.68rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #3949ab;
+            font-weight: 700;
+        }
+
+        .lb-header span:nth-child(2) { padding-left: 48px; }
+        .lb-header span:not(:nth-child(2)) { text-align: center; }
+
+        .lb-rows { display: flex; flex-direction: column; gap: 8px; }
+
+        .row {
+            display: grid;
+            grid-template-columns: 44px 1fr 90px 90px 110px 110px 90px;
+            gap: 8px;
+            align-items: center;
+            background: #12163a;
+            border: 1px solid #1e2d8f;
+            border-radius: 10px;
+            padding: 14px 18px;
+            transition: border-color 0.2s;
+        }
+
+        .row:hover { border-color: #5c6bc0; }
+        .row.self  { border-color: #5c6bc0; background: #141850; }
+        .row.gold  { border-color: #ffd700; }
+        .row.silver { border-color: #c0c0c0; }
+        .row.bronze { border-color: #cd7f32; }
+
+        .rank { font-size: 1.3rem; font-weight: 800; text-align: center; }
+        .row.gold   .rank { color: #ffd700; }
+        .row.silver .rank { color: #c0c0c0; }
+        .row.bronze .rank { color: #cd7f32; }
+        .row:not(.gold):not(.silver):not(.bronze) .rank { color: #444; font-size: 1rem; }
+
+        .player-info { display: flex; align-items: center; gap: 12px; }
+
+        .avatar {
+            width: 36px; height: 36px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 800; font-size: 1rem; flex-shrink: 0;
+            background: #5c6bc022; border: 2px solid #5c6bc0; color: #5c6bc0;
+        }
+
+        .row.self .avatar { background: #ffd70022; border-color: #ffd700; color: #ffd700; }
+
+        .pname { font-weight: 700; font-size: 0.95rem; color: #e8eaf6; }
+        .psub  { font-size: 0.68rem; color: #5c6bc0; margin-top: 2px; }
+        .row.self .psub { color: #ffd700; }
+
+        .cell { text-align: center; }
+        .val  { font-size: 1rem; font-weight: 700; color: #fff; }
+        .lbl  { font-size: 0.62rem; color: #3949ab; text-transform: uppercase; letter-spacing: 0.6px; margin-top: 2px; }
+        .cell.top .val { color: #ffd700; }
+        .cell.na .val  { color: #333; }
+
+        /* offline / no client */
+        .offline-msg {
+            max-width: 600px; margin: 0 auto;
+            background: #1a0a0a; border: 1px solid #5c1a1a;
+            border-radius: 12px; padding: 30px; text-align: center; color: #ef9a9a;
+        }
+        .offline-msg h2 { margin-bottom: 8px; }
+        .offline-msg p  { font-size: 0.8rem; color: #7a4a4a; }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>Skua PVP Leaderboard</h1>
+    <p>bludrutbrawl &bull; live from your client</p>
+</header>
+
+<div class="status-bar">
+    <div class="badge">
+        <span class="dot" id="dot"></span>
+        Client: <b id="conn">Connecting...</b>
+    </div>
+    <div class="badge">Players: <b id="pcount">—</b></div>
+    <div class="badge">Updated: <b id="upd">—</b></div>
+</div>
+
+<div class="sort-bar">
+    <button class="sort-btn active" data-field="kills"    onclick="setSort(this,'kills')">Kills</button>
+    <button class="sort-btn"        data-field="deaths"   onclick="setSort(this,'deaths')">Deaths</button>
+    <button class="sort-btn"        data-field="dmgDealt" onclick="setSort(this,'dmgDealt')">Dmg Dealt</button>
+    <button class="sort-btn"        data-field="dmgTaken" onclick="setSort(this,'dmgTaken')">Dmg Taken</button>
+    <button class="sort-btn"        data-field="heals"    onclick="setSort(this,'heals')">Heals</button>
+</div>
+
+<div class="lb-wrap">
+    <div class="lb-header">
+        <span>#</span><span>Player</span>
+        <span>Kills</span><span>Deaths</span>
+        <span>Dmg Dealt</span><span>Dmg Taken</span><span>Heals</span>
+    </div>
+    <div class="lb-rows" id="rows"></div>
+</div>
+
+<script>
+const API = 'http://localhost:7701/stats';
+let sortField = 'kills';
+
+const fmt = n => {
+    if (n >= 1000000) return (n / 1000000).toFixed(2) + 'm';
+    if (n >= 1000)    return (n / 1000).toFixed(1) + 'k';
+    return String(n);
+};
+
+const RANK_MEDAL = ['🥇','🥈','🥉'];
+const RANK_CLASS = ['gold','silver','bronze'];
+
+function setSort(btn, field) {
+    sortField = field;
+    document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+}
+
+function topValue(players, field) {
+    return Math.max(...players.map(p => p[field] ?? 0));
+}
+
+function render(players) {
+    const sorted = [...players].sort((a, b) => (b[sortField] ?? 0) - (a[sortField] ?? 0));
+
+    document.getElementById('pcount').textContent = players.length;
+    document.getElementById('upd').textContent = new Date().toLocaleTimeString();
+
+    const tops = {};
+    ['kills','deaths','dmgDealt','dmgTaken','heals'].forEach(f => tops[f] = topValue(players, f));
+
+    document.getElementById('rows').innerHTML = sorted.map((p, i) => {
+        const rankLabel = RANK_MEDAL[i] ?? `#${i+1}`;
+        const rankCls   = RANK_CLASS[i] ?? '';
+        const selfCls   = p.isSelf ? 'self' : '';
+        const na        = v => v === 0 && !p.isSelf;
+
+        const cell = (field, label) => {
+            const v = p[field] ?? 0;
+            const isTop = v > 0 && v === tops[field];
+            const isNa  = na(v) && field !== 'deaths';
+            return `<div class="cell ${isTop ? 'top' : ''} ${isNa ? 'na' : ''}">
+                <div class="val">${isNa ? '—' : fmt(v)}</div>
+                <div class="lbl">${label}</div>
+            </div>`;
+        };
+
+        return `
+        <div class="row ${rankCls} ${selfCls}">
+            <div class="rank">${rankLabel}</div>
+            <div class="player-info">
+                <div class="avatar">${(p.username || '?')[0].toUpperCase()}</div>
+                <div>
+                    <div class="pname">${p.username}</div>
+                    <div class="psub">${p.isSelf ? '★ YOU' : 'opponent'}</div>
+                </div>
+            </div>
+            ${cell('kills',    'Kills')}
+            ${cell('deaths',   'Deaths')}
+            ${cell('dmgDealt', 'Dmg Dealt')}
+            ${cell('dmgTaken', 'Dmg Taken')}
+            ${cell('heals',    'Heals')}
+        </div>`;
+    }).join('');
+}
+
+function renderOffline() {
+    document.getElementById('rows').innerHTML = `
+    <div class="offline-msg">
+        <h2>Client not detected</h2>
+        <p>Open the Stat Tracker window in Skua, then refresh this page.</p>
+    </div>`;
+}
+
+async function fetchStats() {
+    try {
+        const res  = await fetch(API, { cache: 'no-store' });
+        const data = await res.json();
+
+        document.getElementById('dot').className  = 'dot on';
+        document.getElementById('conn').textContent = 'Connected';
+
+        const players = data.players ?? [data]; // backwards compat
+        render(players);
+    } catch {
+        document.getElementById('dot').className  = 'dot off';
+        document.getElementById('conn').textContent = 'Not connected';
+        renderOffline();
+    }
+}
+
+fetchStats();
+setInterval(fetchStats, 1000);
+</script>
+</body>
+</html>

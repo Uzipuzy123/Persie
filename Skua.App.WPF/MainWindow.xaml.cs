@@ -34,6 +34,9 @@ public partial class MainWindow : CustomWindow
                 scriptOption.SetFPS = window.SelectedFPS;
         });
         StrongReferenceMessenger.Default.Register<MainWindow, ShowStatTrackerMessage>(this, ToggleStatTracker);
+
+        // Defer creation until after the app is fully loaded so Flash bindings are ready
+        this.Loaded += (s, e) => _statTrackerWindow = new StatTrackerWindow();
     }
 
     private void ToggleStatTracker(MainWindow recipient, ShowStatTrackerMessage message)
@@ -45,7 +48,8 @@ public partial class MainWindow : CustomWindow
                 _statTrackerWindow = new StatTrackerWindow();
                 _statTrackerWindow.Closed += (s, e) =>
                 {
-                    _statTrackerWindow = null;
+                    // Recreate silently so tracking keeps running
+                    _statTrackerWindow = new StatTrackerWindow();
                     Ioc.Default.GetRequiredService<MainMenuViewModel>().IsStatTrackerOpen = false;
                 };
             }
@@ -53,9 +57,7 @@ public partial class MainWindow : CustomWindow
         }
         else
         {
-            var w = _statTrackerWindow;
-            _statTrackerWindow = null;
-            w?.Close();
+            _statTrackerWindow?.Hide();
         }
     }
 

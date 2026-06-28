@@ -1,0 +1,1064 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Skua PVP</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+
+:root {
+  --bg:       #080812;
+  --surface:  #10142a;
+  --card:     #13183a;
+  --border:   #1e2760;
+  --accent:   #4f5de4;
+  --accent2:  #7c3aed;
+  --gold:     #f59e0b;
+  --silver:   #94a3b8;
+  --bronze:   #b45309;
+  --green:    #10b981;
+  --red:      #ef4444;
+  --text:     #e2e8f0;
+  --muted:    #475569;
+  --nav-w:    220px;
+}
+
+body { background:var(--bg); color:var(--text); font-family:'Segoe UI',sans-serif; display:flex; min-height:100vh; }
+
+/* ── SIDEBAR ── */
+nav {
+  width:var(--nav-w); flex-shrink:0;
+  background:var(--surface);
+  border-right:1px solid var(--border);
+  display:flex; flex-direction:column;
+  padding:24px 0; position:fixed; top:0; left:0; height:100vh; z-index:100;
+}
+
+.logo {
+  padding:0 20px 24px;
+  border-bottom:1px solid var(--border);
+  margin-bottom:16px;
+}
+.logo h1 { font-size:1.3rem; font-weight:900; letter-spacing:2px; color:#fff; }
+.logo span { font-size:0.7rem; color:var(--accent); letter-spacing:3px; text-transform:uppercase; }
+
+.nav-item {
+  display:flex; align-items:center; gap:12px;
+  padding:11px 20px; cursor:pointer;
+  font-size:0.88rem; color:var(--muted);
+  border-left:3px solid transparent;
+  transition:all 0.15s;
+}
+.nav-item:hover { color:var(--text); background:#ffffff08; }
+.nav-item.active { color:#fff; border-left-color:var(--accent); background:#4f5de412; }
+.nav-item .icon { font-size:1.1rem; width:20px; text-align:center; }
+
+.nav-bottom { margin-top:auto; padding:16px 20px; border-top:1px solid var(--border); }
+.client-status { display:flex; align-items:center; gap:8px; font-size:0.75rem; color:var(--muted); }
+.cdot { width:8px; height:8px; border-radius:50%; background:var(--red); flex-shrink:0; }
+.cdot.on { background:var(--green); box-shadow:0 0 6px var(--green); }
+
+/* ── MAIN ── */
+main { margin-left:var(--nav-w); flex:1; padding:32px; overflow-y:auto; }
+
+.page { display:none; }
+.page.active { display:block; }
+
+/* ── PAGE HEADER ── */
+.page-title { font-size:1.5rem; font-weight:800; color:#fff; margin-bottom:4px; }
+.page-sub   { font-size:0.8rem; color:var(--muted); margin-bottom:28px; }
+
+/* ── CARDS / GRIDS ── */
+.stat-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:28px; }
+
+.stat-card {
+  background:var(--card); border:1px solid var(--border);
+  border-radius:12px; padding:18px 20px;
+}
+.stat-card .sc-label { font-size:0.68rem; color:var(--muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:8px; }
+.stat-card .sc-val   { font-size:1.8rem; font-weight:800; color:#fff; }
+.stat-card .sc-sub   { font-size:0.72rem; color:var(--muted); margin-top:4px; }
+.stat-card .sc-val.up   { color:var(--green); }
+.stat-card .sc-val.gold { color:var(--gold); }
+
+/* ── SECTION BOX ── */
+.box {
+  background:var(--card); border:1px solid var(--border);
+  border-radius:12px; margin-bottom:20px;
+}
+.box-head {
+  padding:16px 20px; border-bottom:1px solid var(--border);
+  display:flex; align-items:center; justify-content:space-between;
+}
+.box-head h2 { font-size:0.9rem; font-weight:700; color:#fff; }
+.box-head span { font-size:0.72rem; color:var(--muted); }
+.box-body { padding:16px 20px; }
+
+/* ── LIVE MATCH TABLE ── */
+.lb-head {
+  display:grid;
+  grid-template-columns: 40px 1fr 80px 80px 100px 100px 80px 80px;
+  gap:8px; font-size:0.65rem; color:var(--muted);
+  text-transform:uppercase; letter-spacing:1px;
+  padding:0 16px 10px; font-weight:700;
+}
+.lb-head span:nth-child(2) { padding-left:44px; }
+.lb-head span:not(:nth-child(2)) { text-align:center; }
+
+.lb-row {
+  display:grid;
+  grid-template-columns: 40px 1fr 80px 80px 100px 100px 80px 80px;
+  gap:8px; align-items:center;
+  background:var(--card); border:1px solid var(--border);
+  border-radius:10px; padding:12px 16px; margin-bottom:8px;
+  transition:border-color 0.15s;
+}
+.lb-row:hover { border-color:#4f5de455; }
+.lb-row.me    { border-color:var(--accent); background:#4f5de40a; }
+.lb-row.r1    { border-color:var(--gold); }
+.lb-row.r2    { border-color:var(--silver); }
+.lb-row.r3    { border-color:var(--bronze); }
+
+.rank-num { font-size:1.1rem; font-weight:800; text-align:center; }
+.r1 .rank-num { color:var(--gold); }
+.r2 .rank-num { color:var(--silver); }
+.r3 .rank-num { color:var(--bronze); }
+.lb-row:not(.r1):not(.r2):not(.r3) .rank-num { color:#333; font-size:0.9rem; }
+
+.player-col { display:flex; align-items:center; gap:10px; }
+.av {
+  width:34px; height:34px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  font-weight:800; font-size:0.9rem; flex-shrink:0;
+}
+.pn  { font-size:0.9rem; font-weight:700; color:#fff; }
+.psub { font-size:0.65rem; color:var(--muted); margin-top:1px; }
+.me .psub { color:var(--accent); }
+
+.cell-val { text-align:center; }
+.cell-val .v { font-size:0.95rem; font-weight:700; color:#fff; }
+.cell-val .l { font-size:0.6rem; color:var(--muted); margin-top:1px; text-transform:uppercase; }
+.cell-val.best .v { color:var(--gold); }
+.cell-val.na  .v { color:#2a2a3a; }
+
+.kda-badge {
+  text-align:center;
+  font-size:0.85rem; font-weight:800;
+  padding:4px 8px; border-radius:6px;
+}
+.kda-badge.good { background:#10b98122; color:var(--green); }
+.kda-badge.mid  { background:#f59e0b22; color:var(--gold); }
+.kda-badge.bad  { background:#ef444422; color:var(--red); }
+
+/* ── SORT BAR ── */
+.sort-bar { display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap; }
+.sbtn {
+  background:var(--surface); border:1px solid var(--border);
+  color:var(--muted); padding:6px 14px; border-radius:20px;
+  cursor:pointer; font-size:0.75rem; transition:all 0.15s;
+}
+.sbtn:hover, .sbtn.active { background:var(--accent); color:#fff; border-color:var(--accent); }
+
+/* ── MATCH HISTORY ── */
+.match-row {
+  display:flex; align-items:center; gap:16px;
+  padding:14px 0; border-bottom:1px solid var(--border);
+}
+.match-row:last-child { border-bottom:none; }
+.match-result {
+  width:48px; height:48px; border-radius:10px;
+  display:flex; align-items:center; justify-content:center;
+  font-weight:900; font-size:0.85rem; flex-shrink:0;
+}
+.match-result.win  { background:#10b98122; color:var(--green); border:1px solid var(--green); }
+.match-result.loss { background:#ef444422; color:var(--red);   border:1px solid var(--red); }
+
+.match-info { flex:1; }
+.match-info .mi-title { font-size:0.88rem; font-weight:700; color:#fff; }
+.match-info .mi-sub   { font-size:0.7rem; color:var(--muted); margin-top:3px; }
+
+.match-stats { display:flex; gap:20px; }
+.ms-item { text-align:center; }
+.ms-item .mv { font-size:0.9rem; font-weight:700; color:#fff; }
+.ms-item .ml { font-size:0.6rem; color:var(--muted); text-transform:uppercase; }
+
+.match-winner {
+  font-size:0.75rem; font-weight:700;
+  padding:4px 12px; border-radius:20px;
+}
+.match-winner.you { background:#10b98122; color:var(--green); }
+.match-winner.them { background:#ef444422; color:var(--red); }
+
+/* ── PLAYER PROFILE ── */
+.profile-header {
+  display:flex; align-items:center; gap:20px;
+  padding:24px; border-bottom:1px solid var(--border);
+}
+.profile-av {
+  width:64px; height:64px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  font-size:1.8rem; font-weight:900; flex-shrink:0;
+}
+.profile-name { font-size:1.3rem; font-weight:800; color:#fff; }
+.profile-rank-badge {
+  display:inline-block; margin-top:6px;
+  font-size:0.7rem; font-weight:700; letter-spacing:1px;
+  padding:3px 10px; border-radius:20px; text-transform:uppercase;
+}
+
+.bar-chart { display:flex; flex-direction:column; gap:12px; }
+.bar-row { display:flex; align-items:center; gap:12px; }
+.bar-label { width:80px; font-size:0.75rem; color:var(--muted); text-align:right; flex-shrink:0; }
+.bar-track { flex:1; background:#1e2760; border-radius:4px; height:10px; overflow:hidden; }
+.bar-fill  { height:100%; border-radius:4px; background:var(--accent); transition:width 0.5s; }
+.bar-val   { width:50px; font-size:0.75rem; font-weight:700; color:#fff; }
+
+.personal-bests { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+.pb-card {
+  background:var(--surface); border:1px solid var(--border);
+  border-radius:10px; padding:14px; text-align:center;
+}
+.pb-card .pbv { font-size:1.3rem; font-weight:800; color:var(--gold); }
+.pb-card .pbl { font-size:0.65rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.8px; margin-top:4px; }
+
+/* ── PLAYER TABS ── */
+.player-tabs { display:flex; gap:8px; margin-bottom:20px; flex-wrap:wrap; }
+.ptab {
+  padding:8px 18px; border-radius:8px; cursor:pointer;
+  font-size:0.82rem; font-weight:700;
+  background:var(--surface); border:1px solid var(--border); color:var(--muted);
+  transition:all 0.15s;
+}
+.ptab.active { background:var(--accent); color:#fff; border-color:var(--accent); }
+
+/* ── GLOBAL LB ── */
+.global-row {
+  display:grid; grid-template-columns:44px 1fr 80px 80px 100px 80px 80px;
+  gap:8px; align-items:center;
+  padding:12px 16px; border-bottom:1px solid var(--border);
+  font-size:0.85rem; transition:background 0.1s;
+}
+.global-row:hover { background:#ffffff04; }
+.global-row.header { font-size:0.65rem; color:var(--muted); text-transform:uppercase; letter-spacing:1px; border-bottom:2px solid var(--border); }
+.global-row .rank-lbl { text-align:center; font-weight:800; }
+.global-row .gc { text-align:center; }
+.global-row .gc.gold-val { color:var(--gold); font-weight:700; }
+
+/* ── FIRST BLOOD TOAST ── */
+.toast {
+  position:fixed; top:20px; right:20px;
+  background:#10b981; color:#fff;
+  padding:12px 20px; border-radius:10px;
+  font-weight:700; font-size:0.85rem;
+  box-shadow:0 4px 20px #10b98155;
+  transform:translateX(200px); opacity:0;
+  transition:all 0.4s; z-index:999;
+}
+.toast.show { transform:translateX(0); opacity:1; }
+
+/* ── TIMER ── */
+.match-timer {
+  font-size:2.5rem; font-weight:900; color:#fff;
+  font-variant-numeric:tabular-nums; letter-spacing:2px;
+}
+.timer-label { font-size:0.7rem; color:var(--muted); text-transform:uppercase; letter-spacing:2px; margin-top:4px; }
+
+/* ── RESPONSIVE tweaks ── */
+.two-col { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<nav>
+  <div class="logo">
+    <h1>SKUA PVP</h1>
+    <span>Stat Tracker</span>
+  </div>
+
+  <div class="nav-item" onclick="go('queue')">
+    <span class="icon">🎮</span> 1v1 Queue
+  </div>
+  <div class="nav-item active" onclick="go('live')">
+    <span class="icon">⚔️</span> Live Match
+  </div>
+  <div class="nav-item" onclick="go('history')">
+    <span class="icon">📋</span> Match History
+  </div>
+  <div class="nav-item" onclick="go('profile')">
+    <span class="icon">👤</span> Player Profile
+  </div>
+  <div class="nav-item" onclick="go('leaderboard')">
+    <span class="icon">🏆</span> All-Time Rankings
+  </div>
+
+  <div class="nav-bottom">
+    <div class="client-status">
+      <div class="cdot" id="cdot"></div>
+      <span id="cstatus">Connecting...</span>
+    </div>
+  </div>
+</nav>
+
+<!-- TOAST -->
+<div class="toast" id="toast">⚔️ First Blood — Uzair!</div>
+
+<!-- MAIN -->
+<main>
+
+  <!-- ══ LIVE MATCH ══ -->
+  <div class="page active" id="page-live">
+    <div class="page-title">Live Match</div>
+    <div class="page-sub" id="live-sub">bludrutbrawl &bull; waiting for client...</div>
+
+    <div class="stat-grid">
+      <div class="stat-card">
+        <div class="sc-label">Match Timer</div>
+        <div class="match-timer" id="mtimer">00:00</div>
+        <div class="timer-label">elapsed</div>
+      </div>
+      <div class="stat-card">
+        <div class="sc-label">Players in Room</div>
+        <div class="sc-val" id="player-count">—</div>
+        <div class="sc-sub">in your cell</div>
+      </div>
+      <div class="stat-card">
+        <div class="sc-label">Your KDA</div>
+        <div class="sc-val gold" id="my-kda">—</div>
+        <div class="sc-sub">kills / deaths / assists</div>
+      </div>
+      <div class="stat-card">
+        <div class="sc-label">Current Leader</div>
+        <div class="sc-val up" id="leader-name">—</div>
+        <div class="sc-sub" id="leader-stat">by kills</div>
+      </div>
+    </div>
+
+    <div class="sort-bar">
+      <button class="sbtn active" onclick="liveSort(this,'kills')">Kills</button>
+      <button class="sbtn" onclick="liveSort(this,'deaths')">Deaths</button>
+      <button class="sbtn" onclick="liveSort(this,'dmgDealt')">Dmg Dealt</button>
+      <button class="sbtn" onclick="liveSort(this,'dmgTaken')">Dmg Taken</button>
+      <button class="sbtn" onclick="liveSort(this,'heals')">Heals</button>
+      <button class="sbtn" onclick="liveSort(this,'kda')">KDA</button>
+    </div>
+
+    <div class="lb-head">
+      <span>#</span><span>Player</span>
+      <span>Kills</span><span>Deaths</span>
+      <span>Dmg Dealt</span><span>Dmg Taken</span>
+      <span>Heals</span><span>KDA</span>
+    </div>
+    <div id="live-rows"></div>
+
+    <!-- Victory banner (hidden until match ends) -->
+    <div id="victory-banner" style="display:none;margin-top:20px;border-radius:12px;padding:32px;text-align:center">
+      <div id="vb-icon" style="font-size:3rem;margin-bottom:8px"></div>
+      <div id="vb-title" style="font-size:1.8rem;font-weight:900;margin-bottom:6px"></div>
+      <div id="vb-sub" style="font-size:0.9rem;margin-bottom:20px"></div>
+      <div id="vb-stats" style="display:flex;justify-content:center;gap:24px;flex-wrap:wrap"></div>
+    </div>
+
+    <div style="text-align:center;margin-top:12px;font-size:0.72rem;color:var(--muted)" id="live-footer">
+      First to 10 kills wins &bull; Dmg Dealt for opponents shown from your client only
+    </div>
+  </div>
+
+  <!-- ══ MATCH HISTORY ══ -->
+  <div class="page" id="page-history">
+    <div class="page-title">Match History</div>
+    <div class="page-sub">Your last 10 bludrutbrawl sessions</div>
+
+    <div class="stat-grid">
+      <div class="stat-card">
+        <div class="sc-label">Total Matches</div>
+        <div class="sc-val">24</div>
+      </div>
+      <div class="stat-card">
+        <div class="sc-label">Win Rate</div>
+        <div class="sc-val up">67%</div>
+        <div class="sc-sub">16W / 8L</div>
+      </div>
+      <div class="stat-card">
+        <div class="sc-label">Avg Kills/Match</div>
+        <div class="sc-val gold">18.4</div>
+      </div>
+      <div class="stat-card">
+        <div class="sc-label">Best KDA Ever</div>
+        <div class="sc-val gold">24:1</div>
+        <div class="sc-sub">24 kills, 1 death</div>
+      </div>
+    </div>
+
+    <div class="box">
+      <div class="box-head">
+        <h2>Recent Matches</h2>
+        <span>bludrutbrawl</span>
+      </div>
+      <div class="box-body" id="history-list"></div>
+    </div>
+  </div>
+
+  <!-- ══ PLAYER PROFILE ══ -->
+  <div class="page" id="page-profile">
+    <div class="page-title">Player Profile</div>
+    <div class="page-sub">All-time stats per player</div>
+
+    <div class="player-tabs" id="profile-tabs"></div>
+
+    <div class="two-col">
+      <div>
+        <div class="box" style="margin-bottom:20px">
+          <div class="profile-header" id="profile-header"></div>
+          <div class="box-body">
+            <div style="font-size:0.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:14px">Stat Breakdown (all-time)</div>
+            <div class="bar-chart" id="profile-bars"></div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="box" style="margin-bottom:20px">
+          <div class="box-head"><h2>Personal Bests</h2><span>single session records</span></div>
+          <div class="box-body">
+            <div class="personal-bests" id="profile-pbs"></div>
+          </div>
+        </div>
+        <div class="box">
+          <div class="box-head"><h2>Recent Form</h2><span>last 5 matches</span></div>
+          <div class="box-body">
+            <div id="profile-form" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ ALL-TIME LEADERBOARD ══ -->
+  <div class="page" id="page-leaderboard">
+    <div class="page-title">All-Time Rankings</div>
+    <div class="page-sub">Across all bludrutbrawl sessions</div>
+
+    <div class="stat-grid">
+      <div class="stat-card">
+        <div class="sc-label">All-Time Kill Leader</div>
+        <div class="sc-val gold">Uzair</div>
+        <div class="sc-sub">441 total kills</div>
+      </div>
+      <div class="stat-card">
+        <div class="sc-label">Least Deaths</div>
+        <div class="sc-val up">Zarkon</div>
+        <div class="sc-sub">0.8 deaths/match</div>
+      </div>
+      <div class="stat-card">
+        <div class="sc-label">Highest KDA</div>
+        <div class="sc-val gold">Uzair</div>
+        <div class="sc-sub">8.4 avg KDA</div>
+      </div>
+      <div class="stat-card">
+        <div class="sc-label">Most Damage</div>
+        <div class="sc-val up">XxSlayer</div>
+        <div class="sc-sub">12.4m total</div>
+      </div>
+    </div>
+
+    <div class="sort-bar">
+      <button class="sbtn active" onclick="glSort(this,'kills')">Total Kills</button>
+      <button class="sbtn" onclick="glSort(this,'kda')">KDA</button>
+      <button class="sbtn" onclick="glSort(this,'dmgDealt')">Total Dmg</button>
+      <button class="sbtn" onclick="glSort(this,'winRate')">Win Rate</button>
+      <button class="sbtn" onclick="glSort(this,'matches')">Matches</button>
+    </div>
+
+    <div class="box">
+      <div class="box-head"><h2>All Players</h2><span>4 registered</span></div>
+      <div id="global-table">
+        <div class="global-row header">
+          <span>#</span><span>Player</span>
+          <span class="gc">Kills</span><span class="gc">Deaths</span>
+          <span class="gc">Avg KDA</span><span class="gc">Win%</span><span class="gc">Matches</span>
+        </div>
+        <div id="global-rows"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ 1v1 QUEUE ══ -->
+  <div class="page" id="page-queue">
+    <div class="page-title">1v1 Queue</div>
+    <div class="page-sub">Challenge a friend to a bludrutbrawl duel</div>
+
+    <div style="max-width:480px;margin:0 auto">
+
+      <!-- Username input -->
+      <div class="box" style="margin-bottom:16px">
+        <div class="box-head"><h2>Your Name</h2><span>used to identify you in the queue</span></div>
+        <div class="box-body" style="display:flex;gap:10px">
+          <input id="q-username" type="text" placeholder="Enter your in-game username"
+            style="flex:1;background:#0d0d1a;border:1px solid var(--border);border-radius:8px;
+            padding:10px 14px;color:#fff;font-size:0.9rem;outline:none"
+            oninput="saveUsername(this.value)">
+        </div>
+      </div>
+
+      <!-- Queue status card -->
+      <div class="box">
+        <div class="box-body" style="text-align:center;padding:32px 20px">
+
+          <!-- IDLE -->
+          <div id="q-idle">
+            <div style="font-size:3rem;margin-bottom:12px">⚔️</div>
+            <div style="font-size:1.1rem;font-weight:700;color:#fff;margin-bottom:8px">Ready to fight?</div>
+            <div style="font-size:0.8rem;color:var(--muted);margin-bottom:24px">Click Queue and your friend does the same — you'll both auto-join the same room</div>
+            <button onclick="joinQueue()"
+              style="background:var(--accent);color:#fff;border:none;border-radius:10px;
+              padding:14px 40px;font-size:1rem;font-weight:700;cursor:pointer;margin-bottom:12px;
+              transition:background 0.15s;display:block;width:100%"
+              onmouseover="this.style.background='#6366f1'" onmouseout="this.style.background='var(--accent)'">
+              Queue for 1v1
+            </button>
+            <button onclick="testSolo()"
+              style="background:#1a1f4e;color:var(--muted);border:1px dashed var(--border);
+              border-radius:10px;padding:10px 40px;font-size:0.8rem;cursor:pointer;width:100%">
+              🤖 Test Solo (no friend needed)
+            </button>
+          </div>
+
+          <!-- SEARCHING -->
+          <div id="q-searching" style="display:none">
+            <div style="font-size:3rem;margin-bottom:12px">🔍</div>
+            <div style="font-size:1.1rem;font-weight:700;color:#fff;margin-bottom:8px">Searching for opponent...</div>
+            <div style="font-size:0.8rem;color:var(--muted);margin-bottom:8px">Tell your friend to queue up too</div>
+            <div id="q-timer" style="font-size:1.5rem;font-weight:800;color:var(--accent);margin-bottom:24px">0:00</div>
+            <button onclick="leaveQueue()"
+              style="background:#1a1f4e;color:var(--muted);border:1px solid var(--border);
+              border-radius:8px;padding:8px 24px;font-size:0.8rem;cursor:pointer">
+              Cancel
+            </button>
+          </div>
+
+          <!-- MATCHED -->
+          <div id="q-matched" style="display:none">
+            <div style="font-size:3rem;margin-bottom:12px">🎮</div>
+            <div style="font-size:1.3rem;font-weight:800;color:var(--green);margin-bottom:8px">Match Found!</div>
+            <div id="q-vs" style="font-size:1rem;color:#fff;margin-bottom:8px"></div>
+            <div id="q-room" style="font-size:0.85rem;color:var(--accent);font-weight:700;margin-bottom:8px"></div>
+            <div style="font-size:0.75rem;color:var(--muted);margin-bottom:24px">Your Skua client is joining automatically...</div>
+            <button onclick="go('live');document.querySelectorAll('.nav-item')[1].classList.add('active')"
+              style="background:var(--green);color:#fff;border:none;border-radius:10px;
+              padding:12px 32px;font-size:0.9rem;font-weight:700;cursor:pointer">
+              Watch Live Stats →
+            </button>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ══ 1v1 LIVE VIEW ══ -->
+  <div id="onevone-banner" style="display:none;max-width:960px;margin:0 auto 20px">
+    <div style="background:linear-gradient(135deg,#1a1f4e,#12163a);border:1px solid var(--accent);
+      border-radius:12px;padding:20px 28px;display:flex;align-items:center;justify-content:space-between">
+      <div id="ov-p1" style="text-align:center;flex:1"></div>
+      <div style="text-align:center;padding:0 24px">
+        <div style="font-size:2rem;font-weight:900;color:var(--accent);letter-spacing:4px">VS</div>
+        <div id="ov-map" style="font-size:0.7rem;color:var(--muted);margin-top:4px"></div>
+      </div>
+      <div id="ov-p2" style="text-align:center;flex:1"></div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+// ── DATA ──────────────────────────────────────────────────────────────
+const COLORS = {
+  Uzair:'#4f5de4', XxSlayer:'#ef4444', Zarkon:'#10b981', NightOwl:'#f59e0b'
+};
+
+const MOCK_LIVE = [
+  { username:'Uzair',    kills:14, deaths:2, dmgDealt:380000, dmgTaken:8200,  heals:22000, isSelf:true },
+  { username:'XxSlayer', kills:11, deaths:5, dmgDealt:0,      dmgTaken:24000, heals:8000,  isSelf:false },
+  { username:'Zarkon',   kills:9,  deaths:3, dmgDealt:0,      dmgTaken:17000, heals:44000, isSelf:false },
+  { username:'NightOwl', kills:6,  deaths:8, dmgDealt:0,      dmgTaken:38000, heals:3000,  isSelf:false },
+];
+
+const HISTORY = [
+  { result:'win',  map:'bludrutbrawl-4821', date:'Today 14:32',    dur:'18:42', kills:22, deaths:1, dmgDealt:620000, winner:'Uzair' },
+  { result:'win',  map:'bludrutbrawl-3301', date:'Today 13:55',    dur:'12:10', kills:18, deaths:3, dmgDealt:490000, winner:'Uzair' },
+  { result:'loss', map:'bludrutbrawl-7714', date:'Yesterday 21:08',dur:'24:33', kills:9,  deaths:7, dmgDealt:270000, winner:'XxSlayer' },
+  { result:'win',  map:'bludrutbrawl-2298', date:'Yesterday 20:31',dur:'15:50', kills:21, deaths:2, dmgDealt:580000, winner:'Uzair' },
+  { result:'win',  map:'bludrutbrawl-5540', date:'Jun 27 18:44',   dur:'19:05', kills:16, deaths:4, dmgDealt:430000, winner:'Uzair' },
+  { result:'loss', map:'bludrutbrawl-1182', date:'Jun 27 17:50',   dur:'21:18', kills:11, deaths:6, dmgDealt:310000, winner:'Zarkon' },
+  { result:'win',  map:'bludrutbrawl-9031', date:'Jun 26 20:12',   dur:'16:40', kills:24, deaths:1, dmgDealt:680000, winner:'Uzair' },
+  { result:'loss', map:'bludrutbrawl-6624', date:'Jun 26 19:30',   dur:'13:55', kills:8,  deaths:9, dmgDealt:220000, winner:'NightOwl' },
+  { result:'win',  map:'bludrutbrawl-8843', date:'Jun 25 15:20',   dur:'20:30', kills:19, deaths:3, dmgDealt:510000, winner:'Uzair' },
+  { result:'win',  map:'bludrutbrawl-4410', date:'Jun 25 14:44',   dur:'17:22', kills:15, deaths:2, dmgDealt:420000, winner:'Uzair' },
+];
+
+const PROFILES = {
+  Uzair:    { kills:441, deaths:52, dmgDealt:12800000, dmgTaken:840000, heals:210000, matches:24, wins:16, pbs:{ kills:24, deaths:1, dmgDealt:680000, heals:55000, kda:'24.0', streak:12 }, form:['W','W','L','W','W'], rank:'Warlord', rankColor:'#f59e0b' },
+  XxSlayer: { kills:312, deaths:98, dmgDealt:9400000,  dmgTaken:2100000,heals:88000,  matches:20, wins:11, pbs:{ kills:18, deaths:3, dmgDealt:540000, heals:22000, kda:'9.0',  streak:7  }, form:['L','W','W','L','W'], rank:'Slayer',  rankColor:'#ef4444' },
+  Zarkon:   { kills:280, deaths:61, dmgDealt:8100000,  dmgTaken:1200000,heals:390000, matches:18, wins:10, pbs:{ kills:15, deaths:2, dmgDealt:480000, heals:82000, kda:'7.5',  streak:8  }, form:['W','L','W','W','L'], rank:'Tank',    rankColor:'#10b981' },
+  NightOwl: { kills:198, deaths:130,dmgDealt:5900000,  dmgTaken:3100000,heals:44000,  matches:16, wins:7,  pbs:{ kills:12, deaths:4, dmgDealt:360000, heals:15000, kda:'4.0',  streak:5  }, form:['L','L','W','L','W'], rank:'Brawler', rankColor:'#f59e0b' },
+};
+
+// ── UTILS ────────────────────────────────────────────────────────────
+const fmt = n => n >= 1e6 ? (n/1e6).toFixed(2)+'m' : n >= 1000 ? (n/1000).toFixed(1)+'k' : String(n);
+const kda  = p => p.deaths === 0 ? p.kills.toFixed(1) : (p.kills / p.deaths).toFixed(2);
+const kdaCls = v => v >= 5 ? 'good' : v >= 2 ? 'mid' : 'bad';
+const RANK_M  = ['🥇','🥈','🥉'];
+const RANK_C  = ['r1','r2','r3'];
+
+// ── NAVIGATION ───────────────────────────────────────────────────────
+function go(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  if (event && event.currentTarget) event.currentTarget.classList.add('active');
+  if (id === 'history')     renderHistory();
+  if (id === 'profile')     renderProfile('Uzair');
+  if (id === 'leaderboard') renderGlobal('kills');
+  if (id === 'queue')       loadUsername();
+}
+
+// ── LIVE PAGE ────────────────────────────────────────────────────────
+let liveSortField = 'kills';
+let liveData      = [];
+let matchSec      = 0;
+let firstBloodDone = false;
+
+function liveSort(btn, field) {
+  liveSortField = field;
+  document.querySelectorAll('.sort-bar .sbtn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderLiveRows(liveData);
+}
+
+function renderLiveRows(players) {
+  if (!players.length) return;
+  const sorted = [...players].sort((a,b) => {
+    if (liveSortField === 'kda') return parseFloat(kda(b)) - parseFloat(kda(a));
+    return (b[liveSortField]??0) - (a[liveSortField]??0);
+  });
+
+  const tops = {};
+  ['kills','deaths','dmgDealt','dmgTaken','heals'].forEach(f => tops[f] = Math.max(...players.map(p=>p[f]??0)));
+
+  const me = sorted.find(p=>p.isSelf);
+  if (me) {
+    const k = parseFloat(kda(me));
+    document.getElementById('my-kda').textContent = kda(me);
+    document.getElementById('player-count').textContent = players.length;
+    document.getElementById('leader-name').textContent = sorted[0].username;
+  }
+
+  document.getElementById('live-rows').innerHTML = sorted.map((p,i) => {
+    const col   = COLORS[p.username] || '#888';
+    const kdaV  = parseFloat(kda(p));
+    const na    = f => !p.isSelf && (f === 'dmgDealt');
+    const best  = f => (p[f]??0) > 0 && (p[f]??0) === tops[f];
+    const cell  = (f,l) => `<div class="cell-val ${best(f)?'best':''} ${na(f)?'na':''}">
+      <div class="v">${na(f)?'—':fmt(p[f]??0)}</div><div class="l">${l}</div></div>`;
+
+    return `<div class="lb-row ${RANK_C[i]||''} ${p.isSelf?'me':''}">
+      <div class="rank-num">${RANK_M[i]||'#'+(i+1)}</div>
+      <div class="player-col">
+        <div class="av" style="background:${col}22;border:2px solid ${col};color:${col}">${p.username[0]}</div>
+        <div><div class="pn">${p.username}</div><div class="psub">${p.isSelf?'★ YOU':'opponent'}</div></div>
+      </div>
+      ${cell('kills','kills')}
+      ${cell('deaths','deaths')}
+      ${cell('dmgDealt','dmg dealt')}
+      ${cell('dmgTaken','dmg taken')}
+      ${cell('heals','heals')}
+      <div class="kda-badge ${kdaCls(kdaV)}">${kda(p)}</div>
+    </div>`;
+  }).join('');
+}
+
+function tickMatch() {
+  matchSec++;
+  const m = String(Math.floor(matchSec/60)).padStart(2,'0');
+  const s = String(matchSec%60).padStart(2,'0');
+  document.getElementById('mtimer').textContent = m+':'+s;
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3500);
+}
+
+// Set this to your Railway URL after deploying, e.g. "https://skua-pvp.up.railway.app"
+// Leave empty to use local client only
+const CENTRAL_SERVER = 'https://skua-server-production.up.railway.app';
+const LOCAL_API      = 'http://localhost:7701/stats';
+
+async function fetchLive() {
+  const url = CENTRAL_SERVER ? CENTRAL_SERVER + '/stats' : LOCAL_API;
+  try {
+    const res     = await fetch(url, { cache:'no-store' });
+    const data    = await res.json();
+    const players = data.players ?? [data];
+    liveData = players;
+    document.getElementById('cdot').className     = 'cdot on';
+    document.getElementById('cstatus').textContent = CENTRAL_SERVER ? 'Server connected' : 'Local client';
+    document.getElementById('live-sub').textContent = 'bludrutbrawl • live';
+    renderLiveRows(players);
+
+    if (!firstBloodDone && players.some(p => p.kills > 0)) {
+      const first = [...players].sort((a,b)=>b.kills-a.kills)[0];
+      showToast('⚔️ First Blood — ' + first.username + '!');
+      firstBloodDone = true;
+    }
+
+    // Win condition — first to 10 kills
+    const winner = players.find(p => p.kills >= 10);
+    if (winner) showVictory(winner, players);
+  } catch {
+    document.getElementById('cdot').className     = 'cdot';
+    document.getElementById('cstatus').textContent = 'Not connected';
+    liveData = MOCK_LIVE;
+    document.getElementById('live-sub').textContent = 'bludrutbrawl • demo mode';
+    renderLiveRows(MOCK_LIVE);
+  }
+}
+
+async function fetchMatches() {
+  if (!CENTRAL_SERVER) return null;
+  try {
+    const res  = await fetch(CENTRAL_SERVER + '/matches', { cache:'no-store' });
+    const data = await res.json();
+    return data.matches ?? [];
+  } catch { return null; }
+}
+
+// ── HISTORY PAGE ────────────────────────────────────────────────────
+async function renderHistory() {
+  const list = document.getElementById('history-list');
+  list.innerHTML = '<div style="color:var(--muted);font-size:0.8rem;padding:12px 0">Loading...</div>';
+
+  const serverMatches = await fetchMatches();
+
+  if (serverMatches && serverMatches.length > 0) {
+    list.innerHTML = serverMatches.map(m => {
+      const sorted = [...m.players].sort((a,b) => b.kills - a.kills);
+      const winner = sorted[0];
+      const date   = new Date(m.timestamp).toLocaleString();
+      return `
+      <div class="match-row">
+        <div class="match-result win">DONE</div>
+        <div class="match-info">
+          <div class="mi-title">${m.map}</div>
+          <div class="mi-sub">${date}</div>
+        </div>
+        <div class="match-stats">
+          ${sorted.map(p => `<div class="ms-item">
+            <div class="mv" style="font-size:0.75rem">${p.username}</div>
+            <div class="mv">${p.kills}K / ${p.deaths}D</div>
+            <div class="ml">${fmt(p.dmgDealt)} dmg</div>
+          </div>`).join('')}
+        </div>
+        <div class="match-winner you">👑 ${winner.username}</div>
+      </div>`;
+    }).join('');
+  } else {
+    // Fall back to mock data
+    list.innerHTML = HISTORY.map(m => `
+    <div class="match-row">
+      <div class="match-result ${m.result}">${m.result==='win'?'WIN':'LOSS'}</div>
+      <div class="match-info">
+        <div class="mi-title">${m.map}</div>
+        <div class="mi-sub">${m.date}</div>
+      </div>
+      <div class="match-stats">
+        <div class="ms-item"><div class="mv">${m.kills}</div><div class="ml">Kills</div></div>
+        <div class="ms-item"><div class="mv">${m.deaths}</div><div class="ml">Deaths</div></div>
+        <div class="ms-item"><div class="mv">${fmt(m.dmgDealt)}</div><div class="ml">Dmg</div></div>
+      </div>
+      <div class="match-winner ${m.result==='win'?'you':'them'}">${m.winner === 'Uzair' ? '★ You' : m.winner}</div>
+    </div>`).join('') + (CENTRAL_SERVER ? '' : '<div style="margin-top:16px;font-size:0.75rem;color:var(--muted)">Set CENTRAL_SERVER in the HTML to see real match history</div>');
+  }
+}
+
+// ── PROFILE PAGE ────────────────────────────────────────────────────
+let activeProfile = 'Uzair';
+
+function renderProfile(name) {
+  activeProfile = name;
+  const p = PROFILES[name];
+  const col = COLORS[name] || '#888';
+
+  // Tabs
+  document.getElementById('profile-tabs').innerHTML = Object.keys(PROFILES).map(n => `
+    <div class="ptab ${n===name?'active':''}" onclick="renderProfile('${n}')">${n}</div>
+  `).join('');
+
+  // Header
+  document.getElementById('profile-header').innerHTML = `
+    <div class="profile-av" style="background:${col}22;border:2px solid ${col};color:${col}">${name[0]}</div>
+    <div>
+      <div class="profile-name">${name}</div>
+      <div><span class="profile-rank-badge" style="background:${p.rankColor}22;color:${p.rankColor};border:1px solid ${p.rankColor}">${p.rank}</span></div>
+      <div style="margin-top:8px;font-size:0.75rem;color:var(--muted)">${p.matches} matches &bull; ${p.wins}W/${p.matches-p.wins}L &bull; ${Math.round(p.wins/p.matches*100)}% win rate</div>
+    </div>`;
+
+  // Bars
+  const maxes = { kills:500, dmgDealt:15000000, dmgTaken:4000000, heals:500000 };
+  document.getElementById('profile-bars').innerHTML = [
+    ['Kills',    'kills',    p.kills,    maxes.kills],
+    ['Dmg Dealt','dmgDealt', p.dmgDealt, maxes.dmgDealt],
+    ['Dmg Taken','dmgTaken', p.dmgTaken, maxes.dmgTaken],
+    ['Heals',    'heals',    p.heals,    maxes.heals],
+  ].map(([label,,val,max]) => `
+    <div class="bar-row">
+      <div class="bar-label">${label}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${Math.min(100,val/max*100).toFixed(1)}%"></div></div>
+      <div class="bar-val">${fmt(val)}</div>
+    </div>`).join('');
+
+  // Personal bests
+  document.getElementById('profile-pbs').innerHTML = [
+    ['Best Kills',   p.pbs.kills],
+    ['Best KDA',     p.pbs.kda],
+    ['Kill Streak',  p.pbs.streak],
+    ['Most Dmg',     fmt(p.pbs.dmgDealt)],
+    ['Most Heals',   fmt(p.pbs.heals)],
+    ['Least Deaths', p.pbs.deaths],
+  ].map(([l,v]) => `
+    <div class="pb-card">
+      <div class="pbv">${v}</div>
+      <div class="pbl">${l}</div>
+    </div>`).join('');
+
+  // Recent form
+  document.getElementById('profile-form').innerHTML = p.form.map(r => `
+    <div style="width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:0.8rem;
+    background:${r==='W'?'#10b98122':'#ef444422'};color:${r==='W'?'var(--green)':'var(--red)'};
+    border:1px solid ${r==='W'?'var(--green)':'var(--red)'}">
+    ${r}</div>`).join('');
+}
+
+// ── GLOBAL LEADERBOARD ──────────────────────────────────────────────
+let glSortField = 'kills';
+
+function glSort(btn, field) {
+  glSortField = field;
+  document.querySelectorAll('.sort-bar .sbtn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderGlobal(field);
+}
+
+function renderGlobal(field) {
+  const rows = Object.entries(PROFILES).map(([name,p]) => ({
+    name, kills:p.kills, deaths:p.deaths,
+    kda: p.deaths === 0 ? p.kills : +(p.kills/p.deaths).toFixed(2),
+    dmgDealt:p.dmgDealt, winRate: Math.round(p.wins/p.matches*100),
+    matches:p.matches,
+  })).sort((a,b) => b[field] - a[field]);
+
+  document.getElementById('global-rows').innerHTML = rows.map((r,i) => {
+    const col = COLORS[r.name] || '#888';
+    const medal = RANK_M[i] || '#'+(i+1);
+    return `<div class="global-row">
+      <div class="rank-lbl">${medal}</div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+          font-weight:800;font-size:0.75rem;background:${col}22;border:2px solid ${col};color:${col}">${r.name[0]}</div>
+        <span style="font-weight:700">${r.name}</span>
+      </div>
+      <div class="gc ${field==='kills'?'gold-val':''}">${r.kills}</div>
+      <div class="gc">${r.deaths}</div>
+      <div class="gc ${field==='kda'?'gold-val':''}">${r.kda}</div>
+      <div class="gc ${field==='winRate'?'gold-val':''}">${r.winRate}%</div>
+      <div class="gc">${r.matches}</div>
+    </div>`;
+  }).join('');
+}
+
+// ── VICTORY ──────────────────────────────────────────────────────────
+let victoryShown = false;
+function showVictory(winner, players) {
+  if (victoryShown) return;
+  victoryShown = true;
+
+  const myName = loadUsername();
+  const isMe   = winner.username === myName;
+  const banner = document.getElementById('victory-banner');
+
+  banner.style.display    = '';
+  banner.style.background = isMe ? '#10b98122' : '#ef444422';
+  banner.style.border     = isMe ? '1px solid var(--green)' : '1px solid var(--red)';
+
+  document.getElementById('vb-icon').textContent  = isMe ? '🏆' : '💀';
+  document.getElementById('vb-title').textContent = isMe ? 'VICTORY!' : 'DEFEAT';
+  document.getElementById('vb-title').style.color = isMe ? 'var(--green)' : 'var(--red)';
+  document.getElementById('vb-sub').textContent   = `${winner.username} reached 10 kills`;
+  document.getElementById('vb-sub').style.color   = 'var(--muted)';
+
+  const myStats = players.find(p => p.username === myName) || winner;
+  document.getElementById('vb-stats').innerHTML = [
+    ['Kills',    myStats.kills],
+    ['Deaths',   myStats.deaths],
+    ['Dmg Dealt',fmt(myStats.dmgDealt)],
+    ['Dmg Taken',fmt(myStats.dmgTaken)],
+    ['Heals',    fmt(myStats.heals)],
+  ].map(([l,v]) => `
+    <div style="text-align:center">
+      <div style="font-size:1.3rem;font-weight:800;color:#fff">${v}</div>
+      <div style="font-size:0.65rem;color:var(--muted);text-transform:uppercase;margin-top:3px">${l}</div>
+    </div>`).join('');
+
+  showToast(isMe ? '🏆 You won! GG!' : `💀 ${winner.username} wins!`);
+}
+
+// Reset victory banner when a new match starts
+function resetVictory() {
+  victoryShown = false;
+  document.getElementById('victory-banner').style.display = 'none';
+  firstBloodDone = false;
+}
+
+// ── QUEUE ────────────────────────────────────────────────────────────
+let queueState    = 'idle'; // idle | waiting | matched
+let queueSeconds  = 0;
+let queueInterval = null;
+let matchRoom     = '';
+let matchOpponent = '';
+
+function saveUsername(val) {
+  localStorage.setItem('skua_username', val);
+}
+
+function loadUsername() {
+  const saved = localStorage.getItem('skua_username') || '';
+  document.getElementById('q-username').value = saved;
+  return saved;
+}
+
+function setQueueState(state, data = {}) {
+  queueState = state;
+  document.getElementById('q-idle').style.display      = state === 'idle'     ? '' : 'none';
+  document.getElementById('q-searching').style.display = state === 'waiting'  ? '' : 'none';
+  document.getElementById('q-matched').style.display   = state === 'matched'  ? '' : 'none';
+
+  if (state === 'waiting') {
+    queueSeconds = 0;
+    clearInterval(queueInterval);
+    queueInterval = setInterval(() => {
+      queueSeconds++;
+      const m = String(Math.floor(queueSeconds/60)).padStart(1,'0');
+      const s = String(queueSeconds%60).padStart(2,'0');
+      document.getElementById('q-timer').textContent = m+':'+s;
+    }, 1000);
+  }
+
+  if (state === 'matched') {
+    clearInterval(queueInterval);
+    matchRoom     = data.room     || '';
+    matchOpponent = data.opponent || '';
+    document.getElementById('q-vs').textContent   = `You vs ${matchOpponent}`;
+    document.getElementById('q-room').textContent = matchRoom;
+    showOneVOne(loadUsername(), matchOpponent, matchRoom);
+    resetVictory();
+  }
+
+  if (state === 'idle') clearInterval(queueInterval);
+}
+
+async function joinQueue() {
+  const username = document.getElementById('q-username').value.trim();
+  if (!username) { alert('Enter your in-game username first'); return; }
+  saveUsername(username);
+  try {
+    const res  = await fetch(CENTRAL_SERVER + '/queue', {
+      method: 'POST', headers: { 'Content-Type':'application/json' },
+      body: JSON.stringify({ username })
+    });
+    const data = await res.json();
+    if (data.status === 'matched') setQueueState('matched', data);
+    else setQueueState('waiting');
+  } catch { alert('Could not reach server'); }
+}
+
+async function testSolo() {
+  const username = document.getElementById('q-username').value.trim();
+  if (!username) { alert('Enter your in-game username first'); return; }
+  saveUsername(username);
+  try {
+    // Add a bot to the queue first so we match instantly
+    await fetch(CENTRAL_SERVER + '/queue/test', { method:'POST', headers:{'Content-Type':'application/json'}, body:'{}' });
+    // Now queue ourselves — server will match us with the bot
+    const res  = await fetch(CENTRAL_SERVER + '/queue', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ username })
+    });
+    const data = await res.json();
+    if (data.status === 'matched') setQueueState('matched', data);
+    else setQueueState('waiting');
+  } catch { alert('Could not reach server'); }
+}
+
+async function leaveQueue() {
+  const username = loadUsername();
+  try { await fetch(CENTRAL_SERVER + '/queue/leave', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ username }) }); } catch {}
+  setQueueState('idle');
+}
+
+async function pollQueueStatus() {
+  if (queueState !== 'waiting') return;
+  const username = loadUsername();
+  if (!username) return;
+  try {
+    const res  = await fetch(CENTRAL_SERVER + '/match?username=' + encodeURIComponent(username), { cache:'no-store' });
+    const data = await res.json();
+    if (data.status === 'matched') setQueueState('matched', data);
+  } catch {}
+}
+
+function showOneVOne(p1, p2, room) {
+  const banner = document.getElementById('onevone-banner');
+  const col1   = COLORS[p1] || '#4f5de4';
+  const col2   = COLORS[p2] || '#ef4444';
+  banner.style.display = '';
+  document.getElementById('ov-map').textContent = room;
+  document.getElementById('ov-p1').innerHTML = `
+    <div style="width:52px;height:52px;border-radius:50%;margin:0 auto 8px;
+      background:${col1}22;border:2px solid ${col1};color:${col1};
+      display:flex;align-items:center;justify-content:center;font-size:1.4rem;font-weight:900">
+      ${p1[0].toUpperCase()}
+    </div>
+    <div style="font-size:1rem;font-weight:800;color:#fff">${p1}</div>`;
+  document.getElementById('ov-p2').innerHTML = `
+    <div style="width:52px;height:52px;border-radius:50%;margin:0 auto 8px;
+      background:${col2}22;border:2px solid ${col2};color:${col2};
+      display:flex;align-items:center;justify-content:center;font-size:1.4rem;font-weight:900">
+      ${p2[0].toUpperCase()}
+    </div>
+    <div style="font-size:1rem;font-weight:800;color:#fff">${p2}</div>`;
+}
+
+// ── INIT ────────────────────────────────────────────────────────────
+loadUsername();
+fetchLive();
+setInterval(fetchLive, 1000);
+setInterval(tickMatch, 1000);
+setInterval(pollQueueStatus, 2000);
+
+// Simulate stats ticking in demo mode so it feels alive
+setInterval(() => {
+  MOCK_LIVE.forEach(p => {
+    p.kills    += Math.random() < 0.15 ? 1 : 0;
+    p.dmgDealt += p.isSelf ? Math.floor(Math.random()*3000) : 0;
+    p.dmgTaken += Math.floor(Math.random()*400);
+    p.heals    += Math.floor(Math.random()*200);
+    if (Math.random() < 0.02) p.deaths++;
+  });
+}, 2000);
+</script>
+</body>
+</html>

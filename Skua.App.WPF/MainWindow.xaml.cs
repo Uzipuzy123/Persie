@@ -13,6 +13,7 @@ public partial class MainWindow : CustomWindow
 {
     private readonly IScriptPlayer _player;
     private readonly IDispatcherService _dispatcherService;
+    private StatTrackerWindow? _statTrackerWindow;
 
     public MainWindow()
     {
@@ -32,6 +33,30 @@ public partial class MainWindow : CustomWindow
             if (window.ShowDialog() == true)
                 scriptOption.SetFPS = window.SelectedFPS;
         });
+        StrongReferenceMessenger.Default.Register<MainWindow, ShowStatTrackerMessage>(this, ToggleStatTracker);
+    }
+
+    private void ToggleStatTracker(MainWindow recipient, ShowStatTrackerMessage message)
+    {
+        if (message.Show)
+        {
+            if (_statTrackerWindow == null || !_statTrackerWindow.IsLoaded)
+            {
+                _statTrackerWindow = new StatTrackerWindow();
+                _statTrackerWindow.Closed += (s, e) =>
+                {
+                    _statTrackerWindow = null;
+                    Ioc.Default.GetRequiredService<MainMenuViewModel>().IsStatTrackerOpen = false;
+                };
+            }
+            _statTrackerWindow.Show();
+        }
+        else
+        {
+            var w = _statTrackerWindow;
+            _statTrackerWindow = null;
+            w?.Close();
+        }
     }
 
     private void NotifyScriptError(MainWindow recipient, ScriptErrorMessage message)

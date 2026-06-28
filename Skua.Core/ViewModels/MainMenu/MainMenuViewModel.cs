@@ -31,6 +31,14 @@ public partial class MainMenuViewModel : ObservableRecipient
     public AutoViewModel AutoViewModel { get; }
     public JumpViewModel JumpViewModel { get; }
 
+    [ObservableProperty]
+    private bool _isStatTrackerOpen;
+
+    partial void OnIsStatTrackerOpenChanged(bool value)
+    {
+        StrongReferenceMessenger.Default.Send(new ShowStatTrackerMessage(value));
+    }
+
     [RelayCommand]
     public void ShowBotWindow()
     {

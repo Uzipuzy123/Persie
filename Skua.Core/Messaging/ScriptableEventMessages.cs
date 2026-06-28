@@ -28,6 +28,7 @@ public sealed record ScriptStartedMessage();
 public sealed record ScriptErrorMessage(Exception Exception);
 public sealed record ScriptStoppingMessage();
 public sealed record ScriptStoppedMessage();
+public sealed record ShowStatTrackerMessage(bool Show);
 public sealed class ScriptStoppingRequestMessage : AsyncRequestMessage<bool?>
 {
     public Exception? Exception { get; }

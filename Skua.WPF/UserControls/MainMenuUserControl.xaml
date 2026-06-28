@@ -35,6 +35,13 @@
         </Popup>
 
         <ToggleButton
+            Height="25"
+            Content="Stats"
+            DockPanel.Dock="Right"
+            IsChecked="{Binding IsStatTrackerOpen, Mode=TwoWay}"
+            Style="{StaticResource MaterialDesignFlatButton}" />
+
+        <ToggleButton
             x:Name="AutoToggle"
             Height="25"
             DockPanel.Dock="Right"

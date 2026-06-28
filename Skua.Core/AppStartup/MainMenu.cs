@@ -5,6 +5,7 @@ using Skua.Core.Interfaces;
 using Skua.Core.ViewModels;
 
 namespace Skua.Core.AppStartup;
+
 internal class MainMenu
 {
     internal static MainMenuViewModel CreateViewModel(IServiceProvider s)
@@ -43,7 +44,16 @@ internal class MainMenu
                 new("Interceptor")
             }),
             new("Bank", new RelayCommand(Ioc.Default.GetRequiredService<IScriptBank>().Open)),
-            new("Logs")
+            new("Logs"),
+            new("PVP FPS", new RelayCommand(() =>
+            {
+                var scriptOption = Ioc.Default.GetRequiredService<IScriptOption>();
+                var input = Microsoft.VisualBasic.Interaction.InputBox("Enter FPS (1-60):", "PVP FPS Adjustment", scriptOption.SetFPS.ToString());
+                if (int.TryParse(input, out int newFps) && newFps >= 1 && newFps <= 60)
+                {
+                    scriptOption.SetFPS = newFps;
+                }
+            }))
         };
 
         return new(menuItems, s.GetRequiredService<AutoViewModel>(), s.GetRequiredService<JumpViewModel>(), s.GetRequiredService<IWindowService>());

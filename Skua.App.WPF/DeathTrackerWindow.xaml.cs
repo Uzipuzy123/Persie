@@ -6,6 +6,7 @@ using Skua.Core.Messaging;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Timers;
 using System.Windows;
@@ -29,22 +30,21 @@ public partial class StatTrackerWindow : Window, INotifyPropertyChanged
     public int Kills { get => _kills; private set { _kills = value; OnPropertyChanged(); } }
 
     private long _damageTaken;
-    public long DamageTaken { get => _damageTaken; private set { _damageTaken = value; OnPropertyChanged(); } }
+    public long DamageTaken { get => _damageTaken; private set { _damageTaken = value; OnPropertyChanged(); OnPropertyChanged(nameof(DamageTakenDisplay)); } }
+    public string DamageTakenDisplay => _damageTaken.ToString("N0");
 
     private long _damageDealt;
-    public long DamageDealt { get => _damageDealt; private set { _damageDealt = value; OnPropertyChanged(); } }
-
-    private int _damageDodged;
-    public int DamageDodged { get => _damageDodged; private set { _damageDodged = value; OnPropertyChanged(); } }
+    public long DamageDealt { get => _damageDealt; private set { _damageDealt = value; OnPropertyChanged(); OnPropertyChanged(nameof(DamageDealtDisplay)); } }
+    public string DamageDealtDisplay => _damageDealt.ToString("N0");
 
     private long _healsReceived;
-    public long HealsReceived { get => _healsReceived; private set { _healsReceived = value; OnPropertyChanged(); } }
+    public long HealsReceived { get => _healsReceived; private set { _healsReceived = value; OnPropertyChanged(); OnPropertyChanged(nameof(HealsReceivedDisplay)); } }
+    public string HealsReceivedDisplay => _healsReceived.ToString("N0");
 
     public ICommand ResetDeathsCommand { get; }
     public ICommand ResetKillsCommand { get; }
     public ICommand ResetDamageTakenCommand { get; }
     public ICommand ResetDamageDealtCommand { get; }
-    public ICommand ResetDamageDodgedCommand { get; }
     public ICommand ResetHealsCommand { get; }
     public ICommand ResetAllCommand { get; }
 
@@ -61,7 +61,6 @@ public partial class StatTrackerWindow : Window, INotifyPropertyChanged
         ResetKillsCommand = new RelayCommand(() => Kills = 0);
         ResetDamageTakenCommand = new RelayCommand(() => DamageTaken = 0);
         ResetDamageDealtCommand = new RelayCommand(() => { DamageDealt = 0; lock (_snapshotLock) _monsterHPSnapshot.Clear(); });
-        ResetDamageDodgedCommand = new RelayCommand(() => DamageDodged = 0);
         ResetHealsCommand = new RelayCommand(() => HealsReceived = 0);
         ResetAllCommand = new RelayCommand(ResetAll);
 
@@ -69,10 +68,8 @@ public partial class StatTrackerWindow : Window, INotifyPropertyChanged
             this, (int)MessageChannels.GameEvents, (r, m) => r.Dispatcher.Invoke(() => r.Deaths++));
         StrongReferenceMessenger.Default.Register<StatTrackerWindow, MonsterKilledMessage, int>(
             this, (int)MessageChannels.GameEvents, (r, m) => r.Dispatcher.Invoke(() => r.Kills++));
-        StrongReferenceMessenger.Default.Register<StatTrackerWindow, CounterAttackMessage, int>(
-            this, (int)MessageChannels.GameEvents, (r, m) => { if (m.Faded) r.Dispatcher.Invoke(() => r.DamageDodged++); });
 
-        _pollTimer = new Timer(500);
+        _pollTimer = new Timer(250);
         _pollTimer.Elapsed += PollGameStats;
         _pollTimer.AutoReset = true;
         _pollTimer.Start();
@@ -89,32 +86,46 @@ public partial class StatTrackerWindow : Window, INotifyPropertyChanged
                 return;
             }
 
-            // Damage dealt: track monster HP decreases
-            var monsters = _monsters.MapMonstersWithCurrentData;
-            long newDamage = 0;
-            var currentIDs = new HashSet<int>();
-
-            lock (_snapshotLock)
+            if (_player.InCombat)
             {
-                foreach (var monster in monsters)
+                // Only track monsters attackable in the player's current cell.
+                // This prevents counting damage from other players hitting monsters
+                // elsewhere on the map, or high-HP untargetable map objects.
+                var availableIDs = new HashSet<int>(_monsters.CurrentAvailableMonsters.Select(m => m.MapID));
+                var allMonsters = _monsters.MapMonstersWithCurrentData;
+                long newDamage = 0;
+                var currentIDs = new HashSet<int>();
+
+                lock (_snapshotLock)
                 {
-                    currentIDs.Add(monster.MapID);
-                    if (_monsterHPSnapshot.TryGetValue(monster.MapID, out int lastHP))
+                    foreach (var monster in allMonsters)
                     {
-                        if (monster.HP < lastHP && lastHP > 0)
-                            newDamage += lastHP - monster.HP;
+                        // Track if attackable now, or already mid-fight in snapshot
+                        if (!availableIDs.Contains(monster.MapID) && !_monsterHPSnapshot.ContainsKey(monster.MapID))
+                            continue;
+
+                        currentIDs.Add(monster.MapID);
+                        if (_monsterHPSnapshot.TryGetValue(monster.MapID, out int lastHP))
+                        {
+                            if (monster.HP < lastHP && lastHP > 0)
+                                newDamage += lastHP - monster.HP;
+                        }
+                        _monsterHPSnapshot[monster.MapID] = monster.HP;
                     }
-                    _monsterHPSnapshot[monster.MapID] = monster.HP;
+
+                    var stale = new List<int>();
+                    foreach (var key in _monsterHPSnapshot.Keys)
+                        if (!currentIDs.Contains(key)) stale.Add(key);
+                    foreach (var key in stale) _monsterHPSnapshot.Remove(key);
                 }
 
-                var stale = new List<int>();
-                foreach (var key in _monsterHPSnapshot.Keys)
-                    if (!currentIDs.Contains(key)) stale.Add(key);
-                foreach (var key in stale) _monsterHPSnapshot.Remove(key);
+                if (newDamage > 0)
+                    Dispatcher.Invoke(() => DamageDealt += newDamage);
             }
-
-            if (newDamage > 0)
-                Dispatcher.Invoke(() => DamageDealt += newDamage);
+            else
+            {
+                lock (_snapshotLock) _monsterHPSnapshot.Clear();
+            }
 
             // Player HP changes: heals and damage taken
             int currentHP = _player.Health;
@@ -136,7 +147,6 @@ public partial class StatTrackerWindow : Window, INotifyPropertyChanged
         Kills = 0;
         DamageTaken = 0;
         DamageDealt = 0;
-        DamageDodged = 0;
         HealsReceived = 0;
         lock (_snapshotLock) _monsterHPSnapshot.Clear();
     }

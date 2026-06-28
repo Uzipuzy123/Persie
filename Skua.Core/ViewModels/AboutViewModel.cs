@@ -4,16 +4,17 @@ using Skua.Core.Utils;
 using System.Diagnostics;
 
 namespace Skua.Core.ViewModels;
+
 public class AboutViewModel : BotControlViewModelBase
 {
     private string _markDownContent = "Loading content...";
-    
+
     public AboutViewModel() : base("About")
     {
         _markDownContent = string.Empty;
-        
+
         Task.Run(async () => await GetAboutContent());
-        
+
         NavigateCommand = new RelayCommand<string>(url => Process.Start(new ProcessStartInfo(url) { UseShellExecute = true }));
     }
 
@@ -25,15 +26,9 @@ public class AboutViewModel : BotControlViewModelBase
 
     public IRelayCommand NavigateCommand { get; }
 
-    private async Task GetAboutContent()
+    private Task GetAboutContent()
     {
-        using(var client = new HttpClient())
-        {
-            var response = await client.GetAsync("https://raw.githubusercontent.com/BrenoHenrike/Skua/op-version/about.md");
-            if (!response.IsSuccessStatusCode)
-                MarkdownDoc = "### No content found. Please check your internet connection.";
-
-            MarkdownDoc = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-        }
+        MarkdownDoc = "# PVP Hero 2.0\n\nA custom AQW bot built for PVP Heroes.\n\n### Features\n- Auto combat\n- Script support\n- And more...";
+        return Task.CompletedTask;
     }
 }

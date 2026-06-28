@@ -21,13 +21,10 @@ namespace Skua.App.WPF;
 /// </summary>
 public sealed partial class App : Application
 {
-    /// <summary>
-    /// Gets the current <see cref="App"/> instance in use
-    /// </summary>
     public new static App Current => (App)Application.Current;
     public IServiceProvider Services { get; }
     private readonly IScriptInterface _bot;
-    
+
     public App()
     {
         InitializeComponent();
@@ -43,17 +40,17 @@ public sealed partial class App : Application
         Services.GetRequiredService<IClientFilesService>().CreateDirectories();
         Services.GetRequiredService<IClientFilesService>().CreateFiles();
         Task.Factory.StartNew(async () => await Services.GetRequiredService<IScriptServers>().GetServers());
-        
+
         _bot = Services.GetRequiredService<IScriptInterface>();
         _ = Services.GetRequiredService<ILogService>();
-        
+
         var args = Environment.GetCommandLineArgs();
         var startup = new SkuaStartupHandler(args, _bot, Services.GetRequiredService<ISettingsService>(), Services.GetRequiredService<IThemeService>());
         startup.Execute();
 
         RoslynLifetimeManager.WarmupRoslyn();
         Timeline.DesiredFrameRateProperty.OverrideMetadata(typeof(Timeline), new FrameworkPropertyMetadata { DefaultValue = Services.GetRequiredService<ISettingsService>().Get<int>("AnimationFrameRate") });
-        
+
         Application.Current.Exit += App_Exit;
     }
 
@@ -86,58 +83,12 @@ public sealed partial class App : Application
         main.WindowStartupLocation = WindowStartupLocation.CenterScreen;
         Application.Current.MainWindow = main;
         main.Show();
-        
-        IDialogService dialogService = Services.GetRequiredService<IDialogService>();
-        var getScripts = Services.GetRequiredService<IGetScriptsService>();
-        if (Settings.Default.CheckBotScriptsUpdates)
-        {
-            Task.Factory.StartNew(async () =>
-            {
-                await getScripts.GetScriptsAsync(null, default);
-                if ((getScripts.Missing > 0 || getScripts.Outdated > 0)
-                    && (Settings.Default.AutoUpdateBotScripts || Services.GetRequiredService<IDialogService>().ShowMessageBox("Would you like to update your scripts?", "Script Update", true) == true))
-                {
-                    int count = await getScripts.DownloadAllWhereAsync(s => !s.Downloaded || s.Outdated);
-                    Services.GetRequiredService<IDialogService>().ShowMessageBox($"Downloaded {count} scripts.\r\nYou can disable auto script updates in Options > Application.", "Script Update");
-                }
-            });
-        }
-
-        if (Settings.Default.CheckAdvanceSkillSetsUpdates)
-        {
-            var skillsFileSize = getScripts.GetSkillsSetsTextFileSize();
-            var advanceSkillSets = Services.GetRequiredService<IAdvancedSkillContainer>();
-            Task.Factory.StartNew(async () =>
-            {
-                if ((skillsFileSize < await getScripts.CheckAdvanceSkillSetsUpdates())
-                    && (Settings.Default.AutoUpdateAdvanceSkillSetsUpdates || Services.GetRequiredService<IDialogService>().ShowMessageBox("Would you like to update your AdvanceSkill Sets?", "AdvanceSkill Sets Update", true) == true))
-                {                
-                    if (await getScripts.UpdateSkillSetsFile())
-                    {
-                        if (Settings.Default.AutoUpdateAdvanceSkillSetsUpdates)
-                            Services.GetRequiredService<IDialogService>().ShowMessageBox($"AdvanceSkill Sets has been updated.\r\nYou can disable auto AdvanceSkill Sets updates in Options > Application.", "AdvanceSkill Sets Update");
-                        else
-                            Services.GetRequiredService<IDialogService>().ShowMessageBox($"AdvanceSkill Sets has been updated.\r\nYou can enable auto AdvanceSkill Sets updates in Options > Application.", "AdvanceSkill Sets Update");
-
-                        advanceSkillSets.SyncSkills();
-                    }
-                    else
-                    {
-                        Services.GetRequiredService<IDialogService>().ShowMessageBox($"AdvanceSkill Sets update error.\r\nYou can disable auto AdvanceSkill Sets updates in Options > Application.", "AdvanceSkill Sets Update");
-                    }
-                }
-            });
-        }
 
         Services.GetRequiredService<IPluginManager>().Initialize();
-        
-        // Initialize hotkeys after main window is shown
+
         Services.GetRequiredService<IHotKeyService>().Reload();
     }
 
-    /// <summary>
-    /// Configures the services for the application.
-    /// </summary>
     private IServiceProvider ConfigureServices()
     {
         IServiceCollection services = new ServiceCollection();

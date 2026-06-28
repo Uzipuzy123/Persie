@@ -24,7 +24,7 @@
                         <materialdesign:Card UniformCornerRadius="0">
                             <DockPanel>
                                 <!--  Title bar  -->
-                                <materialdesign:ColorZone Height="32" DockPanel.Dock="Top">
+                                <materialdesign:ColorZone Height="32" DockPanel.Dock="Top" Background="#1a237e">
                                     <Grid>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="auto" />
@@ -32,31 +32,12 @@
                                             <ColumnDefinition Width="auto" />
                                         </Grid.ColumnDefinitions>
 
-                                        <!--  Icon  -->
-                                        <Grid
-                                            Width="30"
-                                            Height="30"
-                                            Margin="6,0"
-                                            HorizontalAlignment="Center"
-                                            VerticalAlignment="Center">
-                                            <Border
-                                                Width="30"
-                                                Height="30"
-                                                Background="{DynamicResource PrimaryHueMidBrush}"
-                                                CornerRadius="15" />
-                                            <Image HorizontalAlignment="Center" VerticalAlignment="Center">
-                                                <Image.Source>
-                                                    <BitmapImage DecodePixelHeight="32" UriSource="../SkuaImage.png" />
-                                                </Image.Source>
-                                            </Image>
-                                        </Grid>
-
                                         <!--  Title  -->
                                         <Viewbox
                                             Grid.Column="1"
                                             Margin="6,0,0,0"
                                             HorizontalAlignment="Left">
-                                            <TextBlock Foreground="{DynamicResource PrimaryHueMidBrush}" Text="{TemplateBinding Title}" />
+                                            <TextBlock Foreground="White" Text="{TemplateBinding Title}" />
                                         </Viewbox>
 
                                         <!--  System Buttons  -->

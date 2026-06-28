@@ -11,7 +11,7 @@
     d:DesignHeight="450"
     d:DesignWidth="800"
     mc:Ignorable="d">
-    <DockPanel Height="25" Background="{DynamicResource MaterialDesignPaper}">
+    <DockPanel Height="25" Background="#1a237e">
         <Button
             Height="25"
             Command="{Binding ShowBotWindowCommand}"
@@ -55,7 +55,7 @@
             </StackPanel>
         </Popup>
 
-        <Menu Foreground="{DynamicResource PrimaryHueMidBrush}" ItemsSource="{Binding MainMenuItems}">
+        <Menu Foreground="White" ItemsSource="{Binding MainMenuItems}" Visibility="Collapsed">
             <Menu.ItemContainerStyle>
                 <Style BasedOn="{StaticResource MaterialDesignMenuItem}" TargetType="MenuItem">
                     <Setter Property="MaxHeight" Value="25" />
@@ -84,7 +84,7 @@
                 </Style>
             </Menu.ItemContainerStyle>
         </Menu>
-        <Menu Foreground="{DynamicResource PrimaryHueMidBrush}">
+        <Menu Foreground="White" Visibility="Collapsed">
             <MenuItem
                 Height="25"
                 Header="Plugins"

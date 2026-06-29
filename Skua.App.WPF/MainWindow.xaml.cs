@@ -6,6 +6,7 @@ using Skua.Core.ViewModels;
 using Skua.WPF;
 using Skua.WPF.UserControls;
 using System.Windows;
+using System.Windows.Controls;
 
 namespace Skua.App.WPF;
 
@@ -14,6 +15,7 @@ public partial class MainWindow : CustomWindow
     private readonly IScriptPlayer _player;
     private readonly IDispatcherService _dispatcherService;
     private StatTrackerWindow? _statTrackerWindow;
+    private QualityWindow? _qualityWindow;
 
     public MainWindow()
     {
@@ -34,6 +36,14 @@ public partial class MainWindow : CustomWindow
                 scriptOption.SetFPS = window.SelectedFPS;
         });
         StrongReferenceMessenger.Default.Register<MainWindow, ShowStatTrackerMessage>(this, ToggleStatTracker);
+        StrongReferenceMessenger.Default.Register<MainWindow, ShowQualityWindowMessage>(this, (r, m) =>
+        {
+            var scriptOption = Ioc.Default.GetRequiredService<IScriptOption>();
+            if (r._qualityWindow == null || !r._qualityWindow.IsLoaded)
+                r._qualityWindow = new QualityWindow(scriptOption.SetQuality);
+            r._qualityWindow.Show();
+            r._qualityWindow.Activate();
+        });
 
         // Defer creation until after the app is fully loaded so Flash bindings are ready
         this.Loaded += (s, e) => _statTrackerWindow = new StatTrackerWindow();

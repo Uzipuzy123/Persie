@@ -50,6 +50,10 @@ internal class MainMenu
             new("PVP FPS", new RelayCommand(() =>
             {
                 StrongReferenceMessenger.Default.Send(new ShowFPSWindowMessage());
+            })),
+            new("Quality", new RelayCommand(() =>
+            {
+                StrongReferenceMessenger.Default.Send(new ShowQualityWindowMessage());
             }))
         };
 

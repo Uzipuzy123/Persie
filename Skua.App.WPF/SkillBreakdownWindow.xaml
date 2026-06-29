@@ -1,0 +1,80 @@
+<Window x:Class="Skua.App.WPF.SkillBreakdownWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Skill Breakdown"
+        Height="320" Width="540"
+        Topmost="True"
+        ShowInTaskbar="False"
+        ShowActivated="False"
+        WindowStyle="ToolWindow"
+        ResizeMode="NoResize"
+        WindowStartupLocation="Manual"
+        Left="270" Top="0"
+        Background="#1a237e"
+        FontFamily="Segoe UI">
+    <StackPanel>
+
+        <Border Background="#283593" Padding="0,9">
+            <TextBlock Text="SKILL BREAKDOWN" Foreground="White" FontSize="11"
+                       FontWeight="Bold" HorizontalAlignment="Center"/>
+        </Border>
+
+        <DataGrid ItemsSource="{Binding Skills}"
+                  AutoGenerateColumns="False"
+                  CanUserAddRows="False"
+                  CanUserDeleteRows="False"
+                  IsReadOnly="True"
+                  GridLinesVisibility="None"
+                  HeadersVisibility="Column"
+                  SelectionMode="Single"
+                  Background="#1a237e"
+                  RowBackground="#1e2d8f"
+                  AlternatingRowBackground="#1a2580"
+                  Foreground="White"
+                  FontSize="12"
+                  BorderThickness="0"
+                  Margin="8,6,8,0"
+                  ColumnHeaderHeight="28">
+            <DataGrid.ColumnHeaderStyle>
+                <Style TargetType="DataGridColumnHeader">
+                    <Setter Property="Background" Value="#283593"/>
+                    <Setter Property="Foreground" Value="#90CAF9"/>
+                    <Setter Property="FontSize" Value="11"/>
+                    <Setter Property="FontWeight" Value="SemiBold"/>
+                    <Setter Property="Padding" Value="6,4"/>
+                    <Setter Property="BorderThickness" Value="0"/>
+                </Style>
+            </DataGrid.ColumnHeaderStyle>
+            <DataGrid.CellStyle>
+                <Style TargetType="DataGridCell">
+                    <Setter Property="BorderThickness" Value="0"/>
+                    <Setter Property="Padding" Value="6,5"/>
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="DataGridCell">
+                                <Border Padding="6,5" Background="Transparent">
+                                    <ContentPresenter/>
+                                </Border>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Style>
+            </DataGrid.CellStyle>
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Skill"      Binding="{Binding Name}"        Width="140"/>
+                <DataGridTextColumn Header="Total Dmg"  Binding="{Binding TotalDamage, StringFormat={}{0:N0}}" Width="85"/>
+                <DataGridTextColumn Header="Avg Dmg"    Binding="{Binding AvgDamage}"   Width="75"/>
+                <DataGridTextColumn Header="Uses"       Binding="{Binding Uses}"         Width="50"/>
+                <DataGridTextColumn Header="Crits"      Binding="{Binding Crits}"        Width="50"/>
+                <DataGridTextColumn Header="Crit%"      Binding="{Binding CritRate}"     Width="55"/>
+                <DataGridTextColumn Header="Kills"      Binding="{Binding Kills}"        Width="50"/>
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <Button Content="Reset" Click="ResetButton_Click"
+                Margin="8,8,8,8" Height="26"
+                Background="#3949ab" Foreground="White" BorderThickness="0"
+                FontSize="11" FontWeight="SemiBold"/>
+
+    </StackPanel>
+</Window>

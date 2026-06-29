@@ -88,6 +88,8 @@ public partial class ScriptOption : ObservableRecipient, IScriptOption, IOptionD
     private bool _lagKiller;
     [ObjectBinding("stage.frameRate", Get = false, HasSetter = true)]
     private int _setFPS = 30;
+    [ObjectBinding("stage.quality", Get = false, HasSetter = true)]
+    private string _setQuality = "HIGH";
     [ObjectBinding("ui.mcFPS.visible", HasSetter = true)]
     private bool _showFPS = false;
     [ObservableProperty]

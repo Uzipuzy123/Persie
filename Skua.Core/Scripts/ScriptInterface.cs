@@ -346,6 +346,24 @@ public class ScriptInterface : IScriptInterface, IScriptInterfaceManager, IDispo
                 dynamic data = packet["params"].dataObj;
                 if (type is not null and "json")
                 {
+                    // Skill name map: fires on any packet that carries an actions block (class load/swap)
+                    if (data.actions?.active is not null)
+                    {
+                        var skillNames = new Dictionary<string, string>();
+                        try
+                        {
+                            foreach (var skill in data.actions.active)
+                            {
+                                string? actRef = (string?)skill["ref"];
+                                string? nam    = (string?)skill.nam;
+                                if (actRef != null && nam != null)
+                                    skillNames[actRef] = nam;
+                            }
+                        }
+                        catch { }
+                        if (skillNames.Count > 0)
+                            Messenger.Send<SkillsUpdatedMessage, int>(new(skillNames), (int)MessageChannels.GameEvents);
+                    }
                     string cmd = data.cmd;
                     switch (cmd)
                     {
@@ -399,15 +417,114 @@ public class ScriptInterface : IScriptInterface, IScriptInterfaceManager, IDispo
                             {
                                 foreach (var a in data.a)
                                 {
-                                    if (a is null)
-                                        continue;
-
+                                    if (a is null) continue;
                                     if (a.aura is not null && (string)a.aura["nam"] is "Counter Attack")
-                                    {
                                         Messenger.Send<CounterAttackMessage, int>(new(true), (int)MessageChannels.GameEvents);
-                                        break;
+                                    // Extract opponent build stats from their aura cLeaf
+                                    try
+                                    {
+                                        string? cInf = (string?)a.cInf;
+                                        if (cInf?.StartsWith("p:") != true) continue;
+                                        if (a.auras is null) continue;
+                                        foreach (var aura in a.auras)
+                                        {
+                                            if (aura is null) continue;
+                                            dynamic? cLeaf = aura.cLeaf;
+                                            if (cLeaf is null) continue;
+                                            string? uname = (string?)cLeaf.strUsername;
+                                            if (uname is null || uname.ToLower() == Player.Username.ToLower()) continue;
+                                            dynamic? sta = cLeaf.sta;
+                                            if (sta is null) continue;
+                                            double tcr = (double)(sta["$tcr"] ?? 0.0);
+                                            double dsh = (double)(sta["$dsh"] ?? 0.0);
+                                            double tdo = (double)(sta["$tdo"] ?? 0.0);
+                                            int    ap  = (int)(sta["$ap"] ?? 0);
+                                            Messenger.Send<OpponentStatsMessage, int>(
+                                                new(uname, tcr, dsh, tdo, ap), (int)MessageChannels.GameEvents);
+                                            break;
+                                        }
                                     }
+                                    catch { }
                                 }
+                            }
+                            // Crits + skill breakdown: sarsa[].a[] where sarsa.cInf starts with "p:"
+                            if (data.sarsa is not null)
+                            {
+                                int critCount = 0;
+                                foreach (var sarsa in data.sarsa)
+                                {
+                                    if (sarsa is null) continue;
+                                    try
+                                    {
+                                        string? cInf = (string?)sarsa.cInf;
+                                        if (cInf?.StartsWith("p:") != true) continue;
+                                        if (sarsa.a is not null)
+                                        {
+                                            foreach (var action in sarsa.a)
+                                            {
+                                                if (action is null) continue;
+                                                string? aType   = (string?)action.type;
+                                                string? actRef  = (string?)action.actRef;
+                                                string? tInf    = (string?)action.tInf;
+                                                long    dmg     = (long)(action.hp ?? 0);
+                                                bool    isCrit  = aType == "crit";
+                                                bool    isMiss  = aType == "miss";
+                                                if (isCrit) critCount++;
+                                                // Kill if target ended at 0 HP in this same packet
+                                                bool isKill = false;
+                                                if (!isMiss && tInf is not null)
+                                                {
+                                                    try
+                                                    {
+                                                        if (tInf.StartsWith("m:") && data.m is Newtonsoft.Json.Linq.JObject mMap)
+                                                        {
+                                                            string mId = tInf.Substring(2);
+                                                            if (mMap.TryGetValue(mId, out var mTok) &&
+                                                                mTok is Newtonsoft.Json.Linq.JObject mObj &&
+                                                                mObj.TryGetValue("intHP", out var mHp) &&
+                                                                mHp.ToObject<int>() == 0)
+                                                                isKill = true;
+                                                        }
+                                                        else if (tInf.StartsWith("p:") && data.p is Newtonsoft.Json.Linq.JObject pMap)
+                                                        {
+                                                            foreach (var kv in pMap)
+                                                            {
+                                                                if (kv.Key == Player.Username.ToLower()) continue;
+                                                                if (kv.Value is Newtonsoft.Json.Linq.JObject pObj &&
+                                                                    pObj.TryGetValue("intHP", out var pHp) &&
+                                                                    pHp.ToObject<int>() == 0)
+                                                                    isKill = true;
+                                                            }
+                                                        }
+                                                    }
+                                                    catch { }
+                                                }
+                                                if (actRef is not null)
+                                                    Messenger.Send<SkillActionMessage, int>(new(actRef, dmg, isCrit, isKill, isMiss), (int)MessageChannels.GameEvents);
+                                            }
+                                        }
+                                    }
+                                    catch { }
+                                }
+                                if (critCount > 0)
+                                    Messenger.Send<CritHitMessage, int>(new(critCount), (int)MessageChannels.GameEvents);
+                            }
+                            // Dodges are in sara[].actionResult.type == "dodge"
+                            if (data.sara is not null)
+                            {
+                                int dodgeCount = 0;
+                                foreach (var sara in data.sara)
+                                {
+                                    if (sara is null) continue;
+                                    try
+                                    {
+                                        string? aType = (string?)sara.actionResult?.type;
+                                        if (aType == "dodge") dodgeCount++;
+                                    }
+                                    catch { }
+                                }
+                                if (dodgeCount > 0)
+                                    Messenger.Send<DodgeMessage, int>(new(dodgeCount), (int)MessageChannels.GameEvents);
                             }
                             break;
                         case "sellItem":

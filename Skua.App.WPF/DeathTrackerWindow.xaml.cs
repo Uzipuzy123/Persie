@@ -69,11 +69,19 @@ public partial class StatTrackerWindow : Window, INotifyPropertyChanged
     public long HealsReceived { get => _healsReceived; private set { _healsReceived = value; OnPropertyChanged(); OnPropertyChanged(nameof(HealsReceivedDisplay)); } }
     public string HealsReceivedDisplay => _healsReceived.ToString("N0");
 
+    private int _crits;
+    public int Crits { get => _crits; private set { _crits = value; OnPropertyChanged(); } }
+
+    private int _dodges;
+    public int Dodges { get => _dodges; private set { _dodges = value; OnPropertyChanged(); } }
+
     public ICommand ResetDeathsCommand { get; }
     public ICommand ResetKillsCommand { get; }
     public ICommand ResetDamageTakenCommand { get; }
     public ICommand ResetDamageDealtCommand { get; }
     public ICommand ResetHealsCommand { get; }
+    public ICommand ResetCritsCommand { get; }
+    public ICommand ResetDodgesCommand { get; }
     public ICommand ResetAllCommand { get; }
 
     public StatTrackerWindow()
@@ -91,6 +99,8 @@ public partial class StatTrackerWindow : Window, INotifyPropertyChanged
         ResetDamageTakenCommand = new RelayCommand(() => DamageTaken = 0);
         ResetDamageDealtCommand = new RelayCommand(() => { DamageDealt = 0; lock (_snapshotLock) _monsterHPSnapshot.Clear(); });
         ResetHealsCommand = new RelayCommand(() => HealsReceived = 0);
+        ResetCritsCommand = new RelayCommand(() => Crits = 0);
+        ResetDodgesCommand = new RelayCommand(() => Dodges = 0);
         ResetAllCommand = new RelayCommand(ResetAll);
 
         StrongReferenceMessenger.Default.Register<StatTrackerWindow, PlayerDeathMessage, int>(
@@ -99,6 +109,20 @@ public partial class StatTrackerWindow : Window, INotifyPropertyChanged
             this, (int)MessageChannels.GameEvents, (r, m) => r.Dispatcher.Invoke(() => r.RegisterKill()));
         StrongReferenceMessenger.Default.Register<StatTrackerWindow, PvpKillMessage, int>(
             this, (int)MessageChannels.GameEvents, (r, m) => r.Dispatcher.Invoke(() => r.RegisterKill()));
+        StrongReferenceMessenger.Default.Register<StatTrackerWindow, OpponentStatsMessage, int>(
+            this, (int)MessageChannels.GameEvents, (r, m) => {
+                r._opponentName       = m.Username;
+                r._opponentCritChance = m.CritChance;
+                r._opponentDodgeStat  = m.DodgeStat;
+                r._opponentDamageOut  = m.DamageOut;
+                r._opponentAP         = m.AbilityPower;
+            });
+        StrongReferenceMessenger.Default.Register<StatTrackerWindow, SkillsUpdatedMessage, int>(
+            this, (int)MessageChannels.GameEvents, (r, m) => r._lastSkillNames = m.Skills);
+        StrongReferenceMessenger.Default.Register<StatTrackerWindow, CritHitMessage, int>(
+            this, (int)MessageChannels.GameEvents, (r, m) => r.Dispatcher.Invoke(() => r.Crits += m.Count));
+        StrongReferenceMessenger.Default.Register<StatTrackerWindow, DodgeMessage, int>(
+            this, (int)MessageChannels.GameEvents, (r, m) => r.Dispatcher.Invoke(() => r.Dodges += m.Count));
         StrongReferenceMessenger.Default.Register<StatTrackerWindow, MapChangedMessage, int>(
             this, (int)MessageChannels.GameEvents, (r, m) =>
             {
@@ -106,11 +130,18 @@ public partial class StatTrackerWindow : Window, INotifyPropertyChanged
                 if (joiningBrawl)
                 {
                     r._currentMap = m.Map;
-                    r._inBrawl = true;
-                    r.Dispatcher.Invoke(r.ResetAll);
+                    if (!r._inBrawl)
+                    {
+                        // Fresh entry into brawl — start tracking from zero.
+                        r._inBrawl = true;
+                        r.Dispatcher.Invoke(r.ResetAll);
+                    }
+                    // If already tracking (_inBrawl == true), just update the map name.
+                    // Mid-match room transitions (lobby, room change) must not reset stats.
                 }
                 else if (r._inBrawl)
                 {
+                    // Left brawl entirely without hitting 10 kills.
                     r._inBrawl    = false;
                     r._matchFound = false;
                     _ = r.PushStatsAsync(matchEnd: true);
@@ -184,6 +215,16 @@ public partial class StatTrackerWindow : Window, INotifyPropertyChanged
                 dmgDealt  = DamageDealt,
                 dmgTaken  = DamageTaken,
                 heals     = HealsReceived,
+                crits     = Crits,
+                dodges    = Dodges,
+                opponentStats = string.IsNullOrEmpty(_opponentName) ? null : new
+                {
+                    username   = _opponentName,
+                    critChance = _opponentCritChance,
+                    dodgeStat  = _opponentDodgeStat,
+                    damageOut  = _opponentDamageOut,
+                    ap         = _opponentAP,
+                },
                 map       = _currentMap,
                 matchEnd,
                 isSelf    = true
@@ -216,7 +257,7 @@ public partial class StatTrackerWindow : Window, INotifyPropertyChanged
                 var ctx = await _httpListener.GetContextAsync();
                 var playerList = new List<object>
                 {
-                    new { username = _player.Username ?? string.Empty, kills = Kills, deaths = Deaths, dmgDealt = DamageDealt, dmgTaken = DamageTaken, heals = HealsReceived, isSelf = true }
+                    new { username = _player.Username ?? string.Empty, kills = Kills, deaths = Deaths, dmgDealt = DamageDealt, dmgTaken = DamageTaken, heals = HealsReceived, crits = Crits, dodges = Dodges, isSelf = true }
                 };
                 lock (_otherPlayersLock)
                 {
@@ -311,6 +352,7 @@ public partial class StatTrackerWindow : Window, INotifyPropertyChanged
             if (cellPlayers != null)
             {
                 var selfName = (_player.Username ?? string.Empty).ToLower();
+                long pvpDamage = 0;
                 lock (_otherPlayersLock)
                 {
                     var seen = new HashSet<string>();
@@ -323,20 +365,32 @@ public partial class StatTrackerWindow : Window, INotifyPropertyChanged
                             _otherPlayers[p.Name] = new OtherPlayerStats { LastHP = p.HP, WasDead = p.State == 0 };
                             continue;
                         }
+                        bool wasDead = t.WasDead;
                         bool isDead = p.State == 0 || p.HP == 0;
-                        if (!t.WasDead && isDead)
+                        if (!wasDead && isDead)
                             t.Deaths++;
                         t.WasDead = isDead;
                         if (t.LastHP > 0 && p.HP > 0)
                         {
                             if (p.HP > t.LastHP) t.Heals += p.HP - t.LastHP;
-                            else if (p.HP < t.LastHP) t.DamageTaken += t.LastHP - p.HP;
+                            else if (p.HP < t.LastHP)
+                            {
+                                long delta = t.LastHP - p.HP;
+                                t.DamageTaken += delta;
+                                if (_inBrawl) pvpDamage += delta;
+                            }
+                        }
+                        else if (_inBrawl && t.LastHP > 0 && p.HP == 0 && !wasDead)
+                        {
+                            pvpDamage += t.LastHP;
                         }
                         t.LastHP = p.HP;
                     }
                     foreach (var gone in _otherPlayers.Keys.Where(k => !seen.Contains(k)).ToList())
                         _otherPlayers.Remove(gone);
                 }
+                if (pvpDamage > 0)
+                    Dispatcher.Invoke(() => DamageDealt += pvpDamage);
             }
         }
         catch { }
@@ -349,12 +403,38 @@ public partial class StatTrackerWindow : Window, INotifyPropertyChanged
         DamageTaken = 0;
         DamageDealt = 0;
         HealsReceived = 0;
+        Crits = 0;
+        Dodges = 0;
+        _opponentName = string.Empty;
+        _opponentCritChance = 0; _opponentDodgeStat = 0; _opponentDamageOut = 0; _opponentAP = 0;
         lock (_snapshotLock) _monsterHPSnapshot.Clear();
         lock (_otherPlayersLock) _otherPlayers.Clear();
     }
 
+    private string _opponentName       = string.Empty;
+    private double _opponentCritChance;
+    private double _opponentDodgeStat;
+    private double _opponentDamageOut;
+    private int    _opponentAP;
+    private Dictionary<string, string> _lastSkillNames = new();
+    private SkillBreakdownWindow? _skillWindow;
+
+    private void SkillsButton_Click(object sender, System.Windows.RoutedEventArgs e)
+    {
+        if (_skillWindow == null || !_skillWindow.IsLoaded)
+        {
+            _skillWindow = new SkillBreakdownWindow(_lastSkillNames);
+            _skillWindow.Show();
+        }
+        else
+        {
+            _skillWindow.Activate();
+        }
+    }
+
     protected override void OnClosed(EventArgs e)
     {
+        _skillWindow?.Close();
         _pollTimer.Stop();
         _pollTimer.Dispose();
         _pushTimer.Stop();

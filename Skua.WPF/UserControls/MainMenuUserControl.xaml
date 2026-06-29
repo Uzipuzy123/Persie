@@ -11,70 +11,40 @@
     d:DesignHeight="450"
     d:DesignWidth="800"
     mc:Ignorable="d">
-    <Grid Height="25" Background="#1a237e">
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="*" />
-            <ColumnDefinition Width="Auto" />
-            <ColumnDefinition Width="Auto" />
-        </Grid.ColumnDefinitions>
+    <Grid Background="#1a237e">
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center">
 
-        <!-- Collapsed menus (take no space) -->
-        <StackPanel Grid.Column="1" Visibility="Collapsed">
-            <Menu Foreground="White" ItemsSource="{Binding MainMenuItems}">
-                <Menu.ItemContainerStyle>
-                    <Style BasedOn="{StaticResource MaterialDesignMenuItem}" TargetType="MenuItem">
-                        <Setter Property="MaxHeight" Value="25" />
-                        <Setter Property="Padding" Value="6,0" />
-                        <Setter Property="ItemsSource" Value="{Binding SubItems}" />
-                        <Setter Property="Command" Value="{Binding Command}" />
-                        <Setter Property="HeaderTemplate">
-                            <Setter.Value>
-                                <DataTemplate>
-                                    <TextBlock Height="42" FontSize="15" Text="{Binding Header}" />
-                                </DataTemplate>
-                            </Setter.Value>
-                        </Setter>
-                        <Setter Property="ItemContainerStyle">
-                            <Setter.Value>
-                                <Style BasedOn="{StaticResource MaterialDesignMenuItem}" TargetType="MenuItem">
-                                    <Setter Property="ItemsSource" Value="{Binding SubItems}" />
-                                    <Setter Property="Command" Value="{Binding Command}" />
-                                    <Setter Property="Header" Value="{Binding Header}" />
-                                </Style>
-                            </Setter.Value>
-                        </Setter>
-                    </Style>
-                </Menu.ItemContainerStyle>
-            </Menu>
-            <Menu Foreground="White">
-                <MenuItem Height="25" Header="Plugins" ItemsSource="{Binding Plugins}">
-                    <MenuItem.ItemContainerStyle>
-                        <Style BasedOn="{StaticResource MaterialDesignMenuItem}" TargetType="MenuItem">
-                            <Setter Property="Header" Value="{Binding Header}" />
-                            <Setter Property="Command" Value="{Binding Command}" />
-                        </Style>
-                    </MenuItem.ItemContainerStyle>
-                </MenuItem>
-            </Menu>
+            <!-- Stats toggle -->
+            <ToggleButton
+                Height="36"
+                Padding="14,0"
+                Content="Stats"
+                IsChecked="{Binding IsStatTrackerOpen, Mode=TwoWay}"
+                Style="{StaticResource MaterialDesignFlatButton}"
+                Foreground="White" />
+
+            <!-- PVP FPS button -->
+            <Button
+                Height="36"
+                Padding="14,0"
+                Foreground="White"
+                Background="Transparent"
+                BorderThickness="0"
+                Content="PVP FPS"
+                Command="{Binding MainMenuItems[8].Command}"
+                Style="{StaticResource MaterialDesignFlatButton}" />
+
+            <!-- Quality button -->
+            <Button
+                Height="36"
+                Padding="14,0"
+                Foreground="White"
+                Background="Transparent"
+                BorderThickness="0"
+                Content="Quality"
+                Command="{Binding MainMenuItems[9].Command}"
+                Style="{StaticResource MaterialDesignFlatButton}" />
+
         </StackPanel>
-
-        <!-- Stats toggle -->
-        <ToggleButton
-            Grid.Column="0"
-            Height="25"
-            Content="Stats"
-            IsChecked="{Binding IsStatTrackerOpen, Mode=TwoWay}"
-            Style="{StaticResource MaterialDesignFlatButton}" />
-
-        <!-- PVP FPS button -->
-        <Button
-            Grid.Column="2"
-            Height="25"
-            Foreground="White"
-            Background="Transparent"
-            BorderThickness="0"
-            Content="PVP FPS"
-            Command="{Binding MainMenuItems[8].Command}"
-            Style="{StaticResource MaterialDesignFlatButton}" />
     </Grid>
 </UserControl>

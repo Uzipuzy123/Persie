@@ -144,6 +144,10 @@ public interface IScriptOption : INotifyPropertyChanged
     /// </summary>
     int SetFPS { get; set; }
     /// <summary>
+    /// Sets Flash render quality: LOW, MEDIUM, HIGH, BEST
+    /// </summary>
+    string SetQuality { get; set; }
+    /// <summary>
     /// Whether to show the in-game FPS counter
     /// </summary>
     bool ShowFPS { get; set; }

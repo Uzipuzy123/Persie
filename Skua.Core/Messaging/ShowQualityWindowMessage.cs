@@ -1,3 +1,3 @@
 namespace Skua.Core.Messaging;
 
-public class ShowQualityWindowMessage { }
+public sealed record ShowQualityWindowMessage(bool Show);

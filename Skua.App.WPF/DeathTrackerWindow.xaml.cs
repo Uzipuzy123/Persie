@@ -3,7 +3,6 @@ using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using Skua.Core.Interfaces;
 using Skua.Core.Messaging;
-using Skua.Core.Models.Players;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -22,6 +21,19 @@ namespace Skua.App.WPF;
 
 public partial class StatTrackerWindow : Window, INotifyPropertyChanged
 {
+    private class PollData
+    {
+        public bool Playing { get; set; }
+        public bool InCombat { get; set; }
+        public int HP { get; set; }
+        public string Cell { get; set; } = "";
+        public string Username { get; set; } = "";
+        public List<PollMonster> Monsters { get; set; } = new();
+        public List<PollPlayer> Players { get; set; } = new();
+    }
+    private class PollMonster { public int MapID { get; set; } public int HP { get; set; } public bool InCell { get; set; } }
+    private class PollPlayer  { public string Name { get; set; } = ""; public int HP { get; set; } public int State { get; set; } public string Cell { get; set; } = ""; }
+
     private class OtherPlayerStats
     {
         public int Deaths;
@@ -35,6 +47,7 @@ public partial class StatTrackerWindow : Window, INotifyPropertyChanged
 
     private static readonly HttpClient _http = new();
 
+    private readonly IFlashUtil _flash;
     private readonly IScriptPlayer _player;
     private readonly IScriptMonster _monsters;
     private readonly IScriptMap _map;
@@ -45,8 +58,14 @@ public partial class StatTrackerWindow : Window, INotifyPropertyChanged
     private readonly Dictionary<int, int> _monsterHPSnapshot = new();
     private readonly Dictionary<string, OtherPlayerStats> _otherPlayers = new();
     private readonly object _otherPlayersLock = new();
+    private readonly HashSet<int> _availableIDs = new();
+    private readonly HashSet<int> _currentIDs = new();
+    private readonly List<int> _staleMonsterIDs = new();
+    private readonly HashSet<string> _seenPlayers = new();
+    private readonly List<string> _stalePlayerKeys = new();
     private int _lastPlayerHP;
     private bool _inBrawl;
+    private string _selfName = string.Empty;
     private bool _matchFound;
     private string _currentMap = string.Empty;
     private HttpListener? _httpListener;
@@ -89,10 +108,14 @@ public partial class StatTrackerWindow : Window, INotifyPropertyChanged
         InitializeComponent();
         DataContext = this;
 
+        _flash = Ioc.Default.GetRequiredService<IFlashUtil>();
         _player = Ioc.Default.GetRequiredService<IScriptPlayer>();
         _monsters = Ioc.Default.GetRequiredService<IScriptMonster>();
         _map = Ioc.Default.GetRequiredService<IScriptMap>();
         _lastPlayerHP = 0;
+
+        _flash.FlashCall += OnFlashCall;
+        DeathReplayBuffer.Instance.Start(_flash);
 
         ResetDeathsCommand = new RelayCommand(() => Deaths = 0);
         ResetKillsCommand = new RelayCommand(() => Kills = 0);
@@ -150,7 +173,7 @@ public partial class StatTrackerWindow : Window, INotifyPropertyChanged
 
         _pollTimer = new Timer(250);
         _pollTimer.Elapsed += PollGameStats;
-        _pollTimer.AutoReset = true;
+        _pollTimer.AutoReset = false;
         _pollTimer.Start();
 
         _pushTimer = new Timer(1000);
@@ -282,32 +305,42 @@ public partial class StatTrackerWindow : Window, INotifyPropertyChanged
     {
         try
         {
-            if (!_player.Playing)
+            // Single Flash bridge crossing replaces 7+ individual calls
+            var raw = _flash.Call("getPollData");
+            PollData? data = null;
+            if (!string.IsNullOrEmpty(raw) && raw != "{}")
+                data = System.Text.Json.JsonSerializer.Deserialize<PollData>(raw, new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+            if (data == null || !data.Playing)
             {
                 lock (_snapshotLock) _monsterHPSnapshot.Clear();
                 _lastPlayerHP = 0;
                 return;
             }
 
-            if (_player.InCombat)
+            // Cache self name once — it never changes during a session
+            if (_selfName.Length == 0 && data.Username.Length > 0)
+                _selfName = data.Username.ToLower();
+
+            if (data.InCombat)
             {
                 // Only track monsters attackable in the player's current cell.
                 // This prevents counting damage from other players hitting monsters
                 // elsewhere on the map, or high-HP untargetable map objects.
-                var availableIDs = new HashSet<int>(_monsters.CurrentAvailableMonsters.Select(m => m.MapID));
-                var allMonsters = _monsters.MapMonstersWithCurrentData;
+                _availableIDs.Clear();
+                foreach (var m in data.Monsters) if (m.InCell) _availableIDs.Add(m.MapID);
                 long newDamage = 0;
-                var currentIDs = new HashSet<int>();
+                _currentIDs.Clear();
 
                 lock (_snapshotLock)
                 {
-                    foreach (var monster in allMonsters)
+                    foreach (var monster in data.Monsters)
                     {
                         // Track if attackable now, or already mid-fight in snapshot
-                        if (!availableIDs.Contains(monster.MapID) && !_monsterHPSnapshot.ContainsKey(monster.MapID))
+                        if (!_availableIDs.Contains(monster.MapID) && !_monsterHPSnapshot.ContainsKey(monster.MapID))
                             continue;
 
-                        currentIDs.Add(monster.MapID);
+                        _currentIDs.Add(monster.MapID);
                         if (_monsterHPSnapshot.TryGetValue(monster.MapID, out int lastHP))
                         {
                             if (monster.HP < lastHP && lastHP > 0)
@@ -316,10 +349,10 @@ public partial class StatTrackerWindow : Window, INotifyPropertyChanged
                         _monsterHPSnapshot[monster.MapID] = monster.HP;
                     }
 
-                    var stale = new List<int>();
+                    _staleMonsterIDs.Clear();
                     foreach (var key in _monsterHPSnapshot.Keys)
-                        if (!currentIDs.Contains(key)) stale.Add(key);
-                    foreach (var key in stale)
+                        if (!_currentIDs.Contains(key)) _staleMonsterIDs.Add(key);
+                    foreach (var key in _staleMonsterIDs)
                     {
                         // Monster died between ticks — count its remaining HP as damage dealt
                         if (_monsterHPSnapshot[key] > 0)
@@ -337,7 +370,7 @@ public partial class StatTrackerWindow : Window, INotifyPropertyChanged
             }
 
             // Player HP changes: heals and damage taken
-            int currentHP = _player.Health;
+            int currentHP = data.HP;
             if (_lastPlayerHP > 0 && currentHP > 0)
             {
                 if (currentHP > _lastPlayerHP)
@@ -346,20 +379,20 @@ public partial class StatTrackerWindow : Window, INotifyPropertyChanged
                     Dispatcher.Invoke(() => DamageTaken += _lastPlayerHP - currentHP);
             }
             _lastPlayerHP = currentHP;
+            DeathReplayBuffer.Instance.UpdateHp(currentHP);
 
-            // Track other players in the map (use all players, not just same cell, for PVP)
-            var cellPlayers = _inBrawl ? _map.Players : _map.CellPlayers;
-            if (cellPlayers != null)
+            // Track other players — all map players in brawl, cell-only otherwise
             {
-                var selfName = (_player.Username ?? string.Empty).ToLower();
+                var selfName = _selfName;
                 long pvpDamage = 0;
                 lock (_otherPlayersLock)
                 {
-                    var seen = new HashSet<string>();
-                    foreach (var p in cellPlayers)
+                    _seenPlayers.Clear();
+                    foreach (var p in data.Players)
                     {
+                        if (!_inBrawl && p.Cell != data.Cell) continue;
                         if (p.Name.ToLower() == selfName) continue;
-                        seen.Add(p.Name);
+                        _seenPlayers.Add(p.Name);
                         if (!_otherPlayers.TryGetValue(p.Name, out var t))
                         {
                             _otherPlayers[p.Name] = new OtherPlayerStats { LastHP = p.HP, WasDead = p.State == 0 };
@@ -386,7 +419,10 @@ public partial class StatTrackerWindow : Window, INotifyPropertyChanged
                         }
                         t.LastHP = p.HP;
                     }
-                    foreach (var gone in _otherPlayers.Keys.Where(k => !seen.Contains(k)).ToList())
+                    _stalePlayerKeys.Clear();
+                    foreach (var k in _otherPlayers.Keys)
+                        if (!_seenPlayers.Contains(k)) _stalePlayerKeys.Add(k);
+                    foreach (var gone in _stalePlayerKeys)
                         _otherPlayers.Remove(gone);
                 }
                 if (pvpDamage > 0)
@@ -394,6 +430,11 @@ public partial class StatTrackerWindow : Window, INotifyPropertyChanged
             }
         }
         catch { }
+        finally
+        {
+            _pollTimer.Interval = _inBrawl ? 250 : 1000;
+            _pollTimer.Start();
+        }
     }
 
     private void ResetAll()
@@ -419,6 +460,11 @@ public partial class StatTrackerWindow : Window, INotifyPropertyChanged
     private Dictionary<string, string> _lastSkillNames = new();
     private SkillBreakdownWindow? _skillWindow;
 
+    private void Window_MouseDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.LeftButton == MouseButtonState.Pressed) DragMove();
+    }
+
     private void SkillsButton_Click(object sender, System.Windows.RoutedEventArgs e)
     {
         if (_skillWindow == null || !_skillWindow.IsLoaded)
@@ -432,8 +478,33 @@ public partial class StatTrackerWindow : Window, INotifyPropertyChanged
         }
     }
 
+    private void OnFlashCall(string function, params object[] args)
+    {
+        if (function != "skuaOnDeath") return;
+        var killer = args.Length > 0 ? args[0]?.ToString() ?? "" : "";
+        DeathReplayBuffer.Instance.Freeze(killer);
+
+        // DispatcherTimer keeps the tick on the UI thread — Task.Delay continuation doesn't
+        Dispatcher.InvokeAsync(() =>
+        {
+            var t = new System.Windows.Threading.DispatcherTimer
+            {
+                Interval = TimeSpan.FromMilliseconds(1200)
+            };
+            t.Tick += (s, e) =>
+            {
+                t.Stop();
+                var frames = DeathReplayBuffer.Instance.GetSnapshot();
+                if (frames.Length == 0) return;
+                new ReplayWindow(frames, DeathReplayBuffer.Instance.LastKiller).Show();
+            };
+            t.Start();
+        });
+    }
+
     protected override void OnClosed(EventArgs e)
     {
+        _flash.FlashCall -= OnFlashCall;
         _skillWindow?.Close();
         _pollTimer.Stop();
         _pollTimer.Dispose();

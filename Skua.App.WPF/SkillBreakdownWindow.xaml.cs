@@ -1,4 +1,5 @@
 using CommunityToolkit.Mvvm.Messaging;
+using System.Windows.Input;
 using Skua.Core.Messaging;
 using System;
 using System.Collections.Generic;
@@ -78,6 +79,13 @@ public partial class SkillBreakdownWindow : Window
         Skills.Clear();
         _index.Clear();
     }
+
+    private void Window_MouseDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.LeftButton == MouseButtonState.Pressed) DragMove();
+    }
+
+    private void BtnClose_Click(object sender, RoutedEventArgs e) => Close();
 
     private void ResetButton_Click(object sender, RoutedEventArgs e) => Reset();
 

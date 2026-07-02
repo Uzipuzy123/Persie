@@ -16,6 +16,7 @@ public partial class CaptureProxy : ObservableRecipient, ICaptureProxy
     public const int DefaultPort = 5588;
     public IPEndPoint? Destination { get; set; }
     public List<IInterceptor> Interceptors { get; } = new();
+    private List<IInterceptor> _sortedInterceptors = new();
 
 
     private Thread? _thread;
@@ -35,6 +36,7 @@ public partial class CaptureProxy : ObservableRecipient, ICaptureProxy
     {
         if (Destination == null)
             return;
+        _sortedInterceptors = Interceptors.OrderBy(i => i.Priority).ToList();
         Running = true;
         _thread = new(() =>
         {
@@ -133,7 +135,7 @@ public partial class CaptureProxy : ObservableRecipient, ICaptureProxy
                     cpacket.Clear();
 
                     MessageInfo message = new(Encoding.UTF8.GetString(data, 0, data.Length));
-                    Interceptors.OrderBy(i => i.Priority).ForEach(i => i.Intercept(message, outbound));
+                    _sortedInterceptors.ForEach(i => i.Intercept(message, outbound));
                     if (message.Send)
                     {
                         byte[]? msg = new byte[message.Content.Length + 1];

@@ -63,7 +63,7 @@ public class ScriptWait : IScriptWait
         StrongReferenceMessenger.Default.Register<ScriptWait, BankLoadedMessage>(this, (r, m) => r._bankLoadEvent.Set());
     }
 
-    public int WAIT_SLEEP { get; set; } = 250;
+    public int WAIT_SLEEP { get; set; } = 100;
 
     private readonly AutoResetEvent _itemBuyEvent = new(false);
     private readonly AutoResetEvent _itemSellEvent = new(false);

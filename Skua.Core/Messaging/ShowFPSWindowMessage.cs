@@ -1,3 +1,3 @@
-﻿namespace Skua.Core.Messaging;
+namespace Skua.Core.Messaging;
 
-public class ShowFPSWindowMessage { }
+public sealed record ShowFPSWindowMessage(bool Show);

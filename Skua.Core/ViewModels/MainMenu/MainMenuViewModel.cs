@@ -39,6 +39,46 @@ public partial class MainMenuViewModel : ObservableRecipient
         StrongReferenceMessenger.Default.Send(new ShowStatTrackerMessage(value));
     }
 
+    [ObservableProperty]
+    private bool _isPerfOpen;
+
+    partial void OnIsPerfOpenChanged(bool value)
+    {
+        StrongReferenceMessenger.Default.Send(new ShowPerfWindowMessage(value));
+    }
+
+    [ObservableProperty]
+    private bool _isFPSOpen;
+
+    partial void OnIsFPSOpenChanged(bool value)
+    {
+        StrongReferenceMessenger.Default.Send(new ShowFPSWindowMessage(value));
+    }
+
+    [ObservableProperty]
+    private bool _isQualityOpen;
+
+    partial void OnIsQualityOpenChanged(bool value)
+    {
+        StrongReferenceMessenger.Default.Send(new ShowQualityWindowMessage(value));
+    }
+
+    [ObservableProperty]
+    private bool _isBBOpen;
+
+    partial void OnIsBBOpenChanged(bool value)
+    {
+        StrongReferenceMessenger.Default.Send(new ShowBBWindowMessage(value));
+    }
+
+    [ObservableProperty]
+    private bool _isThemeOpen;
+
+    partial void OnIsThemeOpenChanged(bool value)
+    {
+        StrongReferenceMessenger.Default.Send(new ShowThemeManagerMessage(value));
+    }
+
     [RelayCommand]
     public void ShowBotWindow()
     {

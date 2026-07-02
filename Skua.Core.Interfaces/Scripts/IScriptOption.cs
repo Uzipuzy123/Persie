@@ -74,6 +74,89 @@ public interface IScriptOption : INotifyPropertyChanged
     /// </summary>
     bool DisableFX { get; set; }
     /// <summary>
+    /// Strips GlowFilter and all other display filters from avatars and monsters every frame.
+    /// </summary>
+    bool ClearFilters { get; set; }
+    /// <summary>
+    /// Stops all MovieClip timeline animations in the map background.
+    /// </summary>
+    bool StopAnimations { get; set; }
+    /// <summary>
+    /// Hides animated leaf particle sprites in the map.
+    /// </summary>
+    bool KillParticles { get; set; }
+    /// <summary>
+    /// Sets Flash master volume to zero.
+    /// </summary>
+    bool MuteGame { get; set; }
+    /// <summary>
+    /// Hides shadow sprites under all avatars and monsters.
+    /// </summary>
+    bool DisableShadows { get; set; }
+    /// <summary>
+    /// Applies a red tint to enemies and green tint to teammates every frame.
+    /// </summary>
+    bool HighlightEnemies { get; set; }
+    /// <summary>
+    /// Renders a live HP label above every avatar in the current cell.
+    /// </summary>
+    bool EnemyHPOverlay { get; set; }
+    /// <summary>
+    /// Draws a minimap overlay showing rooms, self (white), and teammates (green). Enemies never shown.
+    /// </summary>
+    bool MiniMap { get; set; }
+    /// <summary>
+    /// Shows a kill feed overlay in the top-right corner listing recent eliminations in the current room.
+    /// </summary>
+    bool KillFeed { get; set; }
+    /// <summary>
+    /// Replaces AQW's plain HP bar with a League of Legends-style segmented bar above each player.
+    /// </summary>
+    bool PlayerHPBars { get; set; }
+    /// <summary>
+    /// Scale of the LoL HP bars as a percentage (10–100). Default 60.
+    /// </summary>
+    int PlayerHPBarsScale { get; set; }
+    /// <summary>
+    /// Active HP bar style: 0=off, 1=LoL, 2=WoW, 3=Fortnite, 4=Valorant, 5=Runescape.
+    /// </summary>
+    int PlayerHPBarsStyle { get; set; }
+    /// <summary>
+    /// Shows floating damage numbers above avatars when HP changes.
+    /// </summary>
+    bool PlayerDmgNumbers { get; set; }
+    /// <summary>
+    /// Active damage number style: 0=off, 1=Classic RPG, 2=Arcade, 3=Minimal.
+    /// </summary>
+    int PlayerDmgStyle { get; set; }
+    /// <summary>
+    /// Shows a kill streak announcement overlay (DOUBLE KILL, TRIPLE KILL, etc.) on consecutive enemy kills.
+    /// </summary>
+    bool KillStreakAnnouncer { get; set; }
+    /// <summary>
+    /// Pulses a red vignette on the screen edges when the player's HP falls below 30%.
+    /// </summary>
+    bool LowHPFlash { get; set; }
+    /// <summary>
+    /// Hold TAB to display a full scoreboard overlay with per-player K/D/DMG/HEAL stats split by team.
+    /// </summary>
+    bool ScoreboardOverlay { get; set; }
+    /// <summary>
+    /// Opens a draggable in-game panel that shows raw game object data for debugging.
+    /// </summary>
+    bool DebugPanel { get; set; }
+    /// <summary>
+    /// Replaces the Bludrutbrawl room number in the bottom-right map display with ????.
+    /// </summary>
+    bool HideRoomNumber { get; set; }
+    /// <summary>
+    /// Shows the in-game Skua settings button on the toolbar.
+    /// </summary>
+    bool SkuaSettingsButton { get; set; }
+    bool OptimizeMap { get; set; }
+    int HighlightColor { get; set; }
+    int HighlightIntensity { get; set; }
+    /// <summary>
     /// Maximum tries for Ensure (like <see cref="IScriptBank.EnsureToInventory(string, bool)"/>) methods.
     /// </summary>
     int MaximumTries { get; set; }

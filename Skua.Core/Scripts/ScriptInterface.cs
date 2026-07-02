@@ -237,7 +237,7 @@ public class ScriptInterface : IScriptInterface, IScriptInterfaceManager, IDispo
                     RunScriptHandlers();
 
                 sw.Stop();
-                Thread.Sleep(Math.Max(10, _timerDelay - (int)sw.Elapsed.TotalMilliseconds));
+                Thread.Sleep(Math.Max(5, _timerDelay - (int)sw.Elapsed.TotalMilliseconds));
             }
             catch (Exception e)
             {

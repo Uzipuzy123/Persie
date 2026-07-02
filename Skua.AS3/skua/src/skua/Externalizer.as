@@ -43,6 +43,9 @@ package skua
 			this.addCallback("jumpCorrectRoom", Main.jumpCorrectRoom);
 			
 			this.addCallback("availableMonsters", Main.availableMonstersInCell);
+			this.addCallback("getPollData", Main.getPollData);
+			this.addCallback("getFrameTimeStats", Main.getFrameTimeStats);
+			this.addCallback("setHighlightConfig", Main.setHighlightConfig);
 			this.addCallback("attackMonsterName", Main.attackMonsterByName);
 			this.addCallback("attackMonsterID", Main.attackMonsterByID);
 			this.addCallback("untargetSelf", Main.untargetSelf);
@@ -93,6 +96,9 @@ package skua
 			
 			this.addCallback("modEnable", Modules.enable);
 			this.addCallback("modDisable", Modules.disable);
+			this.addCallback("setPlayerHPBarsScale", Main.setPlayerHPBarsScale);
+			this.addCallback("setPlayerHPBarsStyle", Main.setPlayerHPBarsStyle);
+			this.addCallback("setPlayerDmgStyle",    Main.setPlayerDmgStyle);
 			
 			this.debug("Externalizer::init done.");
 			this.call("requestLoadGame");

@@ -32,6 +32,9 @@ public class FlashUtil : IFlashUtil
 
     public event FlashCallHandler? FlashCall;
 
+    private IntPtr _cachedFlashHandle = IntPtr.Zero;
+    public IntPtr FlashWindowHandle => _cachedFlashHandle;
+
     public void InitializeFlash()
     {
         try
@@ -55,6 +58,7 @@ public class FlashUtil : IFlashUtil
             _messenger.Send<FlashChangedMessage<AxShockwaveFlash>>(new(flash));
             flash.EndInit();
             Flash = flash;
+            try { _cachedFlashHandle = flash.Handle; } catch { }
             byte[] swf = File.ReadAllBytes("skua.swf");
             using (MemoryStream stream = new())
             using (BinaryWriter writer = new(stream))

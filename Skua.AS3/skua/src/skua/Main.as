@@ -636,6 +636,111 @@ package skua
 		}
 		
 		
+	public static function getFrameTimeStats():String
+	{
+		try
+		{
+			return skua.module.FrameTimeMonitor.getStats();
+		}
+		catch (e:Error) {}
+		return '{"avg":0,"min":0,"max":0,"fps":0}';
+	}
+
+	public static function setHighlightConfig(colorStr:String, intensityStr:String):void
+	{
+		try
+		{
+			var mod:* = skua.module.Modules.getModule("HighlightEnemies");
+			if (mod) mod.setConfig(uint(colorStr), int(intensityStr));
+		}
+		catch (e:Error) {}
+	}
+
+	public static function setPlayerHPBarsScale(scaleStr:String):void
+	{
+		try
+		{
+			var mod:* = skua.module.Modules.getModule("PlayerHPBars");
+			if (mod) mod.setScale(int(scaleStr));
+		}
+		catch (e:Error) {}
+	}
+
+	public static function setPlayerHPBarsStyle(styleStr:String):void
+	{
+		try
+		{
+			var mod:* = skua.module.Modules.getModule("PlayerHPBars");
+			if (mod) mod.setStyle(int(styleStr));
+		}
+		catch (e:Error) {}
+	}
+
+	public static function setPlayerDmgStyle(styleStr:String):void
+	{
+		try
+		{
+			var mod:* = skua.module.Modules.getModule("DmgNumbers");
+			if (mod) mod.setStyle(int(styleStr));
+		}
+		catch (e:Error) {}
+	}
+
+	public static function getPollData():String
+	{
+		try
+		{
+			var game:* = instance.game;
+			var world:* = game ? game.world : null;
+			var result:Object = {};
+
+			var connected:Boolean = game != null && game.sfc != null && game.sfc.isConnected;
+			var myAvatar:* = world ? world.myAvatar : null;
+			var state:int = (myAvatar && myAvatar.dataLeaf) ? int(myAvatar.dataLeaf.intState) : 0;
+			result.playing = connected && state > 0;
+			result.inCombat = state == 2;
+			result.hp = (myAvatar && myAvatar.dataLeaf) ? int(myAvatar.dataLeaf.intHP) : 0;
+			result.cell = world ? (world.strFrame || "") : "";
+			result.username = (game && game.sfc) ? (game.sfc.myUserName || "") : "";
+
+			if (!result.playing)
+				return JSON.stringify(result);
+
+			// Mark which monsters are available in current cell (same logic as availableMonstersInCell)
+			var cellMonIDs:Object = {};
+			for each (var cellMon:* in world.getMonstersByCell(world.strFrame))
+			{
+				if (cellMon && cellMon.pMC != null && cellMon.objData)
+					cellMonIDs[int(cellMon.objData.MonMapID)] = true;
+			}
+
+			// All map monsters with live HP
+			var monsters:Array = [];
+			for each (var mon:* in world.monsters)
+			{
+				if (!mon || !mon.objData) continue;
+				var mapID:int = int(mon.objData.MonMapID);
+				monsters.push({ mapID: mapID, hp: mon.dataLeaf ? int(mon.dataLeaf.intHP) : 0, inCell: cellMonIDs[mapID] == true });
+			}
+			result.monsters = monsters;
+
+			// All players from uoTree
+			var players:Array = [];
+			var uoTree:* = world.uoTree;
+			for (var pName:String in uoTree)
+			{
+				var uo:* = uoTree[pName];
+				if (!uo) continue;
+				players.push({ name: pName, hp: int(uo.intHP || 0), state: int(uo.intState || 0), cell: uo.strFrame || "" });
+			}
+			result.players = players;
+
+			return JSON.stringify(result);
+		}
+		catch (e:Error) {}
+		return "{}";
+	}
+
 	public static function availableMonstersInCell():String
 	{
 		var retMonsters:Array = [];

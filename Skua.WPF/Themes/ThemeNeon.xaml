@@ -1,0 +1,63 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Neon ───────────────────────────────────────────────────────────────── -->
+    <SolidColorBrush x:Key="ThemeBg"             Color="#050510"/>
+    <SolidColorBrush x:Key="ThemeRowBg"          Color="#0A0A18"/>
+    <SolidColorBrush x:Key="ThemeSubBg"          Color="#030308"/>
+    <SolidColorBrush x:Key="ThemeDivider"        Color="#0F0F2A"/>
+    <SolidColorBrush x:Key="ThemeSectionDiv"     Color="#080820"/>
+    <SolidColorBrush x:Key="ThemeSectionLabel"   Color="#008899"/>
+    <SolidColorBrush x:Key="ThemeArrow"          Color="#FF00CC"/>
+    <SolidColorBrush x:Key="ThemeTitle"          Color="#00FFEE"/>
+    <SolidColorBrush x:Key="ThemeRowLabel"       Color="#AAFFEE"/>
+    <SolidColorBrush x:Key="ThemeSubLabel"       Color="#334455"/>
+    <SolidColorBrush x:Key="ThemeBtnBorder"      Color="#00FFEE"/>
+    <SolidColorBrush x:Key="ThemeDataGridHdr"    Color="#00FFEE"/>
+    <SolidColorBrush x:Key="ThemeDataGridSep"    Color="#080820"/>
+    <SolidColorBrush x:Key="ThemeDataGridHover"  Color="#0F1A2A"/>
+    <SolidColorBrush x:Key="ThemeDataGridSel"    Color="#002A33"/>
+    <SolidColorBrush x:Key="ThemeDataGridAlt"    Color="#0F0F22"/>
+    <SolidColorBrush x:Key="ThemeRowBtnBg"       Color="#0A0A18"/>
+    <SolidColorBrush x:Key="ThemeRowBtnFg"       Color="#AAFFEE"/>
+    <SolidColorBrush x:Key="ThemeRowBtnBorder"   Color="#080820"/>
+    <SolidColorBrush x:Key="ThemeRowBtnHover"    Color="#00FFEE"/>
+
+    <LinearGradientBrush x:Key="ThemeBorderBrush" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Color="#00FFEE" Offset="0"/>
+        <GradientStop Color="#00AACC" Offset="0.5"/>
+        <GradientStop Color="#00FFEE" Offset="1"/>
+    </LinearGradientBrush>
+
+    <LinearGradientBrush x:Key="ThemeDividerBrush" StartPoint="0,0" EndPoint="1,0">
+        <GradientStop Color="Transparent" Offset="0"/>
+        <GradientStop Color="#00FFEE"     Offset="0.3"/>
+        <GradientStop Color="#00FFEE"     Offset="0.7"/>
+        <GradientStop Color="Transparent" Offset="1"/>
+    </LinearGradientBrush>
+
+    <LinearGradientBrush x:Key="ThemeSectionDivBrush" StartPoint="0,0" EndPoint="1,0">
+        <GradientStop Color="Transparent" Offset="0"/>
+        <GradientStop Color="#080820"     Offset="0.3"/>
+        <GradientStop Color="#080820"     Offset="0.7"/>
+        <GradientStop Color="Transparent" Offset="1"/>
+    </LinearGradientBrush>
+
+    <LinearGradientBrush x:Key="ThemeBtnBrush" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="#00AACC" Offset="0"/>
+        <GradientStop Color="#006688" Offset="1"/>
+    </LinearGradientBrush>
+
+    <!-- Browser chrome ──────────────────────────────────────────────────────── -->
+    <SolidColorBrush x:Key="ThemeChromeBg"           Color="#08081A"/>
+    <SolidColorBrush x:Key="ThemeChromeActiveTab"    Color="#0F0F28"/>
+    <SolidColorBrush x:Key="ThemeChromeTitle"        Color="#00FFEE"/>
+    <SolidColorBrush x:Key="ThemeChromeIcon"         Color="#00AACC"/>
+    <SolidColorBrush x:Key="ThemeChromeBorder"       Color="#0F0F30"/>
+    <SolidColorBrush x:Key="ThemeChromeAddressBg"    Color="#0A0A20"/>
+    <SolidColorBrush x:Key="ThemeChromeAddressText"  Color="#AAFFEE"/>
+    <SolidColorBrush x:Key="ThemeChromeNavHover"     Color="#0F1A2A"/>
+    <SolidColorBrush x:Key="ThemeChromeNavPressed"   Color="#080818"/>
+    <SolidColorBrush x:Key="ThemeChromeBookmarkText" Color="#00AACC"/>
+
+</ResourceDictionary>

@@ -64,7 +64,7 @@ public partial class ScriptCombat : IScriptCombat
         CancelAutoAttack();
         CancelTarget();
         Map.Jump(Player.Cell, Player.Pad);
-        Thread.Sleep(300);
+        Thread.Sleep(150);
         Map.Jump(Player.Cell, Player.Pad);
         Wait.ForCombatExit();
     }

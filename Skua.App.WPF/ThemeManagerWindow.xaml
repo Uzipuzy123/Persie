@@ -1,0 +1,156 @@
+<Window x:Class="Skua.App.WPF.ThemeManagerWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Theme Manager"
+        Height="320" Width="360"
+        Topmost="True"
+        ShowInTaskbar="False"
+        ShowActivated="False"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="NoResize"
+        WindowStyle="None"
+        AllowsTransparency="False"
+        Background="{DynamicResource ThemeBg}"
+        FontFamily="Segoe UI">
+
+    <Grid>
+        <!-- Themed ornate border -->
+        <Border Margin="10" BorderThickness="3" CornerRadius="4"
+                BorderBrush="{DynamicResource ThemeBorderBrush}">
+
+            <StackPanel Background="{DynamicResource ThemeBg}">
+
+                <!-- Title / drag handle -->
+                <Border Background="Transparent" Cursor="SizeAll"
+                        MouseLeftButtonDown="Window_MouseDown" Padding="0,14,0,6">
+                    <TextBlock Text="Theme Manager"
+                               FontFamily="Georgia" FontStyle="Italic" FontSize="19"
+                               Foreground="{DynamicResource ThemeTitle}" HorizontalAlignment="Center"/>
+                </Border>
+
+                <!-- Divider -->
+                <Border Height="1" Margin="16,0" Background="{DynamicResource ThemeDividerBrush}"/>
+
+                <!-- 2×2 theme cards -->
+                <Grid Margin="14,14,14,12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="8"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="8"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Dark -->
+                    <Border x:Name="CardDark" Grid.Column="0" Grid.Row="0"
+                            Tag="Dark" MouseLeftButtonUp="Card_Click"
+                            Cursor="Hand" CornerRadius="4" Padding="10,9" BorderThickness="2">
+                        <Border.Background><SolidColorBrush Color="#0D0D0D"/></Border.Background>
+                        <Border.BorderBrush><SolidColorBrush Color="#C8A040"/></Border.BorderBrush>
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,7">
+                                <Rectangle Width="16" Height="10" Margin="1,0" Fill="#080808"/>
+                                <Rectangle Width="16" Height="10" Margin="1,0" Fill="#C8A040"/>
+                                <Rectangle Width="16" Height="10" Margin="1,0" Fill="#7A5C18"/>
+                                <Rectangle Width="16" Height="10" Margin="1,0" Fill="#992222"/>
+                            </StackPanel>
+                            <TextBlock Text="Dark" FontSize="12" Foreground="#CCCCCC" FontWeight="SemiBold"/>
+                            <StackPanel x:Name="ActiveDark" Orientation="Horizontal" Margin="0,5,0,0">
+                                <Ellipse Width="6" Height="6" Fill="#23A55A" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                                <TextBlock Text="Active" FontSize="9" Foreground="#23A55A"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- AQW Classic -->
+                    <Border x:Name="CardClassic" Grid.Column="2" Grid.Row="0"
+                            Tag="AQW Classic" MouseLeftButtonUp="Card_Click"
+                            Cursor="Hand" CornerRadius="4" Padding="10,9" BorderThickness="1">
+                        <Border.Background><SolidColorBrush Color="#111C2A"/></Border.Background>
+                        <Border.BorderBrush><SolidColorBrush Color="#2A5080"/></Border.BorderBrush>
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,7">
+                                <Rectangle Width="16" Height="10" Margin="1,0" Fill="#0D1520"/>
+                                <Rectangle Width="16" Height="10" Margin="1,0" Fill="#4A7FBF"/>
+                                <Rectangle Width="16" Height="10" Margin="1,0" Fill="#3A6090"/>
+                                <Rectangle Width="16" Height="10" Margin="1,0" Fill="#2255AA"/>
+                            </StackPanel>
+                            <TextBlock Text="AQW Classic" FontSize="12" Foreground="#AABBCC" FontWeight="SemiBold"/>
+                            <StackPanel x:Name="ActiveClassic" Orientation="Horizontal" Margin="0,5,0,0" Visibility="Collapsed">
+                                <Ellipse Width="6" Height="6" Fill="#23A55A" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                                <TextBlock Text="Active" FontSize="9" Foreground="#23A55A"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Neon -->
+                    <Border x:Name="CardNeon" Grid.Column="0" Grid.Row="2"
+                            Tag="Neon" MouseLeftButtonUp="Card_Click"
+                            Cursor="Hand" CornerRadius="4" Padding="10,9" BorderThickness="1">
+                        <Border.Background><SolidColorBrush Color="#0A0A18"/></Border.Background>
+                        <Border.BorderBrush><SolidColorBrush Color="#00AACC"/></Border.BorderBrush>
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,7">
+                                <Rectangle Width="16" Height="10" Margin="1,0" Fill="#050510"/>
+                                <Rectangle Width="16" Height="10" Margin="1,0" Fill="#00FFEE"/>
+                                <Rectangle Width="16" Height="10" Margin="1,0" Fill="#008899"/>
+                                <Rectangle Width="16" Height="10" Margin="1,0" Fill="#FF00CC"/>
+                            </StackPanel>
+                            <TextBlock Text="Neon" FontSize="12" Foreground="#AAFFEE" FontWeight="SemiBold"/>
+                            <StackPanel x:Name="ActiveNeon" Orientation="Horizontal" Margin="0,5,0,0" Visibility="Collapsed">
+                                <Ellipse Width="6" Height="6" Fill="#23A55A" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                                <TextBlock Text="Active" FontSize="9" Foreground="#23A55A"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Gold -->
+                    <Border x:Name="CardGold" Grid.Column="2" Grid.Row="2"
+                            Tag="Gold" MouseLeftButtonUp="Card_Click"
+                            Cursor="Hand" CornerRadius="4" Padding="10,9" BorderThickness="1">
+                        <Border.Background><SolidColorBrush Color="#201500"/></Border.Background>
+                        <Border.BorderBrush><SolidColorBrush Color="#CC8800"/></Border.BorderBrush>
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,7">
+                                <Rectangle Width="16" Height="10" Margin="1,0" Fill="#1A1000"/>
+                                <Rectangle Width="16" Height="10" Margin="1,0" Fill="#FFD700"/>
+                                <Rectangle Width="16" Height="10" Margin="1,0" Fill="#AA7700"/>
+                                <Rectangle Width="16" Height="10" Margin="1,0" Fill="#FF8C00"/>
+                            </StackPanel>
+                            <TextBlock Text="Gold" FontSize="12" Foreground="#DDBB88" FontWeight="SemiBold"/>
+                            <StackPanel x:Name="ActiveGold" Orientation="Horizontal" Margin="0,5,0,0" Visibility="Collapsed">
+                                <Ellipse Width="6" Height="6" Fill="#23A55A" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                                <TextBlock Text="Active" FontSize="9" Foreground="#23A55A"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+
+                <Border Height="12" Background="{DynamicResource ThemeBg}"/>
+            </StackPanel>
+        </Border>
+
+        <!-- Close button -->
+        <Button Click="BtnClose_Click"
+                HorizontalAlignment="Right" VerticalAlignment="Top"
+                Width="26" Height="26" Margin="0,0,0,0"
+                Panel.ZIndex="20" Cursor="Hand">
+            <Button.Template>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Bd" CornerRadius="13" Background="#BB1111">
+                        <TextBlock Text="✕" Foreground="White" FontSize="12" FontWeight="Bold"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="#EE0000"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Button.Template>
+        </Button>
+    </Grid>
+</Window>

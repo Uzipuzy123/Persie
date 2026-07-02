@@ -17,6 +17,8 @@ public interface IFlashUtil : IDisposable
 
     void InitializeFlash();
 
+    IntPtr FlashWindowHandle { get; }
+
     /// <summary>
     /// Make a flash call for the specified <paramref name="function"/>.
     /// </summary>

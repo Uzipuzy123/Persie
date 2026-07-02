@@ -1,0 +1,151 @@
+<Window x:Class="Skua.App.WPF.PerformanceWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Performance Overview"
+        Height="460" Width="390"
+        Topmost="True"
+        ShowInTaskbar="False"
+        ShowActivated="False"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="NoResize"
+        WindowStyle="None"
+        AllowsTransparency="False"
+        Icon="{x:Null}"
+        Background="{DynamicResource ThemeBg}"
+        FontFamily="Segoe UI">
+
+    <Grid>
+        <Border Margin="10" BorderThickness="3" CornerRadius="4"
+                BorderBrush="{DynamicResource ThemeBorderBrush}">
+
+            <StackPanel Background="{DynamicResource ThemeBg}">
+
+                <!-- Title / drag handle -->
+                <Border Background="Transparent" Cursor="SizeAll"
+                        MouseLeftButtonDown="Window_MouseDown" Padding="0,12,0,6">
+                    <TextBlock Text="Performance Overview"
+                               FontFamily="Georgia" FontStyle="Italic" FontSize="17"
+                               Foreground="{DynamicResource ThemeTitle}" HorizontalAlignment="Center"/>
+                </Border>
+
+                <Border Height="1" Margin="16,0,16,10"
+                        Background="{DynamicResource ThemeDividerBrush}"/>
+
+                <!-- ── PING ────────────────────────────────────────────── -->
+                <Grid Margin="16,0,16,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="PING"
+                               Foreground="{DynamicResource ThemeSectionLabel}"
+                               FontSize="10" FontWeight="Bold"
+                               VerticalAlignment="Center"/>
+                    <TextBlock Grid.Column="1" x:Name="PingLabel" Text="-- ms"
+                               Foreground="#3388FF" FontSize="13" FontWeight="Bold"
+                               VerticalAlignment="Center"/>
+                </Grid>
+
+                <Border Margin="14,0,14,8" Height="68" CornerRadius="3"
+                        Background="{DynamicResource ThemeSubBg}"
+                        BorderBrush="{DynamicResource ThemeSectionDiv}" BorderThickness="1">
+                    <Canvas x:Name="PingCanvas" ClipToBounds="True"/>
+                </Border>
+
+                <Border Height="1" Margin="14,0,14,0"
+                        Background="{DynamicResource ThemeSectionDivBrush}"/>
+
+                <!-- ── FRAME TIME ──────────────────────────────────────── -->
+                <Grid Margin="16,8,16,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="FRAME TIME"
+                               Foreground="{DynamicResource ThemeSectionLabel}"
+                               FontSize="10" FontWeight="Bold"
+                               VerticalAlignment="Center"/>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock x:Name="FrameLabel" Text="0.0 ms"
+                                   Foreground="{DynamicResource ThemeDataGridHdr}"
+                                   FontSize="13" FontWeight="Bold"/>
+                        <TextBlock x:Name="FPSLabel" Text="  0 FPS"
+                                   Foreground="{DynamicResource ThemeSubLabel}"
+                                   FontSize="11" VerticalAlignment="Center" Margin="6,0,0,0"/>
+                    </StackPanel>
+                </Grid>
+
+                <Border Margin="14,0,14,8" Height="68" CornerRadius="3"
+                        Background="{DynamicResource ThemeSubBg}"
+                        BorderBrush="{DynamicResource ThemeSectionDiv}" BorderThickness="1">
+                    <Canvas x:Name="FrameCanvas" ClipToBounds="True"/>
+                </Border>
+
+                <Border Height="1" Margin="14,0,14,0"
+                        Background="{DynamicResource ThemeSectionDivBrush}"/>
+
+                <!-- ── CPU ────────────────────────────────────────────── -->
+                <Grid Margin="16,8,16,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="CPU"
+                               Foreground="{DynamicResource ThemeSectionLabel}"
+                               FontSize="10" FontWeight="Bold"
+                               VerticalAlignment="Center"/>
+                    <TextBlock Grid.Column="1" x:Name="CpuLabel" Text="0.0%"
+                               Foreground="#FF4444" FontSize="13" FontWeight="Bold"
+                               VerticalAlignment="Center"/>
+                </Grid>
+
+                <Border Margin="14,0,14,8" Height="52" CornerRadius="3"
+                        Background="{DynamicResource ThemeSubBg}"
+                        BorderBrush="{DynamicResource ThemeSectionDiv}" BorderThickness="1">
+                    <Canvas x:Name="CpuCanvas" ClipToBounds="True"/>
+                </Border>
+
+                <!-- ── RAM ────────────────────────────────────────────── -->
+                <Grid Margin="16,0,16,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="MEMORY"
+                               Foreground="{DynamicResource ThemeSectionLabel}"
+                               FontSize="10" FontWeight="Bold"
+                               VerticalAlignment="Center"/>
+                    <TextBlock Grid.Column="1" x:Name="RamLabel" Text="0 MB"
+                               Foreground="#AA44FF" FontSize="13" FontWeight="Bold"
+                               VerticalAlignment="Center"/>
+                </Grid>
+
+                <Border Margin="14,0,14,14" Height="52" CornerRadius="3"
+                        Background="{DynamicResource ThemeSubBg}"
+                        BorderBrush="{DynamicResource ThemeSectionDiv}" BorderThickness="1">
+                    <Canvas x:Name="RamCanvas" ClipToBounds="True"/>
+                </Border>
+
+            </StackPanel>
+        </Border>
+
+        <!-- Close button -->
+        <Button x:Name="BtnClose" Click="BtnClose_Click"
+                HorizontalAlignment="Right" VerticalAlignment="Top"
+                Width="26" Height="26" Panel.ZIndex="20" Cursor="Hand">
+            <Button.Template>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Bd" CornerRadius="13" Background="#BB1111">
+                        <TextBlock Text="✕" Foreground="White" FontSize="12" FontWeight="Bold"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="#EE0000"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Button.Template>
+        </Button>
+    </Grid>
+</Window>

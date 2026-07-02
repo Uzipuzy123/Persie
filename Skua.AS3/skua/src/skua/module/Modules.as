@@ -47,6 +47,7 @@ package skua.module
 		
 		public static function handleFrame(e:Event):void
 		{
+			FrameTimeMonitor.tick();
 			for (var name:String in _modules)
 			{
 				var module:Module = _modules[name];
@@ -63,6 +64,25 @@ package skua.module
 			registerModule(new HidePlayers());
 			registerModule(new DisableCollisions());
 			registerModule(new DisableFX());
+			registerModule(new ClearFilters());
+			registerModule(new StopAnimations());
+			registerModule(new KillParticles());
+			registerModule(new MuteGame());
+			registerModule(new DisableShadows());
+			registerModule(new HighlightEnemies());
+			registerModule(new HideRoomNumber());
+			registerModule(new EnemyHPOverlay());
+			registerModule(new MiniMap());
+			registerModule(new KillFeed());
+			registerModule(new ScoreboardOverlay());
+			registerModule(new DebugPanel());
+			registerModule(new SkuaSettingsButton());
+			registerModule(new OptimizeMap());
+			registerModule(new DeathDetector());
+			registerModule(new PlayerHPBars());
+			registerModule(new DmgNumbers());
+			registerModule(new KillStreakAnnouncer());
+			registerModule(new LowHPFlash());
 		}
 	}
 }

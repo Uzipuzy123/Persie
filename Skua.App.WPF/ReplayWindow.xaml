@@ -1,0 +1,178 @@
+<Window x:Class="Skua.App.WPF.ReplayWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Death Replay"
+        Height="720" Width="1100"
+        Topmost="True"
+        ShowInTaskbar="False"
+        ShowActivated="True"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="NoResize"
+        WindowStyle="None"
+        AllowsTransparency="False"
+        Background="#0A0600"
+        FontFamily="Georgia">
+
+    <Window.Resources>
+        <Color x:Key="AqwGold">#C8A040</Color>
+        <Color x:Key="AqwGoldDim">#7A6020</Color>
+        <Color x:Key="AqwDark">#0A0600</Color>
+        <Color x:Key="AqwPanel">#120C00</Color>
+        <SolidColorBrush x:Key="GoldBrush"   Color="#C8A040"/>
+        <SolidColorBrush x:Key="GoldDimBrush" Color="#7A6020"/>
+        <SolidColorBrush x:Key="DarkBrush"   Color="#0A0600"/>
+        <SolidColorBrush x:Key="PanelBrush"  Color="#120C00"/>
+        <SolidColorBrush x:Key="RedBrush"    Color="#CC2200"/>
+        <SolidColorBrush x:Key="GreenBrush"  Color="#22AA44"/>
+
+        <!-- AQW-style button template -->
+        <ControlTemplate x:Key="AqwBtn" TargetType="Button">
+            <Border x:Name="Bd" Background="#1A1000" BorderThickness="1"
+                    BorderBrush="{StaticResource GoldDimBrush}" Padding="10,4">
+                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                                  TextElement.Foreground="{StaticResource GoldBrush}"
+                                  TextElement.FontFamily="Georgia"
+                                  TextElement.FontSize="11"/>
+            </Border>
+            <ControlTemplate.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource GoldBrush}"/>
+                    <Setter TargetName="Bd" Property="Background" Value="#2A1A00"/>
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter TargetName="Bd" Property="Background" Value="#0A0600"/>
+                </Trigger>
+            </ControlTemplate.Triggers>
+        </ControlTemplate>
+
+        <!-- Scrub bar style -->
+        <Style x:Key="AqwSlider" TargetType="Slider">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Slider">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto" MinHeight="{TemplateBinding MinHeight}"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <Track x:Name="PART_Track" Grid.Row="1">
+                                <Track.DecreaseRepeatButton>
+                                    <RepeatButton Command="Slider.DecreaseLarge">
+                                        <RepeatButton.Template>
+                                            <ControlTemplate TargetType="RepeatButton">
+                                                <Border Height="3" Background="{StaticResource GoldBrush}" CornerRadius="1"/>
+                                            </ControlTemplate>
+                                        </RepeatButton.Template>
+                                    </RepeatButton>
+                                </Track.DecreaseRepeatButton>
+                                <Track.IncreaseRepeatButton>
+                                    <RepeatButton Command="Slider.IncreaseLarge">
+                                        <RepeatButton.Template>
+                                            <ControlTemplate TargetType="RepeatButton">
+                                                <Border Height="3" Background="{StaticResource GoldDimBrush}" CornerRadius="1"/>
+                                            </ControlTemplate>
+                                        </RepeatButton.Template>
+                                    </RepeatButton>
+                                </Track.IncreaseRepeatButton>
+                                <Track.Thumb>
+                                    <Thumb>
+                                        <Thumb.Template>
+                                            <ControlTemplate TargetType="Thumb">
+                                                <Border Width="10" Height="14" CornerRadius="2"
+                                                        Background="{StaticResource GoldBrush}"/>
+                                            </ControlTemplate>
+                                        </Thumb.Template>
+                                    </Thumb>
+                                </Track.Thumb>
+                            </Track>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <!-- Outer gold border frame -->
+    <Border BorderBrush="#C8A040" BorderThickness="2" Background="#0A0600"
+            MouseLeftButtonDown="Window_MouseDown" Cursor="SizeAll">
+        <Grid Cursor="Arrow">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="40"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="14"/>
+                <RowDefinition Height="46"/>
+            </Grid.RowDefinitions>
+
+            <!-- ── Title bar ── -->
+            <Grid Grid.Row="0" Background="#120C00">
+                <Border BorderBrush="#7A6020" BorderThickness="0,0,0,1"/>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <TextBlock Text="——  " Foreground="#7A6020" FontSize="11" VerticalAlignment="Center"/>
+                    <TextBlock Text="DEATH REPLAY" FontFamily="Georgia" FontStyle="Italic" FontSize="15"
+                               Foreground="#C8A040" VerticalAlignment="Center" FontWeight="Bold"/>
+                    <TextBlock Text="  ——" Foreground="#7A6020" FontSize="11" VerticalAlignment="Center"/>
+                </StackPanel>
+                <TextBlock x:Name="TimestampText" Text="0.0s"
+                           Foreground="#7A6020" FontFamily="Consolas" FontSize="10"
+                           HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,12,0"/>
+            </Grid>
+
+            <!-- ── Video ── -->
+            <Grid Grid.Row="1" Background="Black">
+                <Image x:Name="FrameImage" Stretch="Uniform"
+                       RenderOptions.BitmapScalingMode="HighQuality"/>
+
+                <!-- Killer overlay -->
+                <Border HorizontalAlignment="Left" VerticalAlignment="Top"
+                        Margin="10" Padding="10,6"
+                        BorderBrush="#7A6020" BorderThickness="1"
+                        Background="#D2100800">
+                    <StackPanel>
+                        <TextBlock Text="S L A I N  B Y" Foreground="#7A6020"
+                                   FontFamily="Georgia" FontSize="8" FontWeight="Bold"/>
+                        <TextBlock x:Name="KillerText"
+                                   Foreground="#CC2200" FontFamily="Georgia" FontStyle="Italic"
+                                   FontSize="14" FontWeight="Bold" Margin="0,1,0,0"/>
+                        <TextBlock x:Name="HpText"
+                                   Foreground="#22AA44" FontFamily="Consolas" FontSize="10"
+                                   Margin="0,3,0,0"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <!-- ── HP timeline ── -->
+            <Canvas x:Name="HpTimeline" Grid.Row="2" Background="#0A0600"/>
+
+            <!-- ── Controls ── -->
+            <Border Grid.Row="3" Background="#120C00" Padding="12,0">
+                <Border BorderBrush="#7A6020" BorderThickness="0,1,0,0">
+                    <Grid VerticalAlignment="Center">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <Slider x:Name="ScrubBar" Grid.Row="0" Margin="0,6,0,6"
+                                Minimum="0" SmallChange="1" LargeChange="10"
+                                Style="{StaticResource AqwSlider}"
+                                ValueChanged="ScrubBar_ValueChanged"/>
+
+                        <StackPanel Grid.Row="1" Orientation="Horizontal" VerticalAlignment="Center">
+                            <Button x:Name="PlayPauseBtn" Content="II"
+                                    Template="{StaticResource AqwBtn}"
+                                    Click="PlayPause_Click" Width="36" Cursor="Hand" Margin="0,0,6,0"/>
+                            <Button Content="0.5x" Template="{StaticResource AqwBtn}"
+                                    Click="HalfSpeed_Click" Cursor="Hand" Margin="0,0,4,0"/>
+                            <Button Content="1x" Template="{StaticResource AqwBtn}"
+                                    Click="NormalSpeed_Click" Cursor="Hand"/>
+                            <TextBlock x:Name="FrameCountText"
+                                       Foreground="#7A6020" FontFamily="Consolas" FontSize="9"
+                                       VerticalAlignment="Center" Margin="14,0,0,0"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+            </Border>
+        </Grid>
+    </Border>
+</Window>

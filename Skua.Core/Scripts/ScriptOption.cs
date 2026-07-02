@@ -100,6 +100,52 @@ public partial class ScriptOption : ObservableRecipient, IScriptOption, IOptionD
     private bool _infiniteRange;
     [ModuleBinding("DisableFX")]
     private bool _disableFX;
+    [ModuleBinding("ClearFilters")]
+    private bool _clearFilters;
+    [ModuleBinding("StopAnimations")]
+    private bool _stopAnimations;
+    [ModuleBinding("KillParticles")]
+    private bool _killParticles;
+    [ModuleBinding("MuteGame")]
+    private bool _muteGame;
+    [ModuleBinding("DisableShadows")]
+    private bool _disableShadows;
+    [ModuleBinding("HighlightEnemies")]
+    private bool _highlightEnemies;
+    [ModuleBinding("EnemyHPOverlay")]
+    private bool _enemyHPOverlay;
+    [ModuleBinding("MiniMap")]
+    private bool _miniMap;
+    [ModuleBinding("KillFeed")]
+    private bool _killFeed;
+    [ModuleBinding("PlayerHPBars")]
+    private bool _playerHPBars;
+    [ObservableProperty]
+    private int _playerHPBarsScale = 60;
+    [ObservableProperty]
+    private int _playerHPBarsStyle = 0;
+    [ModuleBinding("DmgNumbers")]
+    private bool _playerDmgNumbers;
+    [ObservableProperty]
+    private int _playerDmgStyle = 0;
+    [ModuleBinding("KillStreakAnnouncer")]
+    private bool _killStreakAnnouncer;
+    [ModuleBinding("LowHPFlash")]
+    private bool _lowHPFlash;
+    [ModuleBinding("ScoreboardOverlay")]
+    private bool _scoreboardOverlay;
+    [ModuleBinding("DebugPanel")]
+    private bool _debugPanel;
+    [ModuleBinding("HideRoomNumber")]
+    private bool _hideRoomNumber;
+    [ModuleBinding("SkuaSettingsButton")]
+    private bool _skuaSettingsButton;
+    [ModuleBinding("OptimizeMap")]
+    private bool _optimizeMap;
+    [ObservableProperty]
+    private int _highlightColor = 0xFF3333;
+    [ObservableProperty]
+    private int _highlightIntensity = 75;
     [ObservableProperty]
     private bool _autoRelogin;
     [ObservableProperty]

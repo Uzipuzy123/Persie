@@ -1,7 +1,10 @@
 ﻿using System;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Interop;
+using System.Windows.Media;
 using System.Windows.Media.Animation;
 using Microsoft.Extensions.DependencyInjection;
 using CommunityToolkit.Mvvm.DependencyInjection;
@@ -21,12 +24,20 @@ namespace Skua.App.WPF;
 /// </summary>
 public sealed partial class App : Application
 {
+    [DllImport("winmm.dll")] private static extern uint timeBeginPeriod(uint p);
+    [DllImport("winmm.dll")] private static extern uint timeEndPeriod(uint p);
+
     public new static App Current => (App)Application.Current;
     public IServiceProvider Services { get; }
     private readonly IScriptInterface _bot;
 
     public App()
     {
+        // 1ms Windows timer resolution — makes Thread.Sleep precise instead of ~15ms
+        timeBeginPeriod(1);
+        // Force WPF into software rendering so Flash gets the GPU uncontested
+        RenderOptions.ProcessRenderMode = RenderMode.SoftwareOnly;
+
         InitializeComponent();
 
         if (Settings.Default.UpgradeRequired)
@@ -65,6 +76,7 @@ public sealed partial class App : Application
         await ((IScriptInterfaceManager)_bot).StopTimerAsync();
 
         Services.GetRequiredService<IFlashUtil>().Dispose();
+        timeEndPeriod(1);
 
         WeakReferenceMessenger.Default.Cleanup();
         WeakReferenceMessenger.Default.Reset();

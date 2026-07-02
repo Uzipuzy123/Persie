@@ -46,15 +46,7 @@ internal class MainMenu
                 new("Interceptor")
             }),
             new("Bank", new RelayCommand(Ioc.Default.GetRequiredService<IScriptBank>().Open)),
-            new("Logs"),
-            new("PVP FPS", new RelayCommand(() =>
-            {
-                StrongReferenceMessenger.Default.Send(new ShowFPSWindowMessage());
-            })),
-            new("Quality", new RelayCommand(() =>
-            {
-                StrongReferenceMessenger.Default.Send(new ShowQualityWindowMessage());
-            }))
+            new("Logs")
         };
 
         return new(menuItems, s.GetRequiredService<AutoViewModel>(), s.GetRequiredService<JumpViewModel>(), s.GetRequiredService<IWindowService>());

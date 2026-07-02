@@ -15,7 +15,7 @@ public interface IScriptCombat
     void ApproachTarget();
     /// <summary>
     /// Attacks the monster with the specified <paramref name="mapId">.
-    /// </summary>
+    /// </howsummary>
     /// <param name="mapId">The id of the monster to attack.</param>
     /// <remarks>This will not wait until the monster is killed, but simply select it and start attacking it.</remarks>
     bool Attack(int id);

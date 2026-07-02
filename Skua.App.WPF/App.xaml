@@ -17,6 +17,7 @@
                     SecondaryColor="Red" />
                 <ResourceDictionary Source="pack://application:,,,/MaterialDesignThemes.Wpf;component/Themes/MaterialDesignTheme.Defaults.xaml" />
                 <ResourceDictionary Source="pack://application:,,,/Skua.WPF;component/Themes/CustomWindowTheme.xaml" />
+                <ResourceDictionary Source="pack://application:,,,/Skua.WPF;component/Themes/ThemeDark.xaml" />
                 <ResourceDictionary Source="pack://application:,,,/Skua.WPF;component/XAML/DataTemplates.xaml" />
                 <ResourceDictionary Source="pack://application:,,,/Skua.WPF;component/XAML/Converters.xaml" />
                 <ResourceDictionary Source="pack://application:,,,/Skua.WPF;component/XAML/Styles.xaml" />

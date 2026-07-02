@@ -1,31 +1,764 @@
 <Window x:Class="Skua.App.WPF.QualityWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Flash Quality"
-        Height="360" Width="340"
+        Title="Quality"
+        Height="852" Width="310"
+        Topmost="True"
+        ShowInTaskbar="False"
+        ShowActivated="False"
         WindowStartupLocation="CenterScreen"
         ResizeMode="NoResize"
+        WindowStyle="None"
+        AllowsTransparency="False"
         Icon="{x:Null}"
-        Background="#1a237e">
-    <StackPanel Margin="24">
+        Background="{DynamicResource ThemeBg}"
+        FontFamily="Segoe UI">
 
-        <TextBlock Text="Flash Render Quality" Foreground="White" FontSize="16" FontWeight="Bold" Margin="0,0,0,8"/>
-        <TextBlock Foreground="#90CAF9" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,20">
-            LOW disables all anti-aliasing — faster than the in-game Low setting.
-        </TextBlock>
+    <Window.Resources>
+        <Style x:Key="ThinSlider" TargetType="Slider">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Slider">
+                        <Track x:Name="PART_Track">
+                            <Track.DecreaseRepeatButton>
+                                <RepeatButton Command="Slider.DecreaseLarge">
+                                    <RepeatButton.Template>
+                                        <ControlTemplate TargetType="RepeatButton">
+                                            <Border Height="3" Background="{DynamicResource ThemeTitle}" CornerRadius="1"/>
+                                        </ControlTemplate>
+                                    </RepeatButton.Template>
+                                </RepeatButton>
+                            </Track.DecreaseRepeatButton>
+                            <Track.IncreaseRepeatButton>
+                                <RepeatButton Command="Slider.IncreaseLarge">
+                                    <RepeatButton.Template>
+                                        <ControlTemplate TargetType="RepeatButton">
+                                            <Border Height="3" Background="#333" CornerRadius="1"/>
+                                        </ControlTemplate>
+                                    </RepeatButton.Template>
+                                </RepeatButton>
+                            </Track.IncreaseRepeatButton>
+                            <Track.Thumb>
+                                <Thumb>
+                                    <Thumb.Template>
+                                        <ControlTemplate TargetType="Thumb">
+                                            <Border Width="10" Height="18" CornerRadius="2"
+                                                    Background="{DynamicResource ThemeTitle}"/>
+                                        </ControlTemplate>
+                                    </Thumb.Template>
+                                </Thumb>
+                            </Track.Thumb>
+                        </Track>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
 
-        <Button x:Name="BtnLow"    Content="LOW"    Click="Quality_Click" Tag="LOW"
-                Height="48" Margin="0,0,0,10" FontSize="15" FontWeight="Bold"
-                Background="#3949ab" Foreground="White" BorderThickness="0"/>
-        <Button x:Name="BtnMedium" Content="MEDIUM" Click="Quality_Click" Tag="MEDIUM"
-                Height="48" Margin="0,0,0,10" FontSize="15" FontWeight="Bold"
-                Background="#3949ab" Foreground="White" BorderThickness="0"/>
-        <Button x:Name="BtnHigh"   Content="HIGH"   Click="Quality_Click" Tag="HIGH"
-                Height="48" Margin="0,0,0,10" FontSize="15" FontWeight="Bold"
-                Background="#3949ab" Foreground="White" BorderThickness="0"/>
-        <Button x:Name="BtnBest"   Content="BEST"   Click="Quality_Click" Tag="BEST"
-                Height="48" Margin="0,0,0,0"  FontSize="15" FontWeight="Bold"
-                Background="#3949ab" Foreground="White" BorderThickness="0"/>
+    <Grid>
+        <Border Margin="10" BorderThickness="3" CornerRadius="4"
+                BorderBrush="{DynamicResource ThemeBorderBrush}">
 
-    </StackPanel>
+            <StackPanel Background="{DynamicResource ThemeBg}">
+
+                <!-- Title / drag handle -->
+                <Border Background="Transparent" Cursor="SizeAll"
+                        MouseLeftButtonDown="Window_MouseDown" Padding="0,14,0,6">
+                    <TextBlock Text="PVP Settings"
+                               FontFamily="Georgia" FontStyle="Italic" FontSize="19"
+                               Foreground="{DynamicResource ThemeTitle}" HorizontalAlignment="Center"/>
+                </Border>
+                <Border Height="1" Margin="16,0" Background="{DynamicResource ThemeDividerBrush}"/>
+
+                <!-- Tab buttons -->
+                <Grid Background="{DynamicResource ThemeBg}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Border x:Name="TabPvpBorder" Grid.Column="0" Padding="0,9" Cursor="Hand"
+                            MouseLeftButtonUp="TabPvp_Click"
+                            BorderBrush="{DynamicResource ThemeTitle}" BorderThickness="0,0,0,2">
+                        <TextBlock x:Name="TabPvpText" Text="PVP SETTINGS"
+                                   HorizontalAlignment="Center" FontSize="9" FontWeight="Bold"
+                                   FontFamily="Consolas" Foreground="{DynamicResource ThemeTitle}"/>
+                    </Border>
+                    <Border x:Name="TabHpBarBorder" Grid.Column="1" Padding="0,9" Cursor="Hand"
+                            MouseLeftButtonUp="TabHpBar_Click"
+                            BorderBrush="Transparent" BorderThickness="0,0,0,2">
+                        <TextBlock x:Name="TabHpBarText" Text="HP BAR"
+                                   HorizontalAlignment="Center" FontSize="9" FontWeight="Bold"
+                                   FontFamily="Consolas" Foreground="{DynamicResource ThemeSubLabel}"/>
+                    </Border>
+                    <Border x:Name="TabDmgBorder" Grid.Column="2" Padding="0,9" Cursor="Hand"
+                            MouseLeftButtonUp="TabDmg_Click"
+                            BorderBrush="Transparent" BorderThickness="0,0,0,2">
+                        <TextBlock x:Name="TabDmgText" Text="DAMAGE"
+                                   HorizontalAlignment="Center" FontSize="9" FontWeight="Bold"
+                                   FontFamily="Consolas" Foreground="{DynamicResource ThemeSubLabel}"/>
+                    </Border>
+                </Grid>
+                <Border Height="1" Background="{DynamicResource ThemeSectionDiv}"/>
+
+                <!-- ═══ PVP TAB ═══ -->
+                <StackPanel x:Name="PvpContent">
+
+                    <!-- GO BEYOND -->
+                    <Border Padding="14,10" Cursor="Hand" MouseLeftButtonUp="GoBeyond_Click"
+                            Background="{DynamicResource ThemeRowBg}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="Go Beyond Mode" Foreground="{DynamicResource ThemeTitle}"
+                                           FontSize="12" FontWeight="SemiBold"/>
+                                <TextBlock Text="Dims map, drops Flash render quality"
+                                           Foreground="{DynamicResource ThemeSubLabel}" FontSize="10" Margin="0,2,0,0"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                <Ellipse x:Name="StatusDot" Width="7" Height="7" Fill="#333333"
+                                         Margin="0,0,5,0" VerticalAlignment="Center"/>
+                                <TextBlock x:Name="StatusText" Text="OFF"
+                                           Foreground="{DynamicResource ThemeSubLabel}" FontFamily="Consolas"
+                                           FontSize="11" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                    <Border Height="1" Background="{DynamicResource ThemeSectionDiv}"/>
+
+                    <!-- PERFORMANCE -->
+                    <Border Padding="14,7,14,4" Background="{DynamicResource ThemeBg}">
+                        <TextBlock Text="─  PERFORMANCE  ─" Foreground="{DynamicResource ThemeSectionLabel}"
+                                   FontSize="9" FontWeight="Bold" FontFamily="Consolas"
+                                   HorizontalAlignment="Center"/>
+                    </Border>
+
+                    <Border Padding="14,0" Height="38" Cursor="Hand"
+                            MouseLeftButtonUp="ClearFilters_Click" Background="{DynamicResource ThemeRowBg}">
+                        <Grid VerticalAlignment="Center">
+                            <TextBlock Text="Clear Filters" Foreground="{DynamicResource ThemeRowLabel}" FontSize="12"/>
+                            <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="◄" Foreground="{DynamicResource ThemeArrow}" FontSize="13" VerticalAlignment="Center"/>
+                                <TextBlock x:Name="FilterToggleText" Text="OFF" Foreground="{DynamicResource ThemeSubLabel}"
+                                           FontFamily="Consolas" FontSize="11" Width="32" TextAlignment="Center" VerticalAlignment="Center"/>
+                                <TextBlock Text="►" Foreground="{DynamicResource ThemeArrow}" FontSize="13" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                    <Border Height="1" Background="{DynamicResource ThemeDivider}"/>
+
+                    <Border Padding="14,0" Height="38" Cursor="Hand"
+                            MouseLeftButtonUp="StopAnimations_Click" Background="{DynamicResource ThemeRowBg}">
+                        <Grid VerticalAlignment="Center">
+                            <TextBlock Text="Freeze Background" Foreground="{DynamicResource ThemeRowLabel}" FontSize="12"/>
+                            <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="◄" Foreground="{DynamicResource ThemeArrow}" FontSize="13" VerticalAlignment="Center"/>
+                                <TextBlock x:Name="StopAnimToggleText" Text="OFF" Foreground="{DynamicResource ThemeSubLabel}"
+                                           FontFamily="Consolas" FontSize="11" Width="32" TextAlignment="Center" VerticalAlignment="Center"/>
+                                <TextBlock Text="►" Foreground="{DynamicResource ThemeArrow}" FontSize="13" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                    <Border Height="1" Background="{DynamicResource ThemeDivider}"/>
+
+                    <Border Padding="14,0" Height="38" Cursor="Hand"
+                            MouseLeftButtonUp="KillParticles_Click" Background="{DynamicResource ThemeRowBg}">
+                        <Grid VerticalAlignment="Center">
+                            <TextBlock Text="Kill Particles" Foreground="{DynamicResource ThemeRowLabel}" FontSize="12"/>
+                            <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="◄" Foreground="{DynamicResource ThemeArrow}" FontSize="13" VerticalAlignment="Center"/>
+                                <TextBlock x:Name="KillParticlesToggleText" Text="OFF" Foreground="{DynamicResource ThemeSubLabel}"
+                                           FontFamily="Consolas" FontSize="11" Width="32" TextAlignment="Center" VerticalAlignment="Center"/>
+                                <TextBlock Text="►" Foreground="{DynamicResource ThemeArrow}" FontSize="13" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                    <Border Height="1" Background="{DynamicResource ThemeDivider}"/>
+
+                    <Border Padding="14,0" Height="38" Cursor="Hand"
+                            MouseLeftButtonUp="OptimizeMap_Click" Background="{DynamicResource ThemeRowBg}">
+                        <Grid VerticalAlignment="Center">
+                            <TextBlock Text="Optimize Map" Foreground="{DynamicResource ThemeRowLabel}" FontSize="12"/>
+                            <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="◄" Foreground="{DynamicResource ThemeArrow}" FontSize="13" VerticalAlignment="Center"/>
+                                <TextBlock x:Name="OptimizeMapToggleText" Text="OFF" Foreground="{DynamicResource ThemeSubLabel}"
+                                           FontFamily="Consolas" FontSize="11" Width="32" TextAlignment="Center" VerticalAlignment="Center"/>
+                                <TextBlock Text="►" Foreground="{DynamicResource ThemeArrow}" FontSize="13" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                    <Border Height="1" Background="{DynamicResource ThemeDivider}"/>
+
+                    <Border Padding="14,0" Height="38" Cursor="Hand"
+                            MouseLeftButtonUp="MuteGame_Click" Background="{DynamicResource ThemeRowBg}">
+                        <Grid VerticalAlignment="Center">
+                            <TextBlock Text="Mute Audio" Foreground="{DynamicResource ThemeRowLabel}" FontSize="12"/>
+                            <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="◄" Foreground="{DynamicResource ThemeArrow}" FontSize="13" VerticalAlignment="Center"/>
+                                <TextBlock x:Name="MuteToggleText" Text="OFF" Foreground="{DynamicResource ThemeSubLabel}"
+                                           FontFamily="Consolas" FontSize="11" Width="32" TextAlignment="Center" VerticalAlignment="Center"/>
+                                <TextBlock Text="►" Foreground="{DynamicResource ThemeArrow}" FontSize="13" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                    <Border Height="1" Background="{DynamicResource ThemeSectionDiv}"/>
+
+                    <!-- PVP VISUALS -->
+                    <Border Padding="14,7,14,4" Background="{DynamicResource ThemeBg}">
+                        <TextBlock Text="─  PVP VISUALS  ─" Foreground="{DynamicResource ThemeSectionLabel}"
+                                   FontSize="9" FontWeight="Bold" FontFamily="Consolas"
+                                   HorizontalAlignment="Center"/>
+                    </Border>
+
+                    <Border Padding="14,0" Height="38" Cursor="Hand"
+                            MouseLeftButtonUp="DisableShadows_Click" Background="{DynamicResource ThemeRowBg}">
+                        <Grid VerticalAlignment="Center">
+                            <TextBlock Text="Disable Shadows" Foreground="{DynamicResource ThemeRowLabel}" FontSize="12"/>
+                            <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="◄" Foreground="{DynamicResource ThemeArrow}" FontSize="13" VerticalAlignment="Center"/>
+                                <TextBlock x:Name="ShadowToggleText" Text="OFF" Foreground="{DynamicResource ThemeSubLabel}"
+                                           FontFamily="Consolas" FontSize="11" Width="32" TextAlignment="Center" VerticalAlignment="Center"/>
+                                <TextBlock Text="►" Foreground="{DynamicResource ThemeArrow}" FontSize="13" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                    <Border Height="1" Background="{DynamicResource ThemeDivider}"/>
+
+                    <Border Padding="14,0" Height="38" Cursor="Hand"
+                            MouseLeftButtonUp="HighlightEnemies_Click" Background="{DynamicResource ThemeRowBg}">
+                        <Grid VerticalAlignment="Center">
+                            <TextBlock Text="Highlight Enemies" Foreground="{DynamicResource ThemeRowLabel}" FontSize="12"/>
+                            <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="◄" Foreground="{DynamicResource ThemeArrow}" FontSize="13" VerticalAlignment="Center"/>
+                                <TextBlock x:Name="HighlightToggleText" Text="OFF" Foreground="{DynamicResource ThemeSubLabel}"
+                                           FontFamily="Consolas" FontSize="11" Width="32" TextAlignment="Center" VerticalAlignment="Center"/>
+                                <TextBlock Text="►" Foreground="{DynamicResource ThemeArrow}" FontSize="13" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <Border x:Name="HighlightConfigPanel" Background="{DynamicResource ThemeSubBg}" Visibility="Collapsed">
+                        <StackPanel>
+                            <Border Padding="14,8,14,4">
+                                <Grid>
+                                    <TextBlock Text="COLOR" Foreground="{DynamicResource ThemeSubLabel}" FontSize="9" FontFamily="Consolas" VerticalAlignment="Center"/>
+                                    <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Ellipse x:Name="ColorDot0" Width="14" Height="14" Fill="#FF3333" Stroke="#C8A040" StrokeThickness="2" Margin="3,0" Cursor="Hand" Tag="0" MouseLeftButtonUp="HighlightColor_Click"/>
+                                        <Ellipse x:Name="ColorDot1" Width="14" Height="14" Fill="#FF8833" Stroke="#333333" StrokeThickness="2" Margin="3,0" Cursor="Hand" Tag="1" MouseLeftButtonUp="HighlightColor_Click"/>
+                                        <Ellipse x:Name="ColorDot2" Width="14" Height="14" Fill="#FFEE22" Stroke="#333333" StrokeThickness="2" Margin="3,0" Cursor="Hand" Tag="2" MouseLeftButtonUp="HighlightColor_Click"/>
+                                        <Ellipse x:Name="ColorDot3" Width="14" Height="14" Fill="#22FF55" Stroke="#333333" StrokeThickness="2" Margin="3,0" Cursor="Hand" Tag="3" MouseLeftButtonUp="HighlightColor_Click"/>
+                                        <Ellipse x:Name="ColorDot4" Width="14" Height="14" Fill="#22FFEE" Stroke="#333333" StrokeThickness="2" Margin="3,0" Cursor="Hand" Tag="4" MouseLeftButtonUp="HighlightColor_Click"/>
+                                        <Ellipse x:Name="ColorDot5" Width="14" Height="14" Fill="#3388FF" Stroke="#333333" StrokeThickness="2" Margin="3,0" Cursor="Hand" Tag="5" MouseLeftButtonUp="HighlightColor_Click"/>
+                                        <Ellipse x:Name="ColorDot6" Width="14" Height="14" Fill="#CC44FF" Stroke="#333333" StrokeThickness="2" Margin="3,0" Cursor="Hand" Tag="6" MouseLeftButtonUp="HighlightColor_Click"/>
+                                        <Ellipse x:Name="ColorDot7" Width="14" Height="14" Fill="#FFFFFF" Stroke="#333333" StrokeThickness="2" Margin="3,0" Cursor="Hand" Tag="7" MouseLeftButtonUp="HighlightColor_Click"/>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                            <Border Padding="14,4,14,8">
+                                <Grid>
+                                    <TextBlock Text="INTENSITY" Foreground="{DynamicResource ThemeSubLabel}" FontSize="9" FontFamily="Consolas" VerticalAlignment="Center"/>
+                                    <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock Text="◄" Foreground="{DynamicResource ThemeArrow}" FontSize="13" VerticalAlignment="Center" Cursor="Hand" MouseLeftButtonUp="HighlightIntensityDown_Click"/>
+                                        <TextBlock x:Name="HighlightIntensityText" Text="75" Foreground="{DynamicResource ThemeRowLabel}"
+                                                   FontFamily="Consolas" FontSize="11" Width="32" TextAlignment="Center" VerticalAlignment="Center"/>
+                                        <TextBlock Text="►" Foreground="{DynamicResource ThemeArrow}" FontSize="13" VerticalAlignment="Center" Cursor="Hand" MouseLeftButtonUp="HighlightIntensityUp_Click"/>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </StackPanel>
+                    </Border>
+                    <Border Height="1" Background="{DynamicResource ThemeDivider}"/>
+
+                    <Border Padding="14,0" Height="38" Cursor="Hand"
+                            MouseLeftButtonUp="MiniMap_Click" Background="{DynamicResource ThemeRowBg}">
+                        <Grid VerticalAlignment="Center">
+                            <TextBlock Text="Mini Map" Foreground="{DynamicResource ThemeRowLabel}" FontSize="12"/>
+                            <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="◄" Foreground="{DynamicResource ThemeArrow}" FontSize="13" VerticalAlignment="Center"/>
+                                <TextBlock x:Name="MiniMapToggleText" Text="OFF" Foreground="{DynamicResource ThemeSubLabel}"
+                                           FontFamily="Consolas" FontSize="11" Width="32" TextAlignment="Center" VerticalAlignment="Center"/>
+                                <TextBlock Text="►" Foreground="{DynamicResource ThemeArrow}" FontSize="13" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                    <Border Height="1" Background="{DynamicResource ThemeDivider}"/>
+
+                    <Border Padding="14,0" Height="38" Cursor="Hand"
+                            MouseLeftButtonUp="KillFeed_Click" Background="{DynamicResource ThemeRowBg}">
+                        <Grid VerticalAlignment="Center">
+                            <TextBlock Text="Kill Feed" Foreground="{DynamicResource ThemeRowLabel}" FontSize="12"/>
+                            <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="◄" Foreground="{DynamicResource ThemeArrow}" FontSize="13" VerticalAlignment="Center"/>
+                                <TextBlock x:Name="KillFeedToggleText" Text="OFF" Foreground="{DynamicResource ThemeSubLabel}"
+                                           FontFamily="Consolas" FontSize="11" Width="32" TextAlignment="Center" VerticalAlignment="Center"/>
+                                <TextBlock Text="►" Foreground="{DynamicResource ThemeArrow}" FontSize="13" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                    <Border Height="1" Background="{DynamicResource ThemeDivider}"/>
+
+                    <Border Padding="14,0" Height="38" Cursor="Hand"
+                            MouseLeftButtonUp="EnemyHPOverlay_Click" Background="{DynamicResource ThemeRowBg}">
+                        <Grid VerticalAlignment="Center">
+                            <TextBlock Text="HP Overlay" Foreground="{DynamicResource ThemeRowLabel}" FontSize="12"/>
+                            <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="◄" Foreground="{DynamicResource ThemeArrow}" FontSize="13" VerticalAlignment="Center"/>
+                                <TextBlock x:Name="HPOverlayToggleText" Text="OFF" Foreground="{DynamicResource ThemeSubLabel}"
+                                           FontFamily="Consolas" FontSize="11" Width="32" TextAlignment="Center" VerticalAlignment="Center"/>
+                                <TextBlock Text="►" Foreground="{DynamicResource ThemeArrow}" FontSize="13" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                    <Border Height="1" Background="{DynamicResource ThemeDivider}"/>
+
+                    <Border Padding="14,0" Height="38" Cursor="Hand"
+                            MouseLeftButtonUp="ScoreboardOverlay_Click" Background="{DynamicResource ThemeRowBg}">
+                        <Grid VerticalAlignment="Center">
+                            <TextBlock Text="Scoreboard" Foreground="{DynamicResource ThemeRowLabel}" FontSize="12"/>
+                            <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="◄" Foreground="{DynamicResource ThemeArrow}" FontSize="13" VerticalAlignment="Center"/>
+                                <TextBlock x:Name="ScoreboardToggleText" Text="OFF" Foreground="{DynamicResource ThemeSubLabel}"
+                                           FontFamily="Consolas" FontSize="11" Width="32" TextAlignment="Center" VerticalAlignment="Center"/>
+                                <TextBlock Text="►" Foreground="{DynamicResource ThemeArrow}" FontSize="13" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                    <Border Height="1" Background="{DynamicResource ThemeDivider}"/>
+
+                    <Border Padding="14,0" Height="38" Cursor="Hand"
+                            MouseLeftButtonUp="DebugPanel_Click" Background="{DynamicResource ThemeRowBg}">
+                        <Grid VerticalAlignment="Center">
+                            <TextBlock Text="Debug Panel" Foreground="{DynamicResource ThemeRowLabel}" FontSize="12"/>
+                            <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="◄" Foreground="{DynamicResource ThemeArrow}" FontSize="13" VerticalAlignment="Center"/>
+                                <TextBlock x:Name="DebugPanelToggleText" Text="OFF" Foreground="{DynamicResource ThemeSubLabel}"
+                                           FontFamily="Consolas" FontSize="11" Width="32" TextAlignment="Center" VerticalAlignment="Center"/>
+                                <TextBlock Text="►" Foreground="{DynamicResource ThemeArrow}" FontSize="13" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                    <Border Height="1" Background="{DynamicResource ThemeDivider}"/>
+
+                    <Border Padding="14,0" Height="38" Cursor="Hand"
+                            MouseLeftButtonUp="SkuaButton_Click" Background="{DynamicResource ThemeRowBg}">
+                        <Grid VerticalAlignment="Center">
+                            <TextBlock Text="Ingame Button" Foreground="{DynamicResource ThemeRowLabel}" FontSize="12"/>
+                            <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="◄" Foreground="{DynamicResource ThemeArrow}" FontSize="13" VerticalAlignment="Center"/>
+                                <TextBlock x:Name="SkuaBtnToggleText" Text="OFF" Foreground="{DynamicResource ThemeSubLabel}"
+                                           FontFamily="Consolas" FontSize="11" Width="32" TextAlignment="Center" VerticalAlignment="Center"/>
+                                <TextBlock Text="►" Foreground="{DynamicResource ThemeArrow}" FontSize="13" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                    <Border Height="1" Background="{DynamicResource ThemeDivider}"/>
+
+                    <Border Padding="14,0" Height="38" Cursor="Hand"
+                            MouseLeftButtonUp="KillStreak_Click" Background="{DynamicResource ThemeRowBg}">
+                        <Grid VerticalAlignment="Center">
+                            <TextBlock Text="Kill Streak" Foreground="{DynamicResource ThemeRowLabel}" FontSize="12"/>
+                            <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="◄" Foreground="{DynamicResource ThemeArrow}" FontSize="13" VerticalAlignment="Center"/>
+                                <TextBlock x:Name="KillStreakToggleText" Text="OFF" Foreground="{DynamicResource ThemeSubLabel}"
+                                           FontFamily="Consolas" FontSize="11" Width="32" TextAlignment="Center" VerticalAlignment="Center"/>
+                                <TextBlock Text="►" Foreground="{DynamicResource ThemeArrow}" FontSize="13" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                    <Border Height="1" Background="{DynamicResource ThemeDivider}"/>
+
+                    <Border Padding="14,0" Height="38" Cursor="Hand"
+                            MouseLeftButtonUp="LowHPFlash_Click" Background="{DynamicResource ThemeRowBg}">
+                        <Grid VerticalAlignment="Center">
+                            <TextBlock Text="Low HP Flash" Foreground="{DynamicResource ThemeRowLabel}" FontSize="12"/>
+                            <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="◄" Foreground="{DynamicResource ThemeArrow}" FontSize="13" VerticalAlignment="Center"/>
+                                <TextBlock x:Name="LowHPFlashToggleText" Text="OFF" Foreground="{DynamicResource ThemeSubLabel}"
+                                           FontFamily="Consolas" FontSize="11" Width="32" TextAlignment="Center" VerticalAlignment="Center"/>
+                                <TextBlock Text="►" Foreground="{DynamicResource ThemeArrow}" FontSize="13" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                    <Border Height="1" Background="{DynamicResource ThemeSectionDiv}"/>
+
+                    <!-- REPLAY -->
+                    <Border Padding="14,7,14,4" Background="{DynamicResource ThemeBg}">
+                        <TextBlock Text="─  REPLAY  ─" Foreground="{DynamicResource ThemeSectionLabel}"
+                                   FontSize="9" FontWeight="Bold" FontFamily="Consolas"
+                                   HorizontalAlignment="Center"/>
+                    </Border>
+
+                    <Border Padding="14,0" Height="38" Cursor="Hand"
+                            MouseLeftButtonUp="WatchReplay_Click" Background="{DynamicResource ThemeRowBg}">
+                        <Grid VerticalAlignment="Center">
+                            <StackPanel>
+                                <TextBlock Text="Watch Death Replay" Foreground="{DynamicResource ThemeRowLabel}" FontSize="12"/>
+                                <TextBlock x:Name="ReplayStatusText" Text="No replay saved yet"
+                                           Foreground="{DynamicResource ThemeSubLabel}" FontSize="9" Margin="0,1,0,0"/>
+                            </StackPanel>
+                            <TextBlock Text="▶" Foreground="{DynamicResource ThemeArrow}"
+                                       FontSize="14" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                        </Grid>
+                    </Border>
+
+                    <Border Padding="14,0" Height="38" Cursor="Hand"
+                            MouseLeftButtonUp="SimulateDeath_Click" Background="{DynamicResource ThemeBg}">
+                        <Grid VerticalAlignment="Center">
+                            <TextBlock Text="[DEBUG] Simulate Death" Foreground="#888" FontSize="11"/>
+                            <TextBlock Text="▶" Foreground="#666"
+                                       FontSize="14" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                        </Grid>
+                    </Border>
+
+                    <Border Height="12" Background="{DynamicResource ThemeBg}"/>
+
+                </StackPanel>
+
+                <!-- ═══ HP BAR TAB ═══ -->
+                <StackPanel x:Name="HpBarContent" Visibility="Collapsed">
+
+                    <Border Padding="14,7,14,4" Background="{DynamicResource ThemeBg}">
+                        <TextBlock Text="─  STYLE PRESET  ─" Foreground="{DynamicResource ThemeSectionLabel}"
+                                   FontSize="9" FontWeight="Bold" FontFamily="Consolas"
+                                   HorizontalAlignment="Center"/>
+                    </Border>
+
+                    <!-- None -->
+                    <Border Height="38" Padding="14,0" Cursor="Hand" Tag="0"
+                            MouseLeftButtonUp="HpStyle_Click" Background="{DynamicResource ThemeRowBg}">
+                        <Grid VerticalAlignment="Center">
+                            <StackPanel>
+                                <TextBlock Text="None" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource ThemeRowLabel}"/>
+                                <TextBlock Text="Disable HP bar overlay" FontSize="8" Foreground="{DynamicResource ThemeSubLabel}" Margin="0,1,0,0"/>
+                            </StackPanel>
+                            <TextBlock x:Name="HpStyleCheck0" Text="✓" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                       FontSize="14" FontWeight="Bold" Foreground="{DynamicResource ThemeTitle}" Visibility="Visible"/>
+                        </Grid>
+                    </Border>
+                    <Border Height="1" Background="{DynamicResource ThemeDivider}"/>
+
+                    <!-- League of Legends -->
+                    <Border Height="38" Padding="14,0" Cursor="Hand" Tag="1"
+                            MouseLeftButtonUp="HpStyle_Click" Background="{DynamicResource ThemeRowBg}">
+                        <Grid VerticalAlignment="Center">
+                            <StackPanel>
+                                <TextBlock Text="League of Legends" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource ThemeRowLabel}"/>
+                                <TextBlock Text="Segmented bars with HP chunks and mana" FontSize="8" Foreground="{DynamicResource ThemeSubLabel}" Margin="0,1,0,0"/>
+                            </StackPanel>
+                            <TextBlock x:Name="HpStyleCheck1" Text="✓" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                       FontSize="14" FontWeight="Bold" Foreground="{DynamicResource ThemeTitle}" Visibility="Collapsed"/>
+                        </Grid>
+                    </Border>
+                    <Border Height="1" Background="{DynamicResource ThemeDivider}"/>
+
+                    <!-- World of Warcraft -->
+                    <Border Height="38" Padding="14,0" Cursor="Hand" Tag="2"
+                            MouseLeftButtonUp="HpStyle_Click" Background="{DynamicResource ThemeRowBg}">
+                        <Grid VerticalAlignment="Center">
+                            <StackPanel>
+                                <TextBlock Text="World of Warcraft" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource ThemeRowLabel}"/>
+                                <TextBlock Text="Nameplate — glows green, yellow, then red" FontSize="8" Foreground="{DynamicResource ThemeSubLabel}" Margin="0,1,0,0"/>
+                            </StackPanel>
+                            <TextBlock x:Name="HpStyleCheck2" Text="✓" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                       FontSize="14" FontWeight="Bold" Foreground="{DynamicResource ThemeTitle}" Visibility="Collapsed"/>
+                        </Grid>
+                    </Border>
+                    <Border Height="1" Background="{DynamicResource ThemeDivider}"/>
+
+                    <!-- Fortnite -->
+                    <Border Height="38" Padding="14,0" Cursor="Hand" Tag="3"
+                            MouseLeftButtonUp="HpStyle_Click" Background="{DynamicResource ThemeRowBg}">
+                        <Grid VerticalAlignment="Center">
+                            <StackPanel>
+                                <TextBlock Text="Fortnite" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource ThemeRowLabel}"/>
+                                <TextBlock Text="Shield (blue) on top, health (yellow) below" FontSize="8" Foreground="{DynamicResource ThemeSubLabel}" Margin="0,1,0,0"/>
+                            </StackPanel>
+                            <TextBlock x:Name="HpStyleCheck3" Text="✓" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                       FontSize="14" FontWeight="Bold" Foreground="{DynamicResource ThemeTitle}" Visibility="Collapsed"/>
+                        </Grid>
+                    </Border>
+                    <Border Height="1" Background="{DynamicResource ThemeDivider}"/>
+
+                    <!-- Valorant -->
+                    <Border Height="38" Padding="14,0" Cursor="Hand" Tag="4"
+                            MouseLeftButtonUp="HpStyle_Click" Background="{DynamicResource ThemeRowBg}">
+                        <Grid VerticalAlignment="Center">
+                            <StackPanel>
+                                <TextBlock Text="Valorant" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource ThemeRowLabel}"/>
+                                <TextBlock Text="Ultra-thin precision bar with tick marks" FontSize="8" Foreground="{DynamicResource ThemeSubLabel}" Margin="0,1,0,0"/>
+                            </StackPanel>
+                            <TextBlock x:Name="HpStyleCheck4" Text="✓" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                       FontSize="14" FontWeight="Bold" Foreground="{DynamicResource ThemeTitle}" Visibility="Collapsed"/>
+                        </Grid>
+                    </Border>
+                    <Border Height="1" Background="{DynamicResource ThemeDivider}"/>
+
+                    <!-- Runescape -->
+                    <Border Height="38" Padding="14,0" Cursor="Hand" Tag="5"
+                            MouseLeftButtonUp="HpStyle_Click" Background="{DynamicResource ThemeRowBg}">
+                        <Grid VerticalAlignment="Center">
+                            <StackPanel>
+                                <TextBlock Text="Runescape" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource ThemeRowLabel}"/>
+                                <TextBlock Text="Classic bright green bar, no labels" FontSize="8" Foreground="{DynamicResource ThemeSubLabel}" Margin="0,1,0,0"/>
+                            </StackPanel>
+                            <TextBlock x:Name="HpStyleCheck5" Text="✓" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                       FontSize="14" FontWeight="Bold" Foreground="{DynamicResource ThemeTitle}" Visibility="Collapsed"/>
+                        </Grid>
+                    </Border>
+                    <Border Height="1" Background="{DynamicResource ThemeDivider}"/>
+
+                    <!-- Overwatch -->
+                    <Border Height="38" Padding="14,0" Cursor="Hand" Tag="6"
+                            MouseLeftButtonUp="HpStyle_Click" Background="{DynamicResource ThemeRowBg}">
+                        <Grid VerticalAlignment="Center">
+                            <StackPanel>
+                                <TextBlock Text="Overwatch" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource ThemeRowLabel}"/>
+                                <TextBlock Text="Chunked HP bar, gold armor strip beneath" FontSize="8" Foreground="{DynamicResource ThemeSubLabel}" Margin="0,1,0,0"/>
+                            </StackPanel>
+                            <TextBlock x:Name="HpStyleCheck6" Text="✓" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                       FontSize="14" FontWeight="Bold" Foreground="{DynamicResource ThemeTitle}" Visibility="Collapsed"/>
+                        </Grid>
+                    </Border>
+                    <Border Height="1" Background="{DynamicResource ThemeDivider}"/>
+
+                    <!-- Elden Ring -->
+                    <Border Height="38" Padding="14,0" Cursor="Hand" Tag="7"
+                            MouseLeftButtonUp="HpStyle_Click" Background="{DynamicResource ThemeRowBg}">
+                        <Grid VerticalAlignment="Center">
+                            <StackPanel>
+                                <TextBlock Text="Elden Ring" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource ThemeRowLabel}"/>
+                                <TextBlock Text="HP / FP / stamina — dark gothic look" FontSize="8" Foreground="{DynamicResource ThemeSubLabel}" Margin="0,1,0,0"/>
+                            </StackPanel>
+                            <TextBlock x:Name="HpStyleCheck7" Text="✓" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                       FontSize="14" FontWeight="Bold" Foreground="{DynamicResource ThemeTitle}" Visibility="Collapsed"/>
+                        </Grid>
+                    </Border>
+                    <Border Height="1" Background="{DynamicResource ThemeDivider}"/>
+
+                    <!-- GTA V -->
+                    <Border Height="38" Padding="14,0" Cursor="Hand" Tag="8"
+                            MouseLeftButtonUp="HpStyle_Click" Background="{DynamicResource ThemeRowBg}">
+                        <Grid VerticalAlignment="Center">
+                            <StackPanel>
+                                <TextBlock Text="GTA V" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource ThemeRowLabel}"/>
+                                <TextBlock Text="Green health + teal armor stacked bars" FontSize="8" Foreground="{DynamicResource ThemeSubLabel}" Margin="0,1,0,0"/>
+                            </StackPanel>
+                            <TextBlock x:Name="HpStyleCheck8" Text="✓" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                       FontSize="14" FontWeight="Bold" Foreground="{DynamicResource ThemeTitle}" Visibility="Collapsed"/>
+                        </Grid>
+                    </Border>
+                    <Border Height="1" Background="{DynamicResource ThemeDivider}"/>
+
+                    <!-- Minecraft -->
+                    <Border Height="38" Padding="14,0" Cursor="Hand" Tag="9"
+                            MouseLeftButtonUp="HpStyle_Click" Background="{DynamicResource ThemeRowBg}">
+                        <Grid VerticalAlignment="Center">
+                            <StackPanel>
+                                <TextBlock Text="Minecraft" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource ThemeRowLabel}"/>
+                                <TextBlock Text="Pixel heart icons that drain as HP drops" FontSize="8" Foreground="{DynamicResource ThemeSubLabel}" Margin="0,1,0,0"/>
+                            </StackPanel>
+                            <TextBlock x:Name="HpStyleCheck9" Text="✓" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                       FontSize="14" FontWeight="Bold" Foreground="{DynamicResource ThemeTitle}" Visibility="Collapsed"/>
+                        </Grid>
+                    </Border>
+                    <Border Height="1" Background="{DynamicResource ThemeDivider}"/>
+
+                    <!-- Neon Glow -->
+                    <Border Height="38" Padding="14,0" Cursor="Hand" Tag="10"
+                            MouseLeftButtonUp="HpStyle_Click" Background="{DynamicResource ThemeRowBg}">
+                        <Grid VerticalAlignment="Center">
+                            <StackPanel>
+                                <TextBlock Text="Neon Glow" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource ThemeRowLabel}"/>
+                                <TextBlock Text="Cyberpunk thin bar with a bright glow halo" FontSize="8" Foreground="{DynamicResource ThemeSubLabel}" Margin="0,1,0,0"/>
+                            </StackPanel>
+                            <TextBlock x:Name="HpStyleCheck10" Text="✓" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                       FontSize="14" FontWeight="Bold" Foreground="{DynamicResource ThemeTitle}" Visibility="Collapsed"/>
+                        </Grid>
+                    </Border>
+                    <Border Height="1" Background="{DynamicResource ThemeDivider}"/>
+
+                    <!-- Gradient -->
+                    <Border Height="38" Padding="14,0" Cursor="Hand" Tag="11"
+                            MouseLeftButtonUp="HpStyle_Click" Background="{DynamicResource ThemeRowBg}">
+                        <Grid VerticalAlignment="Center">
+                            <StackPanel>
+                                <TextBlock Text="Gradient" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource ThemeRowLabel}"/>
+                                <TextBlock Text="Smooth color shift green → yellow → red" FontSize="8" Foreground="{DynamicResource ThemeSubLabel}" Margin="0,1,0,0"/>
+                            </StackPanel>
+                            <TextBlock x:Name="HpStyleCheck11" Text="✓" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                       FontSize="14" FontWeight="Bold" Foreground="{DynamicResource ThemeTitle}" Visibility="Collapsed"/>
+                        </Grid>
+                    </Border>
+                    <Border Height="1" Background="{DynamicResource ThemeDivider}"/>
+
+                    <!-- Pixel Blocks -->
+                    <Border Height="38" Padding="14,0" Cursor="Hand" Tag="12"
+                            MouseLeftButtonUp="HpStyle_Click" Background="{DynamicResource ThemeRowBg}">
+                        <Grid VerticalAlignment="Center">
+                            <StackPanel>
+                                <TextBlock Text="Pixel Blocks" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource ThemeRowLabel}"/>
+                                <TextBlock Text="Retro chunky block segments" FontSize="8" Foreground="{DynamicResource ThemeSubLabel}" Margin="0,1,0,0"/>
+                            </StackPanel>
+                            <TextBlock x:Name="HpStyleCheck12" Text="✓" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                       FontSize="14" FontWeight="Bold" Foreground="{DynamicResource ThemeTitle}" Visibility="Collapsed"/>
+                        </Grid>
+                    </Border>
+                    <Border Height="1" Background="{DynamicResource ThemeDivider}"/>
+
+                    <!-- AQW Gold -->
+                    <Border Height="38" Padding="14,0" Cursor="Hand" Tag="13"
+                            MouseLeftButtonUp="HpStyle_Click" Background="{DynamicResource ThemeRowBg}">
+                        <Grid VerticalAlignment="Center">
+                            <StackPanel>
+                                <TextBlock Text="AQW Gold" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource ThemeRowLabel}"/>
+                                <TextBlock Text="Gold HP and blue MP to match AQW's UI" FontSize="8" Foreground="{DynamicResource ThemeSubLabel}" Margin="0,1,0,0"/>
+                            </StackPanel>
+                            <TextBlock x:Name="HpStyleCheck13" Text="✓" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                       FontSize="14" FontWeight="Bold" Foreground="{DynamicResource ThemeTitle}" Visibility="Collapsed"/>
+                        </Grid>
+                    </Border>
+                    <Border Height="1" Background="{DynamicResource ThemeSectionDiv}"/>
+
+                    <!-- Customize -->
+                    <Border Padding="14,7,14,4" Background="{DynamicResource ThemeBg}">
+                        <TextBlock Text="─  CUSTOMIZE  ─" Foreground="{DynamicResource ThemeSectionLabel}"
+                                   FontSize="9" FontWeight="Bold" FontFamily="Consolas"
+                                   HorizontalAlignment="Center"/>
+                    </Border>
+
+                    <Border Padding="14,0" Height="44" Background="{DynamicResource ThemeRowBg}">
+                        <Grid VerticalAlignment="Center">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="40"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Size" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource ThemeSubLabel}" FontSize="11" Margin="0,0,10,0"/>
+                            <Slider x:Name="HpBarScaleSlider" Grid.Column="1"
+                                    Minimum="10" Maximum="100" Value="60"
+                                    SmallChange="1" LargeChange="10"
+                                    VerticalAlignment="Center"
+                                    Style="{StaticResource ThinSlider}"
+                                    ValueChanged="HpBarScale_Changed"/>
+                            <TextBlock x:Name="HpBarScaleText" Grid.Column="2" Text="60%"
+                                       VerticalAlignment="Center" HorizontalAlignment="Right"
+                                       Foreground="{DynamicResource ThemeRowLabel}"
+                                       FontFamily="Consolas" FontSize="11"/>
+                        </Grid>
+                    </Border>
+
+                    <Border Height="12" Background="{DynamicResource ThemeBg}"/>
+
+                </StackPanel>
+
+                <!-- ═══ DAMAGE TAB ═══ -->
+                <StackPanel x:Name="DmgContent" Visibility="Collapsed">
+
+                    <Border Padding="14,7,14,4" Background="{DynamicResource ThemeBg}">
+                        <TextBlock Text="─  STYLE  ─" Foreground="{DynamicResource ThemeSectionLabel}"
+                                   FontSize="9" FontWeight="Bold" FontFamily="Consolas"
+                                   HorizontalAlignment="Center"/>
+                    </Border>
+
+                    <!-- None -->
+                    <Border Height="38" Padding="14,0" Cursor="Hand" Tag="0"
+                            MouseLeftButtonUp="DmgStyle_Click" Background="{DynamicResource ThemeRowBg}">
+                        <Grid VerticalAlignment="Center">
+                            <StackPanel>
+                                <TextBlock Text="None" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource ThemeRowLabel}"/>
+                                <TextBlock Text="No floating damage numbers" FontSize="8" Foreground="{DynamicResource ThemeSubLabel}" Margin="0,1,0,0"/>
+                            </StackPanel>
+                            <TextBlock x:Name="DmgStyleCheck0" Text="✓" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                       FontSize="14" FontWeight="Bold" Foreground="{DynamicResource ThemeTitle}" Visibility="Visible"/>
+                        </Grid>
+                    </Border>
+                    <Border Height="1" Background="{DynamicResource ThemeDivider}"/>
+
+                    <!-- Classic RPG -->
+                    <Border Height="38" Padding="14,0" Cursor="Hand" Tag="1"
+                            MouseLeftButtonUp="DmgStyle_Click" Background="{DynamicResource ThemeRowBg}">
+                        <Grid VerticalAlignment="Center">
+                            <StackPanel>
+                                <TextBlock Text="Classic RPG" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource ThemeRowLabel}"/>
+                                <TextBlock Text="Bold numbers with shadow — yellow/red/green" FontSize="8" Foreground="{DynamicResource ThemeSubLabel}" Margin="0,1,0,0"/>
+                            </StackPanel>
+                            <TextBlock x:Name="DmgStyleCheck1" Text="✓" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                       FontSize="14" FontWeight="Bold" Foreground="{DynamicResource ThemeTitle}" Visibility="Collapsed"/>
+                        </Grid>
+                    </Border>
+                    <Border Height="1" Background="{DynamicResource ThemeDivider}"/>
+
+                    <!-- Arcade -->
+                    <Border Height="38" Padding="14,0" Cursor="Hand" Tag="2"
+                            MouseLeftButtonUp="DmgStyle_Click" Background="{DynamicResource ThemeRowBg}">
+                        <Grid VerticalAlignment="Center">
+                            <StackPanel>
+                                <TextBlock Text="Arcade" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource ThemeRowLabel}"/>
+                                <TextBlock Text="Neon glow, arc flight, colour by damage size" FontSize="8" Foreground="{DynamicResource ThemeSubLabel}" Margin="0,1,0,0"/>
+                            </StackPanel>
+                            <TextBlock x:Name="DmgStyleCheck2" Text="✓" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                       FontSize="14" FontWeight="Bold" Foreground="{DynamicResource ThemeTitle}" Visibility="Collapsed"/>
+                        </Grid>
+                    </Border>
+                    <Border Height="1" Background="{DynamicResource ThemeDivider}"/>
+
+                    <!-- Minimal -->
+                    <Border Height="38" Padding="14,0" Cursor="Hand" Tag="3"
+                            MouseLeftButtonUp="DmgStyle_Click" Background="{DynamicResource ThemeRowBg}">
+                        <Grid VerticalAlignment="Center">
+                            <StackPanel>
+                                <TextBlock Text="Minimal" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource ThemeRowLabel}"/>
+                                <TextBlock Text="Tiny clean numbers, quick fade, no decoration" FontSize="8" Foreground="{DynamicResource ThemeSubLabel}" Margin="0,1,0,0"/>
+                            </StackPanel>
+                            <TextBlock x:Name="DmgStyleCheck3" Text="✓" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                       FontSize="14" FontWeight="Bold" Foreground="{DynamicResource ThemeTitle}" Visibility="Collapsed"/>
+                        </Grid>
+                    </Border>
+                    <Border Height="1" Background="{DynamicResource ThemeDivider}"/>
+
+                    <!-- League of Legends -->
+                    <Border Height="38" Padding="14,0" Cursor="Hand" Tag="4"
+                            MouseLeftButtonUp="DmgStyle_Click" Background="{DynamicResource ThemeRowBg}">
+                        <Grid VerticalAlignment="Center">
+                            <StackPanel>
+                                <TextBlock Text="League of Legends" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource ThemeRowLabel}"/>
+                                <TextBlock Text="Off-white normal, gold crit, clean drop shadow" FontSize="8" Foreground="{DynamicResource ThemeSubLabel}" Margin="0,1,0,0"/>
+                            </StackPanel>
+                            <TextBlock x:Name="DmgStyleCheck4" Text="✓" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                       FontSize="14" FontWeight="Bold" Foreground="{DynamicResource ThemeTitle}" Visibility="Collapsed"/>
+                        </Grid>
+                    </Border>
+                    <Border Height="1" Background="{DynamicResource ThemeSectionDiv}"/>
+
+                    <Border Height="12" Background="{DynamicResource ThemeBg}"/>
+
+                </StackPanel>
+
+            </StackPanel>
+        </Border>
+
+        <!-- Close button -->
+        <Button x:Name="BtnClose" Click="BtnClose_Click"
+                HorizontalAlignment="Right" VerticalAlignment="Top"
+                Width="26" Height="26" Margin="0,0,0,0"
+                Panel.ZIndex="20" Cursor="Hand">
+            <Button.Template>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Bd" CornerRadius="13" Background="#BB1111">
+                        <TextBlock Text="✕" Foreground="White" FontSize="12" FontWeight="Bold"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="#EE0000"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Button.Template>
+        </Button>
+    </Grid>
 </Window>

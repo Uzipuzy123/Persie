@@ -33,7 +33,6 @@ app.post('/stats', (req, res) => {
             if (matches.length > MAX_MATCHES) matches.pop();
         }
         delete players[data.username];
-        delete activeRooms[data.username];
     } else {
         players[data.username] = { ...data, lastSeen: Date.now() };
         // Clear pending match once player has joined the brawl map

@@ -161,4 +161,4 @@ app.post('/queue/test', (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Skua PVP Server on port ${PORT}`));
+app.listen(PORT, () => console.log(`GunLive Server on port ${PORT}`));

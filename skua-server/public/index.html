@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Skua PVP</title>
+<title>GunLive PVP</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
 * { margin:0; padding:0; box-sizing:border-box; }
@@ -565,7 +565,7 @@ main { margin-left:var(--nav-w); flex:1; padding:28px 32px; overflow-y:auto; }
             <div style="font-size:1.3rem;font-weight:800;color:var(--green);margin-bottom:8px">Match Found!</div>
             <div id="q-vs" style="font-size:1rem;color:#fff;margin-bottom:8px"></div>
             <div id="q-room" style="font-size:0.85rem;color:var(--accent);font-weight:700;margin-bottom:8px"></div>
-            <div style="font-size:0.75rem;color:var(--muted);margin-bottom:16px">Your Skua client is joining automatically...</div>
+            <div style="font-size:0.75rem;color:var(--muted);margin-bottom:16px">Your GunLive client is joining automatically...</div>
             <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
               <button onclick="go('live');document.querySelectorAll('.nav-item')[1].classList.add('active')"
                 style="background:var(--accent);color:#fff;border:none;border-radius:8px;
@@ -1063,7 +1063,7 @@ async function rejoin() {
     });
     const data = await res.json();
     if (data.ok) {
-      status.textContent   = '✓ Skua client is rejoining GunliveTest...';
+      status.textContent   = '✓ GunLive client is rejoining GunliveTest...';
       status.style.display = 'block';
     } else {
       status.textContent   = data.error || 'No active match found';

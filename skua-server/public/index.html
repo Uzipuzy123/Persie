@@ -758,7 +758,7 @@ function showToast(msg) {
 
 // Set this to your Railway URL after deploying, e.g. "https://skua-pvp.up.railway.app"
 // Leave empty to use local client only
-const CENTRAL_SERVER = 'https://skua-server-production.up.railway.app';
+const CENTRAL_SERVER = window.location.origin;
 const LOCAL_API      = 'http://localhost:7701/stats';
 
 async function fetchLive() {

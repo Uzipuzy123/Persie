@@ -565,13 +565,21 @@ main { margin-left:var(--nav-w); flex:1; padding:28px 32px; overflow-y:auto; }
             <div style="font-size:1.3rem;font-weight:800;color:var(--green);margin-bottom:8px">Match Found!</div>
             <div id="q-vs" style="font-size:1rem;color:#fff;margin-bottom:8px"></div>
             <div id="q-room" style="font-size:0.85rem;color:var(--accent);font-weight:700;margin-bottom:8px"></div>
-            <div style="font-size:0.75rem;color:var(--muted);margin-bottom:24px">Your Skua client is joining automatically...</div>
-            <button onclick="go('live');document.querySelectorAll('.nav-item')[1].classList.add('active')"
-              style="background:var(--accent);color:#fff;border:none;border-radius:8px;
-              padding:12px 32px;font-size:0.9rem;font-weight:700;cursor:pointer;font-family:inherit;
-              box-shadow:0 2px 10px rgba(249,115,22,0.3);letter-spacing:0.3px">
-              Watch Live Stats →
-            </button>
+            <div style="font-size:0.75rem;color:var(--muted);margin-bottom:16px">Your Skua client is joining automatically...</div>
+            <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+              <button onclick="go('live');document.querySelectorAll('.nav-item')[1].classList.add('active')"
+                style="background:var(--accent);color:#fff;border:none;border-radius:8px;
+                padding:12px 24px;font-size:0.9rem;font-weight:700;cursor:pointer;font-family:inherit;
+                box-shadow:0 2px 10px rgba(249,115,22,0.3);letter-spacing:0.3px">
+                Watch Live Stats →
+              </button>
+              <button id="rejoin-btn" onclick="rejoin()"
+                style="background:transparent;color:var(--accent);border:2px solid var(--accent);border-radius:8px;
+                padding:12px 24px;font-size:0.9rem;font-weight:700;cursor:pointer;font-family:inherit;letter-spacing:0.3px">
+                🔄 Rejoin
+              </button>
+            </div>
+            <div id="rejoin-status" style="font-size:0.75rem;color:var(--green);margin-top:10px;display:none"></div>
           </div>
 
         </div>
@@ -609,16 +617,16 @@ const MOCK_LIVE = [
 ];
 
 const HISTORY = [
-  { result:'win',  map:'bludrutbrawl-4821', date:'Today 14:32',    dur:'18:42', kills:22, deaths:1, dmgDealt:620000, winner:'Uzair' },
-  { result:'win',  map:'bludrutbrawl-3301', date:'Today 13:55',    dur:'12:10', kills:18, deaths:3, dmgDealt:490000, winner:'Uzair' },
-  { result:'loss', map:'bludrutbrawl-7714', date:'Yesterday 21:08',dur:'24:33', kills:9,  deaths:7, dmgDealt:270000, winner:'XxSlayer' },
-  { result:'win',  map:'bludrutbrawl-2298', date:'Yesterday 20:31',dur:'15:50', kills:21, deaths:2, dmgDealt:580000, winner:'Uzair' },
-  { result:'win',  map:'bludrutbrawl-5540', date:'Jun 27 18:44',   dur:'19:05', kills:16, deaths:4, dmgDealt:430000, winner:'Uzair' },
-  { result:'loss', map:'bludrutbrawl-1182', date:'Jun 27 17:50',   dur:'21:18', kills:11, deaths:6, dmgDealt:310000, winner:'Zarkon' },
-  { result:'win',  map:'bludrutbrawl-9031', date:'Jun 26 20:12',   dur:'16:40', kills:24, deaths:1, dmgDealt:680000, winner:'Uzair' },
-  { result:'loss', map:'bludrutbrawl-6624', date:'Jun 26 19:30',   dur:'13:55', kills:8,  deaths:9, dmgDealt:220000, winner:'NightOwl' },
-  { result:'win',  map:'bludrutbrawl-8843', date:'Jun 25 15:20',   dur:'20:30', kills:19, deaths:3, dmgDealt:510000, winner:'Uzair' },
-  { result:'win',  map:'bludrutbrawl-4410', date:'Jun 25 14:44',   dur:'17:22', kills:15, deaths:2, dmgDealt:420000, winner:'Uzair' },
+  { result:'win',  map:'GunliveTest', date:'Today 14:32',    dur:'18:42', kills:22, deaths:1, dmgDealt:620000, winner:'Uzair' },
+  { result:'win',  map:'GunliveTest', date:'Today 13:55',    dur:'12:10', kills:18, deaths:3, dmgDealt:490000, winner:'Uzair' },
+  { result:'loss', map:'GunliveTest', date:'Yesterday 21:08',dur:'24:33', kills:9,  deaths:7, dmgDealt:270000, winner:'XxSlayer' },
+  { result:'win',  map:'GunliveTest', date:'Yesterday 20:31',dur:'15:50', kills:21, deaths:2, dmgDealt:580000, winner:'Uzair' },
+  { result:'win',  map:'GunliveTest', date:'Jun 27 18:44',   dur:'19:05', kills:16, deaths:4, dmgDealt:430000, winner:'Uzair' },
+  { result:'loss', map:'GunliveTest', date:'Jun 27 17:50',   dur:'21:18', kills:11, deaths:6, dmgDealt:310000, winner:'Zarkon' },
+  { result:'win',  map:'GunliveTest', date:'Jun 26 20:12',   dur:'16:40', kills:24, deaths:1, dmgDealt:680000, winner:'Uzair' },
+  { result:'loss', map:'GunliveTest', date:'Jun 26 19:30',   dur:'13:55', kills:8,  deaths:9, dmgDealt:220000, winner:'NightOwl' },
+  { result:'win',  map:'GunliveTest', date:'Jun 25 15:20',   dur:'20:30', kills:19, deaths:3, dmgDealt:510000, winner:'Uzair' },
+  { result:'win',  map:'GunliveTest', date:'Jun 25 14:44',   dur:'17:22', kills:15, deaths:2, dmgDealt:420000, winner:'Uzair' },
 ];
 
 const PROFILES = {
@@ -808,7 +816,7 @@ async function renderHistory() {
       <div class="match-row">
         <div class="match-result win">DONE</div>
         <div class="match-info">
-          <div class="mi-title">${m.map}</div>
+          <div class="mi-title">GunliveTest</div>
           <div class="mi-sub">${date}</div>
         </div>
         <div class="match-stats">
@@ -1017,7 +1025,7 @@ function setQueueState(state, data = {}) {
     matchRoom     = data.room     || '';
     matchOpponent = data.opponent || '';
     document.getElementById('q-vs').textContent   = `You vs ${matchOpponent}`;
-    document.getElementById('q-room').textContent = matchRoom;
+    document.getElementById('q-room').textContent = 'GunliveTest';
     showOneVOne(loadUsername(), matchOpponent, matchRoom);
     resetVictory();
   }
@@ -1038,6 +1046,36 @@ async function joinQueue() {
     if (data.status === 'matched') setQueueState('matched', data);
     else setQueueState('waiting');
   } catch { alert('Could not reach server'); }
+}
+
+async function rejoin() {
+  const username = loadUsername();
+  if (!username) { alert('No username saved — queue first'); return; }
+  const btn    = document.getElementById('rejoin-btn');
+  const status = document.getElementById('rejoin-status');
+  btn.disabled    = true;
+  btn.textContent = '⏳ Rejoining...';
+  status.style.display = 'none';
+  try {
+    const res  = await fetch(CENTRAL_SERVER + '/rejoin', {
+      method: 'POST', headers: { 'Content-Type':'application/json' },
+      body: JSON.stringify({ username })
+    });
+    const data = await res.json();
+    if (data.ok) {
+      status.textContent   = '✓ Skua client is rejoining GunliveTest...';
+      status.style.display = 'block';
+    } else {
+      status.textContent   = data.error || 'No active match found';
+      status.style.color   = 'var(--muted)';
+      status.style.display = 'block';
+    }
+  } catch {
+    status.textContent   = 'Could not reach server';
+    status.style.color   = 'var(--muted)';
+    status.style.display = 'block';
+  }
+  setTimeout(() => { btn.disabled = false; btn.textContent = '🔄 Rejoin'; }, 3000);
 }
 
 async function testSolo() {

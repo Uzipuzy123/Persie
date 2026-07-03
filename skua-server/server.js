@@ -11,6 +11,7 @@ const players        = {};  // live stats keyed by username
 const matches        = [];  // completed match history
 const queue          = [];  // usernames waiting for a 1v1
 const pendingMatches = {};  // { username: { room, opponent, createdAt } }
+const activeRooms    = {};  // { username: { room, opponent } } — persists for rejoin
 const MAX_MATCHES    = 50;
 const PLAYER_TIMEOUT_MS  = 15000;
 const MATCH_EXPIRE_MS    = 120000; // pending match expires after 2 min
@@ -32,6 +33,7 @@ app.post('/stats', (req, res) => {
             if (matches.length > MAX_MATCHES) matches.pop();
         }
         delete players[data.username];
+        delete activeRooms[data.username];
     } else {
         players[data.username] = { ...data, lastSeen: Date.now() };
         // Clear pending match once player has joined the brawl map
@@ -50,7 +52,7 @@ app.post('/stats', (req, res) => {
                 });
                 if (matches.length > MAX_MATCHES) matches.pop();
             }
-            snapshot.forEach(p => delete players[p.username]);
+            snapshot.forEach(p => { delete players[p.username]; delete activeRooms[p.username]; });
         }
     }
 
@@ -92,6 +94,8 @@ app.post('/queue', (req, res) => {
         const createdAt = Date.now();
         pendingMatches[p1] = { room, opponent: p2, createdAt };
         pendingMatches[p2] = { room, opponent: p1, createdAt };
+        activeRooms[p1]    = { room, opponent: p2 };
+        activeRooms[p2]    = { room, opponent: p1 };
         const matched = pendingMatches[username];
         return res.json({ status: 'matched', room: matched.room, opponent: matched.opponent });
     }
@@ -135,6 +139,19 @@ app.post('/queue/leave', (req, res) => {
         delete pendingMatches[username];
     }
     res.json({ ok: true });
+});
+
+// ── Rejoin — re-arms pending match so Skua auto-joins again ───────
+app.post('/rejoin', (req, res) => {
+    const { username } = req.body;
+    if (!username) return res.status(400).json({ error: 'missing username' });
+
+    const key = Object.keys(activeRooms).find(k => k.toLowerCase() === username.toLowerCase());
+    if (!key) return res.status(404).json({ error: 'no active match' });
+
+    const { room, opponent } = activeRooms[key];
+    pendingMatches[key] = { room, opponent, createdAt: Date.now() };
+    res.json({ ok: true, room, opponent });
 });
 
 // ── Solo test — adds a bot so one player can test matchmaking ──────

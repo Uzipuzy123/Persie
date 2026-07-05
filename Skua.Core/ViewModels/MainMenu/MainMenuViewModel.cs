@@ -8,7 +8,7 @@ using Skua.Core.Messaging;
 namespace Skua.Core.ViewModels;
 public partial class MainMenuViewModel : ObservableRecipient
 {
-    public MainMenuViewModel(IEnumerable<MainMenuItemViewModel> mainMenuItems, AutoViewModel auto, JumpViewModel jump, IWindowService windowService)
+    public MainMenuViewModel(IEnumerable<MainMenuItemViewModel> mainMenuItems, AutoViewModel auto, JumpViewModel jump, IWindowService windowService, IScriptMap map)
     {
         StrongReferenceMessenger.Default.Register<MainMenuViewModel, AddPluginMenuItemMessage, int>(this, (int)MessageChannels.Plugins, AddPluginMenuItem);
         StrongReferenceMessenger.Default.Register<MainMenuViewModel, RemovePluginMenuItemMessage, int>(this, (int)MessageChannels.Plugins, RemovePluginMenuItem);
@@ -16,6 +16,7 @@ public partial class MainMenuViewModel : ObservableRecipient
         AutoViewModel = auto;
         JumpViewModel = jump;
         _windowService = windowService;
+        _map = map;
 
         _plugins = new(new[] { new MainMenuItemViewModel("View Plugins", new RelayCommand(ShowPlugins)) });
 
@@ -23,6 +24,7 @@ public partial class MainMenuViewModel : ObservableRecipient
     }
 
     private readonly IWindowService _windowService;
+    private readonly IScriptMap _map;
     [ObservableProperty]
     private ObservableCollection<MainMenuItemViewModel> _mainMenuItems = new();
     [ObservableProperty]
@@ -83,6 +85,12 @@ public partial class MainMenuViewModel : ObservableRecipient
     public void ShowBotWindow()
     {
         _windowService.ShowWindow<BotWindowViewModel>();
+    }
+
+    [RelayCommand]
+    public void JoinHQ()
+    {
+        Task.Run(() => _map.JoinPacket("yulgar-4311"));
     }
 
     private void ShowPlugins()

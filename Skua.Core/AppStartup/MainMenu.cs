@@ -49,6 +49,6 @@ internal class MainMenu
             new("Logs")
         };
 
-        return new(menuItems, s.GetRequiredService<AutoViewModel>(), s.GetRequiredService<JumpViewModel>(), s.GetRequiredService<IWindowService>());
+        return new(menuItems, s.GetRequiredService<AutoViewModel>(), s.GetRequiredService<JumpViewModel>(), s.GetRequiredService<IWindowService>(), s.GetRequiredService<IScriptMap>());
     }
 }

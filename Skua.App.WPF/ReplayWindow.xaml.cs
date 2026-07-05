@@ -28,10 +28,10 @@ public partial class ReplayWindow : Window
         _frames = frames;
         _killer = killer;
 
-        _speed = 0.5;
+        _speed = 1.0;
         _timer = new DispatcherTimer(DispatcherPriority.Render)
         {
-            Interval = TimeSpan.FromMilliseconds(100) // 0.5x default
+            Interval = TimeSpan.FromMilliseconds(50)
         };
         _timer.Tick += OnTick;
 
@@ -176,6 +176,12 @@ public partial class ReplayWindow : Window
         _timer.Interval = TimeSpan.FromMilliseconds(50);
     }
 
+    private void DoubleSpeed_Click(object sender, RoutedEventArgs e)
+    {
+        _speed = 2.0;
+        _timer.Interval = TimeSpan.FromMilliseconds(25);
+    }
+
     private void ScrubBar_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
     {
         if (_suppressScrub) return;
@@ -187,6 +193,12 @@ public partial class ReplayWindow : Window
     }
 
     // ── window chrome ─────────────────────────────────────────────────────────
+
+    private void Window_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Escape || e.Key == Key.Return || e.Key == Key.Space)
+            Close();
+    }
 
     private void Window_MouseDown(object sender, MouseButtonEventArgs e)
     {

@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.DependencyInjection;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
+using Skua.Core.GameProxy;
 using Skua.Core.Interfaces;
 using Skua.Core.Messaging;
 using System;
@@ -38,12 +39,11 @@ public partial class StatTrackerWindow : Window, INotifyPropertyChanged
     {
         public int Deaths;
         public long DamageTaken;
-        public long Heals;
         public int LastHP = -1;
         public bool WasDead;
     }
 
-    private const string SERVER_URL = "https://skua-server-production.up.railway.app";
+    private const string SERVER_URL = "https://gunlive.up.railway.app";
 
     private static readonly HttpClient _http = new();
 
@@ -51,24 +51,23 @@ public partial class StatTrackerWindow : Window, INotifyPropertyChanged
     private readonly IScriptPlayer _player;
     private readonly IScriptMonster _monsters;
     private readonly IScriptMap _map;
+    private readonly ICaptureProxy _proxy;
+    private readonly IScriptOption _scriptOption;
+    private readonly RoomMaskInterceptor _maskInterceptor = new();
     private readonly Timer _pollTimer;
     private readonly Timer _pushTimer;
     private readonly Timer _matchPollTimer;
-    private readonly object _snapshotLock = new();
-    private readonly Dictionary<int, int> _monsterHPSnapshot = new();
     private readonly Dictionary<string, OtherPlayerStats> _otherPlayers = new();
     private readonly object _otherPlayersLock = new();
-    private readonly HashSet<int> _availableIDs = new();
-    private readonly HashSet<int> _currentIDs = new();
-    private readonly List<int> _staleMonsterIDs = new();
     private readonly HashSet<string> _seenPlayers = new();
     private readonly List<string> _stalePlayerKeys = new();
-    private int _lastPlayerHP;
     private bool _inBrawl;
+
     private string _selfName = string.Empty;
     private bool _matchFound;
     private string _currentMap = string.Empty;
     private HttpListener? _httpListener;
+    private System.Windows.Threading.DispatcherTimer? _replayTimer;
 
     private int _deaths;
     public int Deaths { get => _deaths; private set { _deaths = value; OnPropertyChanged(); } }
@@ -84,9 +83,6 @@ public partial class StatTrackerWindow : Window, INotifyPropertyChanged
     public long DamageDealt { get => _damageDealt; private set { _damageDealt = value; OnPropertyChanged(); OnPropertyChanged(nameof(DamageDealtDisplay)); } }
     public string DamageDealtDisplay => _damageDealt.ToString("N0");
 
-    private long _healsReceived;
-    public long HealsReceived { get => _healsReceived; private set { _healsReceived = value; OnPropertyChanged(); OnPropertyChanged(nameof(HealsReceivedDisplay)); } }
-    public string HealsReceivedDisplay => _healsReceived.ToString("N0");
 
     private int _crits;
     public int Crits { get => _crits; private set { _crits = value; OnPropertyChanged(); } }
@@ -94,25 +90,45 @@ public partial class StatTrackerWindow : Window, INotifyPropertyChanged
     private int _dodges;
     public int Dodges { get => _dodges; private set { _dodges = value; OnPropertyChanged(); } }
 
+    public System.Collections.ObjectModel.ObservableCollection<string> EventLog { get; } = new();
+
+    private void LogEvent(string text)
+    {
+        Dispatcher.InvokeAsync(() =>
+        {
+            EventLog.Insert(0, $"{DateTime.Now:HH:mm:ss}  {text}");
+            while (EventLog.Count > 30) EventLog.RemoveAt(EventLog.Count - 1);
+        });
+    }
+
     public ICommand ResetDeathsCommand { get; }
     public ICommand ResetKillsCommand { get; }
     public ICommand ResetDamageTakenCommand { get; }
     public ICommand ResetDamageDealtCommand { get; }
-    public ICommand ResetHealsCommand { get; }
     public ICommand ResetCritsCommand { get; }
     public ICommand ResetDodgesCommand { get; }
     public ICommand ResetAllCommand { get; }
+
+    public ICommand InjectDeathCommand { get; }
+    public ICommand InjectKillCommand { get; }
+    public ICommand InjectDamageTakenCommand { get; }
+    public ICommand InjectDamageDealtCommand { get; }
+    public ICommand InjectCritCommand { get; }
+    public ICommand InjectDodgeCommand { get; }
 
     public StatTrackerWindow()
     {
         InitializeComponent();
         DataContext = this;
 
-        _flash = Ioc.Default.GetRequiredService<IFlashUtil>();
-        _player = Ioc.Default.GetRequiredService<IScriptPlayer>();
-        _monsters = Ioc.Default.GetRequiredService<IScriptMonster>();
-        _map = Ioc.Default.GetRequiredService<IScriptMap>();
-        _lastPlayerHP = 0;
+        _flash        = Ioc.Default.GetRequiredService<IFlashUtil>();
+        _player       = Ioc.Default.GetRequiredService<IScriptPlayer>();
+        _monsters     = Ioc.Default.GetRequiredService<IScriptMonster>();
+        _map          = Ioc.Default.GetRequiredService<IScriptMap>();
+        _proxy        = Ioc.Default.GetRequiredService<ICaptureProxy>();
+        _scriptOption = Ioc.Default.GetRequiredService<IScriptOption>();
+        _proxy.Interceptors.Add(_maskInterceptor);
+
 
         _flash.FlashCall += OnFlashCall;
         DeathReplayBuffer.Instance.Start(_flash);
@@ -120,16 +136,20 @@ public partial class StatTrackerWindow : Window, INotifyPropertyChanged
         ResetDeathsCommand = new RelayCommand(() => Deaths = 0);
         ResetKillsCommand = new RelayCommand(() => Kills = 0);
         ResetDamageTakenCommand = new RelayCommand(() => DamageTaken = 0);
-        ResetDamageDealtCommand = new RelayCommand(() => { DamageDealt = 0; lock (_snapshotLock) _monsterHPSnapshot.Clear(); });
-        ResetHealsCommand = new RelayCommand(() => HealsReceived = 0);
+        ResetDamageDealtCommand = new RelayCommand(() => DamageDealt = 0);
         ResetCritsCommand = new RelayCommand(() => Crits = 0);
         ResetDodgesCommand = new RelayCommand(() => Dodges = 0);
         ResetAllCommand = new RelayCommand(ResetAll);
 
+        InjectDeathCommand        = new RelayCommand(() => { Deaths++;           LogEvent("[TEST] +1 death"); });
+        InjectKillCommand         = new RelayCommand(() => { Kills++;            LogEvent("[TEST] +1 kill"); });
+        InjectDamageTakenCommand  = new RelayCommand(() => { DamageTaken += 1000;  LogEvent("[TEST] +1,000 dmg taken"); });
+        InjectDamageDealtCommand  = new RelayCommand(() => { DamageDealt += 1000;  LogEvent("[TEST] +1,000 dmg dealt"); });
+        InjectCritCommand         = new RelayCommand(() => { Crits++;           LogEvent("[TEST] +1 crit"); });
+        InjectDodgeCommand        = new RelayCommand(() => { Dodges++;          LogEvent("[TEST] +1 dodge"); });
+
         StrongReferenceMessenger.Default.Register<StatTrackerWindow, PlayerDeathMessage, int>(
-            this, (int)MessageChannels.GameEvents, (r, m) => r.Dispatcher.Invoke(() => r.Deaths++));
-        StrongReferenceMessenger.Default.Register<StatTrackerWindow, MonsterKilledMessage, int>(
-            this, (int)MessageChannels.GameEvents, (r, m) => r.Dispatcher.Invoke(() => r.RegisterKill()));
+            this, (int)MessageChannels.GameEvents, (r, m) => r.Dispatcher.Invoke(() => { r.Deaths++; r.LogEvent("💀 +1 death"); }));
         StrongReferenceMessenger.Default.Register<StatTrackerWindow, PvpKillMessage, int>(
             this, (int)MessageChannels.GameEvents, (r, m) => r.Dispatcher.Invoke(() => r.RegisterKill()));
         StrongReferenceMessenger.Default.Register<StatTrackerWindow, OpponentStatsMessage, int>(
@@ -143,9 +163,16 @@ public partial class StatTrackerWindow : Window, INotifyPropertyChanged
         StrongReferenceMessenger.Default.Register<StatTrackerWindow, SkillsUpdatedMessage, int>(
             this, (int)MessageChannels.GameEvents, (r, m) => r._lastSkillNames = m.Skills);
         StrongReferenceMessenger.Default.Register<StatTrackerWindow, CritHitMessage, int>(
-            this, (int)MessageChannels.GameEvents, (r, m) => r.Dispatcher.Invoke(() => r.Crits += m.Count));
+            this, (int)MessageChannels.GameEvents, (r, m) => r.Dispatcher.Invoke(() => { r.Crits += m.Count; r.LogEvent($"⚡ +{m.Count} crit"); }));
         StrongReferenceMessenger.Default.Register<StatTrackerWindow, DodgeMessage, int>(
-            this, (int)MessageChannels.GameEvents, (r, m) => r.Dispatcher.Invoke(() => r.Dodges += m.Count));
+            this, (int)MessageChannels.GameEvents, (r, m) => r.Dispatcher.Invoke(() => { r.Dodges += m.Count; r.LogEvent($"🌀 +{m.Count} dodge"); }));
+        StrongReferenceMessenger.Default.Register<StatTrackerWindow, DamageTakenMessage, int>(
+            this, (int)MessageChannels.GameEvents, (r, m) => r.Dispatcher.Invoke(() => { r.DamageTaken += m.Amount; r.LogEvent($"🔵 +{m.Amount:N0} dmg taken"); }));
+        StrongReferenceMessenger.Default.Register<StatTrackerWindow, DamageDealtMessage, int>(
+            this, (int)MessageChannels.GameEvents, (r, m) => r.Dispatcher.Invoke(() => { r.DamageDealt += m.Amount; r.LogEvent($"⚔️ +{m.Amount:N0} dmg dealt"); }));
+        StrongReferenceMessenger.Default.Register<StatTrackerWindow, LogoutMessage, int>(
+            this, (int)MessageChannels.GameEvents, (r, m) => r.Dispatcher.InvokeAsync(r.CancelPendingReplay));
+
         StrongReferenceMessenger.Default.Register<StatTrackerWindow, MapChangedMessage, int>(
             this, (int)MessageChannels.GameEvents, (r, m) =>
             {
@@ -167,6 +194,7 @@ public partial class StatTrackerWindow : Window, INotifyPropertyChanged
                     // Left brawl entirely without hitting 10 kills.
                     r._inBrawl    = false;
                     r._matchFound = false;
+                    r._scriptOption.HideRoomNumber = false;
                     _ = r.PushStatsAsync(matchEnd: true);
                 }
             });
@@ -192,10 +220,12 @@ public partial class StatTrackerWindow : Window, INotifyPropertyChanged
     private void RegisterKill()
     {
         Kills++;
+        LogEvent("☠️ +1 kill");
         if (_inBrawl && Kills >= 10)
         {
             _inBrawl    = false;
             _matchFound = false;
+            _scriptOption.HideRoomNumber = false;
             _ = PushStatsAsync(matchEnd: true);
         }
     }
@@ -216,6 +246,11 @@ public partial class StatTrackerWindow : Window, INotifyPropertyChanged
                 var room = doc.RootElement.GetProperty("room").GetString();
                 if (!string.IsNullOrEmpty(room))
                 {
+                    // Arm packet-level and AS3 UI masking before joining.
+                    var roomNum = room.Split('-').Last();
+                    _maskInterceptor.SetRoom(roomNum);
+                    _scriptOption.HideRoomNumber = true;
+
                     _matchFound = true;
                     _currentMap = room;
                     _map.JoinPacket(room);
@@ -237,7 +272,6 @@ public partial class StatTrackerWindow : Window, INotifyPropertyChanged
                 deaths    = Deaths,
                 dmgDealt  = DamageDealt,
                 dmgTaken  = DamageTaken,
-                heals     = HealsReceived,
                 crits     = Crits,
                 dodges    = Dodges,
                 opponentStats = string.IsNullOrEmpty(_opponentName) ? null : new
@@ -280,12 +314,12 @@ public partial class StatTrackerWindow : Window, INotifyPropertyChanged
                 var ctx = await _httpListener.GetContextAsync();
                 var playerList = new List<object>
                 {
-                    new { username = _player.Username ?? string.Empty, kills = Kills, deaths = Deaths, dmgDealt = DamageDealt, dmgTaken = DamageTaken, heals = HealsReceived, crits = Crits, dodges = Dodges, isSelf = true }
+                    new { username = _player.Username ?? string.Empty, kills = Kills, deaths = Deaths, dmgDealt = DamageDealt, dmgTaken = DamageTaken, crits = Crits, dodges = Dodges, isSelf = true }
                 };
                 lock (_otherPlayersLock)
                 {
                     foreach (var (name, s) in _otherPlayers)
-                        playerList.Add(new { username = name, kills = 0, deaths = s.Deaths, dmgDealt = 0L, dmgTaken = s.DamageTaken, heals = s.Heals, isSelf = false });
+                        playerList.Add(new { username = name, kills = 0, deaths = s.Deaths, dmgDealt = 0L, dmgTaken = s.DamageTaken, isSelf = false });
                 }
                 var json = JsonSerializer.Serialize(new { players = playerList });
                 var bytes = Encoding.UTF8.GetBytes(json);
@@ -313,8 +347,8 @@ public partial class StatTrackerWindow : Window, INotifyPropertyChanged
 
             if (data == null || !data.Playing)
             {
-                lock (_snapshotLock) _monsterHPSnapshot.Clear();
-                _lastPlayerHP = 0;
+
+        
                 return;
             }
 
@@ -322,69 +356,11 @@ public partial class StatTrackerWindow : Window, INotifyPropertyChanged
             if (_selfName.Length == 0 && data.Username.Length > 0)
                 _selfName = data.Username.ToLower();
 
-            if (data.InCombat)
-            {
-                // Only track monsters attackable in the player's current cell.
-                // This prevents counting damage from other players hitting monsters
-                // elsewhere on the map, or high-HP untargetable map objects.
-                _availableIDs.Clear();
-                foreach (var m in data.Monsters) if (m.InCell) _availableIDs.Add(m.MapID);
-                long newDamage = 0;
-                _currentIDs.Clear();
+            DeathReplayBuffer.Instance.UpdateHp(data.HP);
 
-                lock (_snapshotLock)
-                {
-                    foreach (var monster in data.Monsters)
-                    {
-                        // Track if attackable now, or already mid-fight in snapshot
-                        if (!_availableIDs.Contains(monster.MapID) && !_monsterHPSnapshot.ContainsKey(monster.MapID))
-                            continue;
-
-                        _currentIDs.Add(monster.MapID);
-                        if (_monsterHPSnapshot.TryGetValue(monster.MapID, out int lastHP))
-                        {
-                            if (monster.HP < lastHP && lastHP > 0)
-                                newDamage += lastHP - monster.HP;
-                        }
-                        _monsterHPSnapshot[monster.MapID] = monster.HP;
-                    }
-
-                    _staleMonsterIDs.Clear();
-                    foreach (var key in _monsterHPSnapshot.Keys)
-                        if (!_currentIDs.Contains(key)) _staleMonsterIDs.Add(key);
-                    foreach (var key in _staleMonsterIDs)
-                    {
-                        // Monster died between ticks — count its remaining HP as damage dealt
-                        if (_monsterHPSnapshot[key] > 0)
-                            newDamage += _monsterHPSnapshot[key];
-                        _monsterHPSnapshot.Remove(key);
-                    }
-                }
-
-                if (newDamage > 0)
-                    Dispatcher.Invoke(() => DamageDealt += newDamage);
-            }
-            else
-            {
-                lock (_snapshotLock) _monsterHPSnapshot.Clear();
-            }
-
-            // Player HP changes: heals and damage taken
-            int currentHP = data.HP;
-            if (_lastPlayerHP > 0 && currentHP > 0)
-            {
-                if (currentHP > _lastPlayerHP)
-                    Dispatcher.Invoke(() => HealsReceived += currentHP - _lastPlayerHP);
-                else if (currentHP < _lastPlayerHP)
-                    Dispatcher.Invoke(() => DamageTaken += _lastPlayerHP - currentHP);
-            }
-            _lastPlayerHP = currentHP;
-            DeathReplayBuffer.Instance.UpdateHp(currentHP);
-
-            // Track other players — all map players in brawl, cell-only otherwise
+            // Track other players for scoreboard / death counting (damage dealt now via DamageDealtMessage)
             {
                 var selfName = _selfName;
-                long pvpDamage = 0;
                 lock (_otherPlayersLock)
                 {
                     _seenPlayers.Clear();
@@ -400,23 +376,8 @@ public partial class StatTrackerWindow : Window, INotifyPropertyChanged
                         }
                         bool wasDead = t.WasDead;
                         bool isDead = p.State == 0 || p.HP == 0;
-                        if (!wasDead && isDead)
-                            t.Deaths++;
+                        if (!wasDead && isDead) t.Deaths++;
                         t.WasDead = isDead;
-                        if (t.LastHP > 0 && p.HP > 0)
-                        {
-                            if (p.HP > t.LastHP) t.Heals += p.HP - t.LastHP;
-                            else if (p.HP < t.LastHP)
-                            {
-                                long delta = t.LastHP - p.HP;
-                                t.DamageTaken += delta;
-                                if (_inBrawl) pvpDamage += delta;
-                            }
-                        }
-                        else if (_inBrawl && t.LastHP > 0 && p.HP == 0 && !wasDead)
-                        {
-                            pvpDamage += t.LastHP;
-                        }
                         t.LastHP = p.HP;
                     }
                     _stalePlayerKeys.Clear();
@@ -425,8 +386,6 @@ public partial class StatTrackerWindow : Window, INotifyPropertyChanged
                     foreach (var gone in _stalePlayerKeys)
                         _otherPlayers.Remove(gone);
                 }
-                if (pvpDamage > 0)
-                    Dispatcher.Invoke(() => DamageDealt += pvpDamage);
             }
         }
         catch { }
@@ -443,12 +402,11 @@ public partial class StatTrackerWindow : Window, INotifyPropertyChanged
         Kills = 0;
         DamageTaken = 0;
         DamageDealt = 0;
-        HealsReceived = 0;
         Crits = 0;
         Dodges = 0;
+
         _opponentName = string.Empty;
         _opponentCritChance = 0; _opponentDodgeStat = 0; _opponentDamageOut = 0; _opponentAP = 0;
-        lock (_snapshotLock) _monsterHPSnapshot.Clear();
         lock (_otherPlayersLock) _otherPlayers.Clear();
     }
 
@@ -487,19 +445,29 @@ public partial class StatTrackerWindow : Window, INotifyPropertyChanged
         // DispatcherTimer keeps the tick on the UI thread — Task.Delay continuation doesn't
         Dispatcher.InvokeAsync(() =>
         {
-            var t = new System.Windows.Threading.DispatcherTimer
+            CancelPendingReplay();
+            _replayTimer = new System.Windows.Threading.DispatcherTimer
             {
                 Interval = TimeSpan.FromMilliseconds(1200)
             };
-            t.Tick += (s, e) =>
+            _replayTimer.Tick += (s, e) =>
             {
-                t.Stop();
+                _replayTimer.Stop();
+                _replayTimer = null;
                 var frames = DeathReplayBuffer.Instance.GetSnapshot();
                 if (frames.Length == 0) return;
                 new ReplayWindow(frames, DeathReplayBuffer.Instance.LastKiller).Show();
             };
-            t.Start();
+            _replayTimer.Start();
         });
+    }
+
+    private void CancelPendingReplay()
+    {
+        if (_replayTimer == null) return;
+        _replayTimer.Stop();
+        _replayTimer = null;
+        DeathReplayBuffer.Instance.Resume();
     }
 
     protected override void OnClosed(EventArgs e)

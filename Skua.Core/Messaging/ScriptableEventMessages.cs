@@ -33,6 +33,8 @@ public sealed record ShowStatTrackerMessage(bool Show);
 public sealed record PvpKillMessage();
 public sealed record CritHitMessage(int Count);
 public sealed record DodgeMessage(int Count);
+public sealed record DamageTakenMessage(int Amount);
+public sealed record DamageDealtMessage(long Amount);
 public sealed record SkillsUpdatedMessage(System.Collections.Generic.Dictionary<string, string> Skills);
 public sealed record SkillActionMessage(string ActRef, long Damage, bool IsCrit, bool IsKill, bool IsMiss);
 public sealed record OpponentStatsMessage(string Username, double CritChance, double DodgeStat, double DamageOut, int AbilityPower);

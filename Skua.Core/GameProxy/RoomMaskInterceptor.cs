@@ -28,7 +28,7 @@ public class RoomMaskInterceptor : IInterceptor
         if (outbound) return;
 
         if (_namePattern.IsMatch(message.Content))
-            message.Content = _namePattern.Replace(message.Content, "bludrutbrawl-????");
+            message.Content = _namePattern.Replace(message.Content, "GunliveTest");
 
         if (_roomNumPattern != null && _roomNumPattern.IsMatch(message.Content))
             message.Content = _roomNumPattern.Replace(message.Content, "????");

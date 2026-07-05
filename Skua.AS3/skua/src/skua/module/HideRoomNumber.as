@@ -20,7 +20,7 @@ package skua.module
 				if (_pattern.test(s))
 				{
 					_pattern.lastIndex = 0;
-					tf.text = s.replace(_pattern, "bludrutbrawl-????");
+					tf.text = s.replace(_pattern, "GunliveTest");
 				}
 				_pattern.lastIndex = 0;
 			}

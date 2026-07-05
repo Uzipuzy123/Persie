@@ -55,7 +55,7 @@ public partial class BBJoinWindow : Window
         Task.Run(() => _map.JoinPacket(roomName));
 
         // Confirm joined state in the UI — number stays hidden.
-        MaskedRoomLabel.Text       = "bludrutbrawl-????";
+        MaskedRoomLabel.Text       = "GunliveTest";
         MaskedRoomLabel.Foreground = new SolidColorBrush(Color.FromRgb(0x23, 0xA5, 0x5A));
         StatusDot.Fill             = new SolidColorBrush(Color.FromRgb(0x23, 0xA5, 0x5A));
         RoomNumberBox.Clear();

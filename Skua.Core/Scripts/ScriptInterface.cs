@@ -56,6 +56,7 @@ public class ScriptInterface : IScriptInterface, IScriptInterfaceManager, IDispo
     public ICaptureProxy GameProxy { get; }
     public IScriptOptionContainer? Config => Manager.Config;
     public Random Random { get; set; } = new Random();
+    private int _lastCtHp = 0;
 
     public ScriptInterface(
         ILogService logger,
@@ -378,15 +379,62 @@ public class ScriptInterface : IScriptInterface, IScriptInterfaceManager, IDispo
                             Messenger.Send<MapChangedMessage, int>(new(Convert.ToString(data.strMapName)), (int)MessageChannels.GameEvents);
                             Map.FilePath = Convert.ToString(data.strMapFileName);
                             Map.LastMap = Convert.ToString(data.strMapName);
+                            _lastCtHp = 0;
                             break;
                         case "ct":
+                            // Determine if a player (not monster) was the attacker this tick
+                            bool pvpAttack = false;
+                            if (data.sarsa is not null)
+                            {
+                                foreach (var sv in data.sarsa)
+                                {
+                                    string? svInf = (string?)sv?.cInf;
+                                    if (svInf?.StartsWith("p:") == true) { pvpAttack = true; break; }
+                                }
+                            }
+
                             dynamic p = data.p?[Player.Username.ToLower()]!;
-                            if (p is not null && p.intHP == 0)
+                            if (p is not null && p.intHP == 0 && pvpAttack)
                             {
                                 Stats.Deaths++;
                                 Messenger.Send<PlayerDeathMessage, int>((int)MessageChannels.GameEvents);
                                 break;
                             }
+
+                            // Damage taken: sum a[].hp from player sarsa when our HP appears in data.p (means we were the target)
+                            try
+                            {
+                                dynamic ctSelf = data.p?[Player.Username.ToLower()];
+                                if (ctSelf != null)
+                                {
+                                    int ctHp = (int)(ctSelf.intHP ?? 0);
+                                    if (pvpAttack && ctHp > 0)
+                                    {
+                                        int totalDmgTaken = 0;
+                                        foreach (var sv in data.sarsa)
+                                        {
+                                            if (sv is null) continue;
+                                            string? svCInf = (string?)sv.cInf;
+                                            if (svCInf?.StartsWith("p:") != true) continue;
+                                            if (sv.a is null) continue;
+                                            foreach (var act in sv.a)
+                                            {
+                                                if (act is null) continue;
+                                                string? aType = (string?)act.type;
+                                                if (aType == "hit" || aType == "crit")
+                                                {
+                                                    int actHp = (int)(act.hp ?? 0);
+                                                    if (actHp > 0) totalDmgTaken += actHp;
+                                                }
+                                            }
+                                        }
+                                        if (totalDmgTaken > 0)
+                                            Messenger.Send<DamageTakenMessage, int>(new(totalDmgTaken), (int)MessageChannels.GameEvents);
+                                    }
+                                }
+                            }
+                            catch { }
+
                             // PvP kill: check if any opponent in this combat packet has 0 HP
                             if (data.p is Newtonsoft.Json.Linq.JObject pvpPlayers)
                             {
@@ -447,10 +495,15 @@ public class ScriptInterface : IScriptInterface, IScriptInterfaceManager, IDispo
                                     catch { }
                                 }
                             }
-                            // Crits + skill breakdown: sarsa[].a[] where sarsa.cInf starts with "p:"
+                            // Crits + damage dealt + skill breakdown: sarsa[].a[] where sarsa.cInf starts with "p:"
+                            // selfHp == 0 means OUR HP wasn't updated → we were the attacker, not the target
                             if (data.sarsa is not null)
                             {
                                 int critCount = 0;
+                                long pvpDmgDealt = 0;
+                                dynamic ctSelfSarsa = data.p?[Player.Username.ToLower()];
+                                int selfHp = ctSelfSarsa != null ? (int)(ctSelfSarsa.intHP ?? 0) : 0;
+                                bool weAttacked = selfHp == 0;
                                 foreach (var sarsa in data.sarsa)
                                 {
                                     if (sarsa is null) continue;
@@ -469,7 +522,13 @@ public class ScriptInterface : IScriptInterface, IScriptInterfaceManager, IDispo
                                                 long    dmg     = (long)(action.hp ?? 0);
                                                 bool    isCrit  = aType == "crit";
                                                 bool    isMiss  = aType == "miss";
-                                                if (isCrit) critCount++;
+                                                bool    pvpTarget = tInf?.StartsWith("p:") == true;
+                                                // Only count crits/damage when target is a player and we were the attacker
+                                                if (weAttacked && pvpTarget)
+                                                {
+                                                    if (isCrit) critCount++;
+                                                    if (!isMiss && dmg > 0) pvpDmgDealt += dmg;
+                                                }
                                                 // Kill if target ended at 0 HP in this same packet
                                                 bool isKill = false;
                                                 if (!isMiss && tInf is not null)
@@ -508,18 +567,31 @@ public class ScriptInterface : IScriptInterface, IScriptInterfaceManager, IDispo
                                 }
                                 if (critCount > 0)
                                     Messenger.Send<CritHitMessage, int>(new(critCount), (int)MessageChannels.GameEvents);
+                                if (pvpDmgDealt > 0)
+                                    Messenger.Send<DamageDealtMessage, int>(new(pvpDmgDealt), (int)MessageChannels.GameEvents);
                             }
-                            // Dodges are in sara[].actionResult.type == "dodge"
-                            if (data.sara is not null)
+                            // PvP dodges: in sarsa[].a[].type == "dodge" where we are the target
+                            // (cInf starts with "p:" = player attacker; tInf = "p:ourUsername" = we are being hit)
+                            if (data.sarsa is not null)
                             {
                                 int dodgeCount = 0;
-                                foreach (var sara in data.sara)
+                                string selfTarget = "p:" + Player.ID;
+                                foreach (var sarsa in data.sarsa)
                                 {
-                                    if (sara is null) continue;
+                                    if (sarsa is null) continue;
                                     try
                                     {
-                                        string? aType = (string?)sara.actionResult?.type;
-                                        if (aType == "dodge") dodgeCount++;
+                                        string? cInf = (string?)sarsa.cInf;
+                                        if (cInf?.StartsWith("p:") != true) continue;
+                                        if (sarsa.a is null) continue;
+                                        foreach (var action in sarsa.a)
+                                        {
+                                            if (action is null) continue;
+                                            string? aType = (string?)action.type;
+                                            string? tInf  = (string?)action.tInf;
+                                            if (aType == "dodge" && tInf == selfTarget)
+                                                dodgeCount++;
+                                        }
                                     }
                                     catch { }
                                 }

@@ -15,9 +15,12 @@ public partial class QualityWindow : Window
     private static readonly int[] _colorPresets = { 0xFF3333, 0xFF8833, 0xFFEE22, 0x22FF55, 0x22FFEE, 0x3388FF, 0xCC44FF, 0xFFFFFF };
     private static readonly System.Windows.Shapes.Ellipse[] _colorDots = new System.Windows.Shapes.Ellipse[8];
 
-    private const double PVP_HEIGHT   = 928;
-    private const double HPBAR_HEIGHT = 760;
-    private const double DMG_HEIGHT   = 350;
+    private const double PVP_HEIGHT       = 670;
+    private const double HPBAR_HEIGHT     = 760;
+    private const double VIGNETTE_HEIGHT  = 640;
+    private const double KILLFLASH_HEIGHT = 980;
+    private const double OUTLINE_HEIGHT   = 830;
+    private const double HITFLASH_HEIGHT  = 900;
 
     private bool _active;
     private bool _clearFilters;
@@ -31,7 +34,6 @@ public partial class QualityWindow : Window
     private bool _killFeed;
     private int  _hpBarScale;
     private int  _hpBarStyle;
-    private int  _dmgStyle;
     private int  _activeTab = 0;
     private bool _scoreboardOverlay;
     private bool _debugPanel;
@@ -39,9 +41,17 @@ public partial class QualityWindow : Window
     private bool _skuaButton;
     private bool _killStreak;
     private bool _lowHPFlash;
-    private int _highlightColor;
-    private int _highlightIntensity;
-    private int _colorPresetIndex;
+    private bool _revengeKill;
+    private int  _myHitStyle;
+    private int  _enemyHitStyle;
+    private int  _highlightColor;
+    private int  _highlightIntensity;
+    private int  _colorPresetIndex;
+    private int  _vignetteStyle;
+    private int  _killFlashScreenStyle;
+    private int  _killFlashPlayerStyle;
+    private int  _selfOutlineColor;
+    private int  _enemyOutlineColor;
 
     public QualityWindow()
     {
@@ -49,28 +59,35 @@ public partial class QualityWindow : Window
         _flash        = Ioc.Default.GetRequiredService<IFlashUtil>();
         _scriptOption = Ioc.Default.GetRequiredService<IScriptOption>();
 
-        _clearFilters     = _scriptOption.ClearFilters;
-        _stopAnimations   = _scriptOption.StopAnimations;
-        _killParticles    = _scriptOption.KillParticles;
-        _muteGame         = _scriptOption.MuteGame;
-        _disableShadows   = _scriptOption.DisableShadows;
-        _highlightEnemies = _scriptOption.HighlightEnemies;
-        _enemyHPOverlay   = _scriptOption.EnemyHPOverlay;
-        _miniMap          = _scriptOption.MiniMap;
+        _clearFilters       = _scriptOption.ClearFilters;
+        _stopAnimations     = _scriptOption.StopAnimations;
+        _killParticles      = _scriptOption.KillParticles;
+        _muteGame           = _scriptOption.MuteGame;
+        _disableShadows     = _scriptOption.DisableShadows;
+        _highlightEnemies   = _scriptOption.HighlightEnemies;
+        _enemyHPOverlay     = _scriptOption.EnemyHPOverlay;
+        _miniMap            = _scriptOption.MiniMap;
         _killFeed           = _scriptOption.KillFeed;
         _hpBarStyle         = _scriptOption.PlayerHPBarsStyle;
         _hpBarScale         = _scriptOption.PlayerHPBarsScale;
-        _dmgStyle           = _scriptOption.PlayerDmgStyle;
         _scoreboardOverlay  = _scriptOption.ScoreboardOverlay;
         _debugPanel         = _scriptOption.DebugPanel;
         _optimizeMap        = _scriptOption.OptimizeMap;
         _skuaButton         = _scriptOption.SkuaSettingsButton;
         _killStreak         = _scriptOption.KillStreakAnnouncer;
         _lowHPFlash         = _scriptOption.LowHPFlash;
+        _revengeKill        = _scriptOption.RevengeKill;
+        _myHitStyle         = _scriptOption.MyHitStyle;
+        _enemyHitStyle      = _scriptOption.EnemyHitStyle;
         _highlightColor     = _scriptOption.HighlightColor;
         _highlightIntensity = _scriptOption.HighlightIntensity;
         _colorPresetIndex   = Array.IndexOf(_colorPresets, _highlightColor);
         if (_colorPresetIndex < 0) _colorPresetIndex = 0;
+        _vignetteStyle       = _scriptOption.VignetteStyle;
+        _killFlashScreenStyle = _scriptOption.KillFlashScreenStyle;
+        _killFlashPlayerStyle = _scriptOption.KillFlashPlayerStyle;
+        _selfOutlineColor    = _scriptOption.SelfOutlineColor;
+        _enemyOutlineColor   = _scriptOption.EnemyOutlineColor;
 
         RefreshArrow(FilterToggleText,        _clearFilters);
         RefreshArrow(StopAnimToggleText,      _stopAnimations);
@@ -83,10 +100,11 @@ public partial class QualityWindow : Window
         RefreshArrow(KillFeedToggleText,      _killFeed);
         RefreshArrow(ScoreboardToggleText,    _scoreboardOverlay);
         RefreshArrow(DebugPanelToggleText,    _debugPanel);
-        RefreshArrow(OptimizeMapToggleText,    _optimizeMap);
-        RefreshArrow(SkuaBtnToggleText,        _skuaButton);
-        RefreshArrow(KillStreakToggleText,     _killStreak);
-        RefreshArrow(LowHPFlashToggleText,    _lowHPFlash);
+        RefreshArrow(OptimizeMapToggleText,   _optimizeMap);
+        RefreshArrow(SkuaBtnToggleText,       _skuaButton);
+        RefreshArrow(KillStreakToggleText,    _killStreak);
+        RefreshArrow(LowHPFlashToggleText,   _lowHPFlash);
+        RefreshArrow(RevengeKillToggleText,  _revengeKill);
         RefreshGoBeyond(_active);
 
         _colorDots[0] = ColorDot0; _colorDots[1] = ColorDot1; _colorDots[2] = ColorDot2; _colorDots[3] = ColorDot3;
@@ -95,17 +113,30 @@ public partial class QualityWindow : Window
         HighlightConfigPanel.Visibility = _highlightEnemies ? Visibility.Visible : Visibility.Collapsed;
         RefreshColorDots();
 
-        HpBarScaleSlider.Value = _hpBarScale; // fires HpBarScale_Changed → ApplyHPBarScale
+        HpBarScaleSlider.Value = _hpBarScale;
         HpBarScaleText.Text    = $"{_hpBarScale}%";
         RefreshStyleChecks();
-        RefreshDmgChecks();
+        RefreshVignetteChecks();
+        RefreshKillFlashScreenChecks();
+        RefreshKillFlashPlayerChecks();
+        RefreshSelfOutlineChecks();
+        RefreshEnemyOutlineChecks();
+        RefreshEnemyHitChecks();
+        RefreshMyHitChecks();
         RefreshTabs();
 
-        // Restore styles to Flash (AS3 state resets on each Flash load)
         if (_hpBarStyle > 0)
             _flash.Call("setPlayerHPBarsStyle", (_hpBarStyle - 1).ToString());
-        if (_dmgStyle > 0)
-            _flash.Call("setPlayerDmgStyle", (_dmgStyle - 1).ToString());
+        if (_vignetteStyle > 0)
+            _flash.Call("setVignetteStyle", _vignetteStyle.ToString());
+        _flash.Call("setKillFlashScreenStyle", _killFlashScreenStyle.ToString());
+        _flash.Call("setKillFlashPlayerStyle", _killFlashPlayerStyle.ToString());
+        if (_selfOutlineColor > 0)
+            _flash.Call("setSelfOutlineColor", _selfOutlineColor.ToString());
+        if (_enemyOutlineColor > 0)
+            _flash.Call("setEnemyOutlineColor", _enemyOutlineColor.ToString());
+        _flash.Call("setEnemyHitStyle", _enemyHitStyle.ToString());
+        _flash.Call("setMyHitStyle",    _myHitStyle.ToString());
     }
 
     private void Window_MouseDown(object sender, MouseButtonEventArgs e)
@@ -118,17 +149,34 @@ public partial class QualityWindow : Window
 
     // ── TAB SWITCHING ─────────────────────────────────────────────────────────
 
-    private void TabPvp_Click(object sender, MouseButtonEventArgs e)    => SwitchTab(0);
-    private void TabHpBar_Click(object sender, MouseButtonEventArgs e)  => SwitchTab(1);
-    private void TabDmg_Click(object sender, MouseButtonEventArgs e)    => SwitchTab(2);
+    private void TabPvp_Click(object sender, MouseButtonEventArgs e)       => SwitchTab(0);
+    private void TabHpBar_Click(object sender, MouseButtonEventArgs e)     => SwitchTab(1);
+    private void TabHitFlash_Click(object sender, MouseButtonEventArgs e)  => SwitchTab(2);
+    private void TabVignette_Click(object sender, MouseButtonEventArgs e)  => SwitchTab(3);
+    private void TabKillFlash_Click(object sender, MouseButtonEventArgs e) => SwitchTab(4);
+    private void TabOutline_Click(object sender, MouseButtonEventArgs e)   => SwitchTab(5);
 
     private void SwitchTab(int tab)
     {
         _activeTab = tab;
-        PvpContent.Visibility   = tab == 0 ? Visibility.Visible : Visibility.Collapsed;
-        HpBarContent.Visibility = tab == 1 ? Visibility.Visible : Visibility.Collapsed;
-        DmgContent.Visibility   = tab == 2 ? Visibility.Visible : Visibility.Collapsed;
-        Height = tab == 0 ? PVP_HEIGHT : (tab == 1 ? HPBAR_HEIGHT : DMG_HEIGHT);
+        PvpContent.Visibility        = tab == 0 ? Visibility.Visible : Visibility.Collapsed;
+        HpBarContent.Visibility      = tab == 1 ? Visibility.Visible : Visibility.Collapsed;
+        HitFlashContent.Visibility   = tab == 2 ? Visibility.Visible : Visibility.Collapsed;
+        VignetteContent.Visibility   = tab == 3 ? Visibility.Visible : Visibility.Collapsed;
+        KillFlashContent.Visibility  = tab == 4 ? Visibility.Visible : Visibility.Collapsed;
+        OutlineContent.Visibility    = tab == 5 ? Visibility.Visible : Visibility.Collapsed;
+
+        Height = tab switch
+        {
+            0 => PVP_HEIGHT,
+            1 => HPBAR_HEIGHT,
+            2 => HITFLASH_HEIGHT,
+            3 => VIGNETTE_HEIGHT,
+            4 => KILLFLASH_HEIGHT,
+            5 => OUTLINE_HEIGHT,
+            _ => PVP_HEIGHT
+        };
+
         RefreshTabs();
     }
 
@@ -138,12 +186,18 @@ public partial class QualityWindow : Window
                   ?? new SolidColorBrush(Color.FromRgb(0xC8, 0xA0, 0x40));
         var off = new SolidColorBrush(Color.FromRgb(0x55, 0x55, 0x55));
 
-        TabPvpBorder.BorderBrush   = _activeTab == 0 ? on : Brushes.Transparent;
-        TabPvpText.Foreground      = _activeTab == 0 ? on : (Brush)off;
-        TabHpBarBorder.BorderBrush = _activeTab == 1 ? on : Brushes.Transparent;
-        TabHpBarText.Foreground    = _activeTab == 1 ? on : (Brush)off;
-        TabDmgBorder.BorderBrush   = _activeTab == 2 ? on : Brushes.Transparent;
-        TabDmgText.Foreground      = _activeTab == 2 ? on : (Brush)off;
+        TabPvpBorder.BorderBrush        = _activeTab == 0 ? on : Brushes.Transparent;
+        TabPvpText.Foreground           = _activeTab == 0 ? on : (Brush)off;
+        TabHpBarBorder.BorderBrush      = _activeTab == 1 ? on : Brushes.Transparent;
+        TabHpBarText.Foreground         = _activeTab == 1 ? on : (Brush)off;
+        TabHitFlashBorder.BorderBrush   = _activeTab == 2 ? on : Brushes.Transparent;
+        TabHitFlashText.Foreground      = _activeTab == 2 ? on : (Brush)off;
+        TabVignetteBorder.BorderBrush   = _activeTab == 3 ? on : Brushes.Transparent;
+        TabVignetteText.Foreground      = _activeTab == 3 ? on : (Brush)off;
+        TabKillFlashBorder.BorderBrush  = _activeTab == 4 ? on : Brushes.Transparent;
+        TabKillFlashText.Foreground     = _activeTab == 4 ? on : (Brush)off;
+        TabOutlineBorder.BorderBrush    = _activeTab == 5 ? on : Brushes.Transparent;
+        TabOutlineText.Foreground       = _activeTab == 5 ? on : (Brush)off;
     }
 
     // ── HP BAR STYLE ──────────────────────────────────────────────────────────
@@ -158,16 +212,13 @@ public partial class QualityWindow : Window
     {
         _hpBarStyle = id;
         _scriptOption.PlayerHPBarsStyle = id;
-
         bool enable = id > 0;
         _scriptOption.PlayerHPBars = enable;
-
         if (enable)
         {
-            _flash.Call("setPlayerHPBarsStyle", (id - 1).ToString()); // 0-based in AS3
+            _flash.Call("setPlayerHPBarsStyle", (id - 1).ToString());
             ApplyHPBarScale();
         }
-
         RefreshStyleChecks();
     }
 
@@ -191,47 +242,171 @@ public partial class QualityWindow : Window
 
     private void HpBarScale_Changed(object sender, RoutedPropertyChangedEventArgs<double> e)
     {
-        if (_scriptOption == null) return; // fires during InitializeComponent before DI is wired
+        if (_scriptOption == null) return;
         _hpBarScale = (int)e.NewValue;
         _scriptOption.PlayerHPBarsScale = _hpBarScale;
         HpBarScaleText.Text = $"{_hpBarScale}%";
         ApplyHPBarScale();
     }
 
-    private void ApplyHPBarScale()
-    {
-        _flash.Call("setPlayerHPBarsScale", _hpBarScale.ToString());
-    }
+    private void ApplyHPBarScale() => _flash.Call("setPlayerHPBarsScale", _hpBarScale.ToString());
 
-    // ── DAMAGE NUMBER STYLE ───────────────────────────────────────────────────
+    // ── VIGNETTE STYLE ────────────────────────────────────────────────────────
 
-    private void DmgStyle_Click(object sender, MouseButtonEventArgs e)
+    private void VignetteStyle_Click(object sender, MouseButtonEventArgs e)
     {
         if (sender is FrameworkElement fe && fe.Tag is string tag && int.TryParse(tag, out int id))
-            SetDmgStyle(id);
+            SetVignetteStyle(id);
     }
 
-    private void SetDmgStyle(int id)
+    private void SetVignetteStyle(int id)
     {
-        _dmgStyle = id;
-        _scriptOption.PlayerDmgStyle = id;
-
-        bool enable = id > 0;
-        _scriptOption.PlayerDmgNumbers = enable;
-
-        if (enable)
-            _flash.Call("setPlayerDmgStyle", (id - 1).ToString()); // 0-based in AS3
-
-        RefreshDmgChecks();
+        _vignetteStyle = id;
+        _scriptOption.VignetteStyle = id;
+        _scriptOption.Vignette = id > 0;
+        if (id > 0)
+            _flash.Call("setVignetteStyle", id.ToString());
+        RefreshVignetteChecks();
     }
 
-    private void RefreshDmgChecks()
+    private void RefreshVignetteChecks()
     {
-        DmgStyleCheck0.Visibility = _dmgStyle == 0 ? Visibility.Visible : Visibility.Collapsed;
-        DmgStyleCheck1.Visibility = _dmgStyle == 1 ? Visibility.Visible : Visibility.Collapsed;
-        DmgStyleCheck2.Visibility = _dmgStyle == 2 ? Visibility.Visible : Visibility.Collapsed;
-        DmgStyleCheck3.Visibility = _dmgStyle == 3 ? Visibility.Visible : Visibility.Collapsed;
-        DmgStyleCheck4.Visibility = _dmgStyle == 4 ? Visibility.Visible : Visibility.Collapsed;
+        VignetteCheck0.Visibility  = _vignetteStyle == 0  ? Visibility.Visible : Visibility.Collapsed;
+        VignetteCheck1.Visibility  = _vignetteStyle == 1  ? Visibility.Visible : Visibility.Collapsed;
+        VignetteCheck2.Visibility  = _vignetteStyle == 2  ? Visibility.Visible : Visibility.Collapsed;
+        VignetteCheck3.Visibility  = _vignetteStyle == 3  ? Visibility.Visible : Visibility.Collapsed;
+        VignetteCheck4.Visibility  = _vignetteStyle == 4  ? Visibility.Visible : Visibility.Collapsed;
+        VignetteCheck5.Visibility  = _vignetteStyle == 5  ? Visibility.Visible : Visibility.Collapsed;
+        VignetteCheck6.Visibility  = _vignetteStyle == 6  ? Visibility.Visible : Visibility.Collapsed;
+        VignetteCheck7.Visibility  = _vignetteStyle == 7  ? Visibility.Visible : Visibility.Collapsed;
+        VignetteCheck8.Visibility  = _vignetteStyle == 8  ? Visibility.Visible : Visibility.Collapsed;
+        VignetteCheck9.Visibility  = _vignetteStyle == 9  ? Visibility.Visible : Visibility.Collapsed;
+        VignetteCheck10.Visibility = _vignetteStyle == 10 ? Visibility.Visible : Visibility.Collapsed;
+        VignetteCheck11.Visibility = _vignetteStyle == 11 ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    // ── KILL FLASH ────────────────────────────────────────────────────────────
+
+    private void KillFlashScreen_Click(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is FrameworkElement fe && fe.Tag is string tag && int.TryParse(tag, out int id))
+            SetKillFlashScreenStyle(id);
+    }
+
+    private void SetKillFlashScreenStyle(int id)
+    {
+        _killFlashScreenStyle = id;
+        _scriptOption.KillFlashScreenStyle = id;
+        _scriptOption.KillFlash = _killFlashScreenStyle > 0 || _killFlashPlayerStyle > 0;
+        _flash.Call("setKillFlashScreenStyle", id.ToString());
+        RefreshKillFlashScreenChecks();
+    }
+
+    private void RefreshKillFlashScreenChecks()
+    {
+        KillFlashScreenCheck0.Visibility  = _killFlashScreenStyle == 0  ? Visibility.Visible : Visibility.Collapsed;
+        KillFlashScreenCheck1.Visibility  = _killFlashScreenStyle == 1  ? Visibility.Visible : Visibility.Collapsed;
+        KillFlashScreenCheck2.Visibility  = _killFlashScreenStyle == 2  ? Visibility.Visible : Visibility.Collapsed;
+        KillFlashScreenCheck3.Visibility  = _killFlashScreenStyle == 3  ? Visibility.Visible : Visibility.Collapsed;
+        KillFlashScreenCheck4.Visibility  = _killFlashScreenStyle == 4  ? Visibility.Visible : Visibility.Collapsed;
+        KillFlashScreenCheck5.Visibility  = _killFlashScreenStyle == 5  ? Visibility.Visible : Visibility.Collapsed;
+        KillFlashScreenCheck6.Visibility  = _killFlashScreenStyle == 6  ? Visibility.Visible : Visibility.Collapsed;
+        KillFlashScreenCheck7.Visibility  = _killFlashScreenStyle == 7  ? Visibility.Visible : Visibility.Collapsed;
+        KillFlashScreenCheck8.Visibility  = _killFlashScreenStyle == 8  ? Visibility.Visible : Visibility.Collapsed;
+        KillFlashScreenCheck9.Visibility  = _killFlashScreenStyle == 9  ? Visibility.Visible : Visibility.Collapsed;
+        KillFlashScreenCheck10.Visibility = _killFlashScreenStyle == 10 ? Visibility.Visible : Visibility.Collapsed;
+        KillFlashScreenCheck11.Visibility = _killFlashScreenStyle == 11 ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void KillFlashPlayer_Click(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is FrameworkElement fe && fe.Tag is string tag && int.TryParse(tag, out int id))
+            SetKillFlashPlayerStyle(id);
+    }
+
+    private void SetKillFlashPlayerStyle(int id)
+    {
+        _killFlashPlayerStyle = id;
+        _scriptOption.KillFlashPlayerStyle = id;
+        _scriptOption.KillFlash = _killFlashScreenStyle > 0 || _killFlashPlayerStyle > 0;
+        _flash.Call("setKillFlashPlayerStyle", id.ToString());
+        RefreshKillFlashPlayerChecks();
+    }
+
+    private void RefreshKillFlashPlayerChecks()
+    {
+        KillFlashPlayerCheck0.Visibility = _killFlashPlayerStyle == 0 ? Visibility.Visible : Visibility.Collapsed;
+        KillFlashPlayerCheck1.Visibility = _killFlashPlayerStyle == 1 ? Visibility.Visible : Visibility.Collapsed;
+        KillFlashPlayerCheck2.Visibility = _killFlashPlayerStyle == 2 ? Visibility.Visible : Visibility.Collapsed;
+        KillFlashPlayerCheck3.Visibility = _killFlashPlayerStyle == 3 ? Visibility.Visible : Visibility.Collapsed;
+        KillFlashPlayerCheck4.Visibility = _killFlashPlayerStyle == 4 ? Visibility.Visible : Visibility.Collapsed;
+        KillFlashPlayerCheck5.Visibility = _killFlashPlayerStyle == 5 ? Visibility.Visible : Visibility.Collapsed;
+        KillFlashPlayerCheck6.Visibility = _killFlashPlayerStyle == 6 ? Visibility.Visible : Visibility.Collapsed;
+        KillFlashPlayerCheck7.Visibility = _killFlashPlayerStyle == 7 ? Visibility.Visible : Visibility.Collapsed;
+        KillFlashPlayerCheck8.Visibility = _killFlashPlayerStyle == 8 ? Visibility.Visible : Visibility.Collapsed;
+        KillFlashPlayerCheck9.Visibility = _killFlashPlayerStyle == 9 ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    // ── SELF OUTLINE ──────────────────────────────────────────────────────────
+
+    private void SelfOutlineColor_Click(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is FrameworkElement fe && fe.Tag is string tag && int.TryParse(tag, out int id))
+            SetSelfOutlineColor(id);
+    }
+
+    private void SetSelfOutlineColor(int id)
+    {
+        _selfOutlineColor = id;
+        _scriptOption.SelfOutlineColor = id;
+        _scriptOption.SelfOutline = id > 0;
+        if (id > 0)
+            _flash.Call("setSelfOutlineColor", id.ToString());
+        RefreshSelfOutlineChecks();
+    }
+
+    private void RefreshSelfOutlineChecks()
+    {
+        SelfOutlineCheck0.Visibility = _selfOutlineColor == 0 ? Visibility.Visible : Visibility.Collapsed;
+        SelfOutlineCheck1.Visibility = _selfOutlineColor == 1 ? Visibility.Visible : Visibility.Collapsed;
+        SelfOutlineCheck2.Visibility = _selfOutlineColor == 2 ? Visibility.Visible : Visibility.Collapsed;
+        SelfOutlineCheck3.Visibility = _selfOutlineColor == 3 ? Visibility.Visible : Visibility.Collapsed;
+        SelfOutlineCheck4.Visibility = _selfOutlineColor == 4 ? Visibility.Visible : Visibility.Collapsed;
+        SelfOutlineCheck5.Visibility = _selfOutlineColor == 5 ? Visibility.Visible : Visibility.Collapsed;
+        SelfOutlineCheck6.Visibility = _selfOutlineColor == 6 ? Visibility.Visible : Visibility.Collapsed;
+        SelfOutlineCheck7.Visibility = _selfOutlineColor == 7 ? Visibility.Visible : Visibility.Collapsed;
+        SelfOutlineCheck8.Visibility = _selfOutlineColor == 8 ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    // ── ENEMY OUTLINE ─────────────────────────────────────────────────────────
+
+    private void EnemyOutlineColor_Click(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is FrameworkElement fe && fe.Tag is string tag && int.TryParse(tag, out int id))
+            SetEnemyOutlineColor(id);
+    }
+
+    private void SetEnemyOutlineColor(int id)
+    {
+        _enemyOutlineColor = id;
+        _scriptOption.EnemyOutlineColor = id;
+        _scriptOption.EnemyOutline = id > 0;
+        if (id > 0)
+            _flash.Call("setEnemyOutlineColor", id.ToString());
+        RefreshEnemyOutlineChecks();
+    }
+
+    private void RefreshEnemyOutlineChecks()
+    {
+        EnemyOutlineCheck0.Visibility = _enemyOutlineColor == 0 ? Visibility.Visible : Visibility.Collapsed;
+        EnemyOutlineCheck1.Visibility = _enemyOutlineColor == 1 ? Visibility.Visible : Visibility.Collapsed;
+        EnemyOutlineCheck2.Visibility = _enemyOutlineColor == 2 ? Visibility.Visible : Visibility.Collapsed;
+        EnemyOutlineCheck3.Visibility = _enemyOutlineColor == 3 ? Visibility.Visible : Visibility.Collapsed;
+        EnemyOutlineCheck4.Visibility = _enemyOutlineColor == 4 ? Visibility.Visible : Visibility.Collapsed;
+        EnemyOutlineCheck5.Visibility = _enemyOutlineColor == 5 ? Visibility.Visible : Visibility.Collapsed;
+        EnemyOutlineCheck6.Visibility = _enemyOutlineColor == 6 ? Visibility.Visible : Visibility.Collapsed;
+        EnemyOutlineCheck7.Visibility = _enemyOutlineColor == 7 ? Visibility.Visible : Visibility.Collapsed;
+        EnemyOutlineCheck8.Visibility = _enemyOutlineColor == 8 ? Visibility.Visible : Visibility.Collapsed;
     }
 
     // ── GO BEYOND ────────────────────────────────────────────────────────────
@@ -345,9 +520,7 @@ public partial class QualityWindow : Window
     }
 
     private void ApplyHighlightConfig()
-    {
-        _flash.Call("setHighlightConfig", _highlightColor.ToString(), _highlightIntensity.ToString());
-    }
+        => _flash.Call("setHighlightConfig", _highlightColor.ToString(), _highlightIntensity.ToString());
 
     private void RefreshColorDots()
     {
@@ -408,11 +581,84 @@ public partial class QualityWindow : Window
         RefreshArrow(KillStreakToggleText, _killStreak);
     }
 
+    private void TestKillStreak_Click(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is FrameworkElement fe && fe.Tag is string tag && int.TryParse(tag, out int n))
+            _flash.Call("testKillStreak", n.ToString());
+    }
+
     private void LowHPFlash_Click(object sender, MouseButtonEventArgs e)
     {
         _lowHPFlash = !_lowHPFlash;
         _scriptOption.LowHPFlash = _lowHPFlash;
         RefreshArrow(LowHPFlashToggleText, _lowHPFlash);
+    }
+
+    private void RevengeKill_Click(object sender, MouseButtonEventArgs e)
+    {
+        _revengeKill = !_revengeKill;
+        _scriptOption.RevengeKill = _revengeKill;
+        RefreshArrow(RevengeKillToggleText, _revengeKill);
+    }
+
+    // ── HIT FLASH ─────────────────────────────────────────────────────────────
+
+    private void EnemyHitStyle_Click(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is FrameworkElement fe && fe.Tag is string tag && int.TryParse(tag, out int id))
+            SetEnemyHitStyle(id);
+    }
+
+    private void SetEnemyHitStyle(int id)
+    {
+        _enemyHitStyle = id;
+        _scriptOption.EnemyHitStyle = id;
+        _scriptOption.HitFlash = _myHitStyle > 0 || _enemyHitStyle > 0;
+        _flash.Call("setEnemyHitStyle", id.ToString());
+        RefreshEnemyHitChecks();
+    }
+
+    private void RefreshEnemyHitChecks()
+    {
+        EnemyHitCheck0.Visibility = _enemyHitStyle == 0 ? Visibility.Visible : Visibility.Collapsed;
+        EnemyHitCheck1.Visibility = _enemyHitStyle == 1 ? Visibility.Visible : Visibility.Collapsed;
+        EnemyHitCheck2.Visibility = _enemyHitStyle == 2 ? Visibility.Visible : Visibility.Collapsed;
+        EnemyHitCheck3.Visibility = _enemyHitStyle == 3 ? Visibility.Visible : Visibility.Collapsed;
+        EnemyHitCheck4.Visibility = _enemyHitStyle == 4 ? Visibility.Visible : Visibility.Collapsed;
+        EnemyHitCheck5.Visibility = _enemyHitStyle == 5 ? Visibility.Visible : Visibility.Collapsed;
+        EnemyHitCheck6.Visibility = _enemyHitStyle == 6 ? Visibility.Visible : Visibility.Collapsed;
+        EnemyHitCheck7.Visibility = _enemyHitStyle == 7 ? Visibility.Visible : Visibility.Collapsed;
+        EnemyHitCheck8.Visibility = _enemyHitStyle == 8 ? Visibility.Visible : Visibility.Collapsed;
+        EnemyHitCheck9.Visibility = _enemyHitStyle == 9 ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void MyHitStyle_Click(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is FrameworkElement fe && fe.Tag is string tag && int.TryParse(tag, out int id))
+            SetMyHitStyle(id);
+    }
+
+    private void SetMyHitStyle(int id)
+    {
+        _myHitStyle = id;
+        _scriptOption.MyHitStyle = id;
+        _scriptOption.HitFlash = _myHitStyle > 0 || _enemyHitStyle > 0;
+        _flash.Call("setMyHitStyle", id.ToString());
+        RefreshMyHitChecks();
+    }
+
+    private void RefreshMyHitChecks()
+    {
+        MyHitCheck0.Visibility = _myHitStyle == 0 ? Visibility.Visible : Visibility.Collapsed;
+        MyHitCheck1.Visibility = _myHitStyle == 1 ? Visibility.Visible : Visibility.Collapsed;
+        MyHitCheck2.Visibility = _myHitStyle == 2 ? Visibility.Visible : Visibility.Collapsed;
+        MyHitCheck3.Visibility = _myHitStyle == 3 ? Visibility.Visible : Visibility.Collapsed;
+        MyHitCheck4.Visibility = _myHitStyle == 4 ? Visibility.Visible : Visibility.Collapsed;
+        MyHitCheck5.Visibility = _myHitStyle == 5 ? Visibility.Visible : Visibility.Collapsed;
+        MyHitCheck6.Visibility = _myHitStyle == 6 ? Visibility.Visible : Visibility.Collapsed;
+        MyHitCheck7.Visibility = _myHitStyle == 7 ? Visibility.Visible : Visibility.Collapsed;
+        MyHitCheck8.Visibility = _myHitStyle == 8 ? Visibility.Visible : Visibility.Collapsed;
+        MyHitCheck9.Visibility = _myHitStyle == 9 ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void WatchReplay_Click(object sender, MouseButtonEventArgs e)

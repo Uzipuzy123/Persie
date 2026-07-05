@@ -98,8 +98,15 @@ package skua
 			this.addCallback("modDisable", Modules.disable);
 			this.addCallback("setPlayerHPBarsScale", Main.setPlayerHPBarsScale);
 			this.addCallback("setPlayerHPBarsStyle", Main.setPlayerHPBarsStyle);
-			this.addCallback("setPlayerDmgStyle",    Main.setPlayerDmgStyle);
-			
+			this.addCallback("testKillStreak",          Main.testKillStreak);
+			this.addCallback("setVignetteStyle",        Main.setVignetteStyle);
+			this.addCallback("setKillFlashScreenStyle", Main.setKillFlashScreenStyle);
+			this.addCallback("setKillFlashPlayerStyle", Main.setKillFlashPlayerStyle);
+			this.addCallback("setSelfOutlineColor",     Main.setSelfOutlineColor);
+			this.addCallback("setEnemyOutlineColor",    Main.setEnemyOutlineColor);
+			this.addCallback("setMyHitStyle",           Main.setMyHitStyle);
+			this.addCallback("setEnemyHitStyle",        Main.setEnemyHitStyle);
+
 			this.debug("Externalizer::init done.");
 			this.call("requestLoadGame");
 		}

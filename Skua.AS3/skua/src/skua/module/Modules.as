@@ -80,9 +80,16 @@ package skua.module
 			registerModule(new OptimizeMap());
 			registerModule(new DeathDetector());
 			registerModule(new PlayerHPBars());
-			registerModule(new DmgNumbers());
 			registerModule(new KillStreakAnnouncer());
 			registerModule(new LowHPFlash());
+			registerModule(new HitFlash());
+			registerModule(new Vignette());
+			registerModule(new SelfOutline());
+			registerModule(new KillFlash());
+			registerModule(new RevengeKill());
+			registerModule(new EnemyOutline());
+			registerModule(new AutoQuality());
+			registerModule(new FastTarget());
 		}
 	}
 }

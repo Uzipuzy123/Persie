@@ -124,14 +124,36 @@ public partial class ScriptOption : ObservableRecipient, IScriptOption, IOptionD
     private int _playerHPBarsScale = 60;
     [ObservableProperty]
     private int _playerHPBarsStyle = 0;
-    [ModuleBinding("DmgNumbers")]
-    private bool _playerDmgNumbers;
-    [ObservableProperty]
-    private int _playerDmgStyle = 0;
     [ModuleBinding("KillStreakAnnouncer")]
     private bool _killStreakAnnouncer;
     [ModuleBinding("LowHPFlash")]
     private bool _lowHPFlash;
+    [ModuleBinding("HitFlash")]
+    private bool _hitFlash;
+    [ObservableProperty]
+    private int _myHitStyle = 0;
+    [ObservableProperty]
+    private int _enemyHitStyle = 0;
+    [ModuleBinding("Vignette")]
+    private bool _vignette;
+    [ModuleBinding("SelfOutline")]
+    private bool _selfOutline;
+    [ModuleBinding("KillFlash")]
+    private bool _killFlash;
+    [ModuleBinding("RevengeKill")]
+    private bool _revengeKill;
+    [ModuleBinding("EnemyOutline")]
+    private bool _enemyOutline;
+    [ObservableProperty]
+    private int _vignetteStyle = 0;
+    [ObservableProperty]
+    private int _killFlashScreenStyle = 0;
+    [ObservableProperty]
+    private int _killFlashPlayerStyle = 0;
+    [ObservableProperty]
+    private int _selfOutlineColor = 0;
+    [ObservableProperty]
+    private int _enemyOutlineColor = 0;
     [ModuleBinding("ScoreboardOverlay")]
     private bool _scoreboardOverlay;
     [ModuleBinding("DebugPanel")]

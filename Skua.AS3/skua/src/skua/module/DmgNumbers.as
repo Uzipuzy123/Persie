@@ -31,6 +31,7 @@ package skua.module
 		{
 			if (!enabled)
 			{
+				restoreSuppressionAll(game);
 				clearAll();
 				_lastHP     = {};
 				_avgDmg     = {};
@@ -38,6 +39,74 @@ package skua.module
 				_worldKnown = null;
 				_ours       = {};
 			}
+		}
+
+		private function restoreSuppressionAll(game:*):void
+		{
+			var identity:ColorTransform = new ColorTransform();
+			try
+			{
+				for (var aid:* in game.world.avatars)
+				{
+					var av:* = game.world.avatars[aid];
+					try
+					{
+						if (!av || !av.pMC) continue;
+						for (var j:int = av.pMC.numChildren - 1; j >= 0; j--)
+						{
+							try
+							{
+								var ch:* = av.pMC.getChildAt(j);
+								if (!_ours[ch]) ch.transform.colorTransform = identity;
+							}
+							catch (e2:Error) {}
+						}
+					}
+					catch (e:Error) {}
+				}
+			}
+			catch (e:Error) {}
+
+			try
+			{
+				for (var mid:* in game.world.monsters)
+				{
+					var mon:* = game.world.monsters[mid];
+					try
+					{
+						if (!mon || !mon.pMC) continue;
+						for (var k:int = mon.pMC.numChildren - 1; k >= 0; k--)
+						{
+							try
+							{
+								var mc:* = mon.pMC.getChildAt(k);
+								if (!_ours[mc]) mc.transform.colorTransform = identity;
+							}
+							catch (e2:Error) {}
+						}
+					}
+					catch (e:Error) {}
+				}
+			}
+			catch (e:Error) {}
+
+			try
+			{
+				var layer:* = game.world.myAvatar.pMC.parent;
+				if (layer)
+				{
+					for (var l:int = layer.numChildren - 1; l >= 0; l--)
+					{
+						try
+						{
+							var lc:* = layer.getChildAt(l);
+							if (!_ours[lc]) lc.transform.colorTransform = identity;
+						}
+						catch (e2:Error) {}
+					}
+				}
+			}
+			catch (e:Error) {}
 		}
 
 		override public function onFrame(game:*):void

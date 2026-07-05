@@ -17,7 +17,7 @@ package skua.module
 		private static const GAP:int    = 2;
 
 		private var _scale:Number = 0.6;
-		private var _styleId:int  = 0; // 0-12
+		private var _styleId:int  = 0;
 
 		public function PlayerHPBars() { super("PlayerHPBars"); }
 

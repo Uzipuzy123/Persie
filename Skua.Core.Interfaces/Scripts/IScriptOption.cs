@@ -122,14 +122,6 @@ public interface IScriptOption : INotifyPropertyChanged
     /// </summary>
     int PlayerHPBarsStyle { get; set; }
     /// <summary>
-    /// Shows floating damage numbers above avatars when HP changes.
-    /// </summary>
-    bool PlayerDmgNumbers { get; set; }
-    /// <summary>
-    /// Active damage number style: 0=off, 1=Classic RPG, 2=Arcade, 3=Minimal.
-    /// </summary>
-    int PlayerDmgStyle { get; set; }
-    /// <summary>
     /// Shows a kill streak announcement overlay (DOUBLE KILL, TRIPLE KILL, etc.) on consecutive enemy kills.
     /// </summary>
     bool KillStreakAnnouncer { get; set; }
@@ -137,6 +129,19 @@ public interface IScriptOption : INotifyPropertyChanged
     /// Pulses a red vignette on the screen edges when the player's HP falls below 30%.
     /// </summary>
     bool LowHPFlash { get; set; }
+    bool HitFlash { get; set; }
+    int MyHitStyle { get; set; }
+    int EnemyHitStyle { get; set; }
+    bool Vignette { get; set; }
+    bool SelfOutline { get; set; }
+    bool KillFlash { get; set; }
+    bool RevengeKill { get; set; }
+    bool EnemyOutline { get; set; }
+    int VignetteStyle { get; set; }
+    int KillFlashScreenStyle { get; set; }
+    int KillFlashPlayerStyle { get; set; }
+    int SelfOutlineColor { get; set; }
+    int EnemyOutlineColor { get; set; }
     /// <summary>
     /// Hold TAB to display a full scoreboard overlay with per-player K/D/DMG/HEAL stats split by team.
     /// </summary>

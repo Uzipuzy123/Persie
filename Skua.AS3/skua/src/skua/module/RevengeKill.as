@@ -1,54 +1,47 @@
 package skua.module
 {
 	import flash.display.Sprite;
-	import flash.display.Stage;
 	import flash.filters.BevelFilter;
 	import flash.filters.DropShadowFilter;
 	import flash.text.TextField;
 	import flash.text.TextFieldAutoSize;
 	import flash.text.TextFormat;
 
-	public class KillStreakAnnouncer extends Module
+	public class RevengeKill extends Module
 	{
-		private var _lastHP:Object    = {};
-		private var _dead:Object      = {};
-		private var _streak:int       = 0;
-		private var _ownLastHP:Number = -1;
+		private var _lastHP:Object     = {};
+		private var _dead:Object       = {};
+		private var _ownLastHP:Number  = -1;
+		private var _lastKiller:String = null;
 
 		private var _overlay:Sprite = null;
 		private var _ttl:int        = 0;
 
-		private static const ANNOUNCE_TTL:int = 95;
+		private static const ANNOUNCE_TTL:int = 90;
 		private static const FADE_IN:int      = 14;
 		private static const FADE_OUT:int     = 22;
 
-		public function KillStreakAnnouncer() { super("KillStreakAnnouncer"); }
-
-		public function simulate(n:int, game:*):void
-		{
-			_streak = n;
-			showAnnouncement(game);
-		}
+		public function RevengeKill() { super("RevengeKill"); }
 
 		override public function onToggle(game:*):void
 		{
 			if (!enabled)
 			{
 				removeOverlay();
-				_streak    = 0;
-				_lastHP    = {};
-				_dead      = {};
-				_ownLastHP = -1;
+				_lastHP     = {};
+				_dead       = {};
+				_ownLastHP  = -1;
+				_lastKiller = null;
 			}
 		}
 
 		override public function onFrame(game:*):void
 		{
-			trackDeaths(game);
+			trackEvents(game);
 			updateOverlay();
 		}
 
-		private function trackDeaths(game:*):void
+		private function trackEvents(game:*):void
 		{
 			var myTeam:* = null;
 			try { myTeam = game.world.myAvatar.objData.strTeam; } catch (e:Error) {}
@@ -56,7 +49,16 @@ package skua.module
 			try
 			{
 				var myHP:Number = Number(game.world.myAvatar.dataLeaf.intHP);
-				if (_ownLastHP > 0 && myHP <= 0) { _streak = 0; }
+				if (_ownLastHP > 0 && myHP <= 0)
+				{
+					try
+					{
+						var t:* = game.world.myAvatar.target;
+						if (t && t.objData)
+							_lastKiller = String(t.objData.strUsername).toLowerCase();
+					}
+					catch (ek:Error) {}
+				}
 				_ownLastHP = myHP;
 			}
 			catch (e:Error) {}
@@ -80,40 +82,29 @@ package skua.module
 					var hp:Number   = Number(av.dataLeaf.intHP);
 					var prev:Number = (_lastHP[aid] !== undefined) ? Number(_lastHP[aid]) : hp;
 
-					if (hp > 0 && _dead[aid])
-					{
-						delete _dead[aid];
-					}
+					if (hp > 0 && _dead[aid]) delete _dead[aid];
 					else if (hp <= 0 && prev > 0 && !_dead[aid])
 					{
 						_dead[aid] = true;
-						_streak++;
-						showAnnouncement(game);
+						if (_lastKiller != null)
+						{
+							var killed:String = "";
+							try { killed = String(av.objData.strUsername).toLowerCase(); } catch (ek:Error) {}
+							if (killed != "" && killed == _lastKiller)
+							{
+								_lastKiller = null;
+								showBanner(game);
+							}
+						}
 					}
-
 					_lastHP[aid] = hp;
 				}
 				catch (e:Error) {}
 			}
 		}
 
-		private function showAnnouncement(game:*):void
+		private function showBanner(game:*):void
 		{
-			var msg:String;
-			var textCol:uint;
-			var bevelHi:uint;
-			var bevelSh:uint;
-
-			switch (_streak)
-			{
-				case 1:  msg = "FIRST BLOOD"; textCol = 0x8B0000; bevelHi = 0xFF3300; bevelSh = 0x110000; break;
-				case 2:  msg = "DOUBLE KILL"; textCol = 0x8B0000; bevelHi = 0xFF3300; bevelSh = 0x110000; break;
-				case 3:  msg = "TRIPLE KILL"; textCol = 0x8B0000; bevelHi = 0xFF3300; bevelSh = 0x110000; break;
-				case 4:  msg = "QUADRA KILL"; textCol = 0xCC0000; bevelHi = 0xFF6600; bevelSh = 0x220000; break;
-				case 5:  msg = "PENTA KILL";  textCol = 0xCC4400; bevelHi = 0xFFAA00; bevelSh = 0x330000; break;
-				default: msg = "LEGENDARY!";  textCol = 0x886600; bevelHi = 0xFFDD00; bevelSh = 0x332200; break;
-			}
-
 			removeOverlay();
 
 			_overlay = new Sprite();
@@ -124,32 +115,25 @@ package skua.module
 			tf.selectable   = false;
 			tf.mouseEnabled = false;
 			tf.autoSize     = TextFieldAutoSize.CENTER;
-			tf.defaultTextFormat = new TextFormat("Arial Black", 38, textCol, true,
+			tf.defaultTextFormat = new TextFormat("Arial Black", 38, 0xCC6600, true,
 			                                       null, null, null, null, "center");
-			tf.text = msg;
+			tf.text = "REVENGE!";
 			tf.x = -tf.textWidth  / 2;
 			tf.y = -tf.textHeight / 2 - 1;
 			_overlay.addChild(tf);
 
 			_overlay.filters = [
-				new BevelFilter(2, 135, bevelHi, 0.75, bevelSh, 0.95, 3, 3, 2, 1, "inner"),
+				new BevelFilter(2, 135, 0xFFCC00, 0.80, 0x331100, 0.95, 3, 3, 2, 1, "inner"),
 				new DropShadowFilter(4, 135, 0x000000, 0.80, 5, 5, 1, 1)
 			];
 
 			var sw:Number = 800, sh:Number = 600;
 			try { sw = game.stage.stageWidth; sh = game.stage.stageHeight; } catch (e:Error) {}
 			_overlay.x = sw / 2;
-			_overlay.y = sh * 0.26;
+			_overlay.y = sh * 0.36;
 
-			try
-			{
-				var st:Stage = game.stage as Stage;
-				st.addChild(_overlay);
-			}
-			catch (e:Error)
-			{
-				try { game.parent.addChild(_overlay); } catch (e2:Error) {}
-			}
+			try { game.stage.addChild(_overlay); }
+			catch (e:Error) { try { game.parent.addChild(_overlay); } catch (e2:Error) {} }
 
 			_ttl = ANNOUNCE_TTL;
 		}
@@ -161,7 +145,6 @@ package skua.module
 			if (_ttl <= 0) { removeOverlay(); return; }
 
 			var elapsed:int = ANNOUNCE_TTL - _ttl;
-
 			if (elapsed < FADE_IN)
 			{
 				var t:Number = elapsed / FADE_IN;

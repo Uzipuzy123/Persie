@@ -7,7 +7,7 @@ package skua.module
 		private var _pulse:Number   = 0;
 		private var _applied:Boolean = false;
 
-		private static const THRESHOLD:Number = 0.30;
+		private static const THRESHOLD:Number = 0.50;
 
 		public function LowHPFlash() { super("LowHPFlash"); }
 

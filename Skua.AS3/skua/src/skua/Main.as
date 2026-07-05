@@ -676,12 +676,82 @@ package skua
 		catch (e:Error) {}
 	}
 
-	public static function setPlayerDmgStyle(styleStr:String):void
+	public static function testKillStreak(nStr:String):void
 	{
 		try
 		{
-			var mod:* = skua.module.Modules.getModule("DmgNumbers");
+			var mod:* = skua.module.Modules.getModule("KillStreakAnnouncer");
+			if (mod) mod.simulate(int(nStr), instance.getGame());
+		}
+		catch (e:Error) {}
+	}
+
+	public static function setVignetteStyle(styleStr:String):void
+	{
+		try
+		{
+			var mod:* = skua.module.Modules.getModule("Vignette");
 			if (mod) mod.setStyle(int(styleStr));
+		}
+		catch (e:Error) {}
+	}
+
+	public static function setKillFlashScreenStyle(styleStr:String):void
+	{
+		try
+		{
+			var mod:* = skua.module.Modules.getModule("KillFlash");
+			if (mod) mod.setScreenStyle(int(styleStr));
+		}
+		catch (e:Error) {}
+	}
+
+	public static function setKillFlashPlayerStyle(styleStr:String):void
+	{
+		try
+		{
+			var mod:* = skua.module.Modules.getModule("KillFlash");
+			if (mod) mod.setPlayerStyle(int(styleStr));
+		}
+		catch (e:Error) {}
+	}
+
+	public static function setSelfOutlineColor(colorStr:String):void
+	{
+		try
+		{
+			var mod:* = skua.module.Modules.getModule("SelfOutline");
+			if (mod) mod.setColor(int(colorStr));
+		}
+		catch (e:Error) {}
+	}
+
+	public static function setEnemyOutlineColor(colorStr:String):void
+	{
+		try
+		{
+			var mod:* = skua.module.Modules.getModule("EnemyOutline");
+			if (mod) mod.setColor(int(colorStr));
+		}
+		catch (e:Error) {}
+	}
+
+	public static function setMyHitStyle(styleStr:String):void
+	{
+		try
+		{
+			var mod:* = skua.module.Modules.getModule("HitFlash");
+			if (mod) mod.setMyStyle(int(styleStr));
+		}
+		catch (e:Error) {}
+	}
+
+	public static function setEnemyHitStyle(styleStr:String):void
+	{
+		try
+		{
+			var mod:* = skua.module.Modules.getModule("HitFlash");
+			if (mod) mod.setEnemyStyle(int(styleStr));
 		}
 		catch (e:Error) {}
 	}

@@ -10,9 +10,18 @@ public static class WindowChromePatch
     {
         switch (msg)
         {
-            case 0x0024:
+            case 0x0024: // WM_GETMINMAXINFO
                 WmGetMinMaxInfo(hwnd, lParam);
                 handled = false;
+                break;
+            case 0x0021: // WM_MOUSEACTIVATE
+                // Window is already in the foreground — skip the activation sequence
+                // so it doesn't run between the mouse-down and Flash receiving the click.
+                if (GetForegroundWindow() == hwnd)
+                {
+                    handled = true;
+                    return (IntPtr)3; // MA_NOACTIVATE
+                }
                 break;
         }
         return (IntPtr)0;
@@ -117,11 +126,9 @@ public static class WindowChromePatch
         public static bool operator !=(RECT rect1, RECT rect2) { return !(rect1 == rect2); }
     }
 
-    [DllImport("user32")]
-    internal static extern bool GetMonitorInfo(IntPtr hMonitor, MONITORINFO lpmi);
-
-    [DllImport("User32")]
-    internal static extern IntPtr MonitorFromWindow(IntPtr handle, int flags);
+    [DllImport("user32")] internal static extern bool   GetMonitorInfo(IntPtr hMonitor, MONITORINFO lpmi);
+    [DllImport("user32")] internal static extern IntPtr MonitorFromWindow(IntPtr handle, int flags);
+    [DllImport("user32")] private  static extern IntPtr GetForegroundWindow();
 
     #endregion
 

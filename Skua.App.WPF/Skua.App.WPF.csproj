@@ -16,6 +16,7 @@
     <Description>Scriptable C# bot for AdventureQuest Worlds</Description>
     <ApplicationIcon>SkuaIcon.ico</ApplicationIcon>
     <GenerateDocumentationFile>False</GenerateDocumentationFile>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
     <BaseOutputPath>bin\</BaseOutputPath>
     <BaseIntermediateOutputPath>obj\</BaseIntermediateOutputPath>
   </PropertyGroup>

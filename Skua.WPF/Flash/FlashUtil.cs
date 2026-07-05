@@ -29,6 +29,7 @@ public class FlashUtil : IFlashUtil
     private readonly IMessenger _messenger;
     private readonly Lazy<IScriptManager> _lazyManager;
     private AxShockwaveFlash? Flash;
+    private FlashClickFixer? _clickFixer;
 
     public event FlashCallHandler? FlashCall;
 
@@ -58,7 +59,13 @@ public class FlashUtil : IFlashUtil
             _messenger.Send<FlashChangedMessage<AxShockwaveFlash>>(new(flash));
             flash.EndInit();
             Flash = flash;
-            try { _cachedFlashHandle = flash.Handle; } catch { }
+            try
+            {
+                _cachedFlashHandle = flash.Handle;
+                _clickFixer?.Dispose();
+                _clickFixer = new FlashClickFixer(_cachedFlashHandle);
+            }
+            catch { }
             byte[] swf = File.ReadAllBytes("skua.swf");
             using (MemoryStream stream = new())
             using (BinaryWriter writer = new(stream))
@@ -198,6 +205,8 @@ public class FlashUtil : IFlashUtil
 
     public void Dispose()
     {
+        _clickFixer?.Dispose();
+        _clickFixer = null;
         EoLHook.Unhook();
         if (Flash != null)
         {

@@ -55,6 +55,21 @@ package skua.module
 					}
 					obj = obj.parent;
 				}
+
+				// Your own avatar's pMC is normally mouse-disabled by the game (you're
+				// not meant to click yourself), so e.target above will never resolve to
+				// it or any of its children — the walk always misses. Fall back to a
+				// direct geometric hit test against your own pMC's shape.
+				try
+				{
+					var myAv:* = _game.world.myAvatar;
+					if (myAv && myAv.pMC && myAv.pMC.hitTestPoint(e.stageX, e.stageY, true))
+					{
+						_game.world.setTarget(myAv);
+						return;
+					}
+				}
+				catch (e2:Error) {}
 			}
 			catch (err:Error) {}
 		}

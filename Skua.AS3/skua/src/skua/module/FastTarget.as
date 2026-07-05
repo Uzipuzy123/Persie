@@ -39,7 +39,7 @@ package skua.module
 				{
 					for each (var av:* in _game.world.avatars)
 					{
-						if (av && av.pMC && obj === av.pMC)
+						if (av && !av.isMyAvatar && av.pMC && obj === av.pMC)
 						{
 							_game.world.setTarget(av);
 							return;

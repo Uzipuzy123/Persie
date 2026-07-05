@@ -204,19 +204,19 @@
                     <Button
                         Command="{Binding AddSkillToCurrentCommand}"
                         CommandParameter="1"
-                        Content="1" />
+                        Content="{materialDesign:PackIcon Kind=NumericOneCircleOutline}" />
                     <Button
                         Command="{Binding AddSkillToCurrentCommand}"
                         CommandParameter="2"
-                        Content="2" />
+                        Content="{materialDesign:PackIcon Kind=NumericTwoCircleOutline}" />
                     <Button
                         Command="{Binding AddSkillToCurrentCommand}"
                         CommandParameter="3"
-                        Content="3" />
+                        Content="{materialDesign:PackIcon Kind=NumericThreeCircleOutline}" />
                     <Button
                         Command="{Binding AddSkillToCurrentCommand}"
                         CommandParameter="4"
-                        Content="4" />
+                        Content="{materialDesign:PackIcon Kind=NumericFourCircleOutline}" />
                     <Button
                         Command="{Binding AddSkillToCurrentCommand}"
                         CommandParameter="5"

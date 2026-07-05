@@ -18,7 +18,16 @@ package skua.module
 		override public function onFrame(game:*):void
 		{
 			var hp:Number = 0;
-			try { hp = Number(game.world.myAvatar.dataLeaf.intHP); } catch (e:Error) {}
+			var avatarPresent:Boolean = true;
+			try { hp = Number(game.world.myAvatar.dataLeaf.intHP); }
+			catch (e:Error) { avatarPresent = false; }
+
+			// Avatar object gone (logout / server change tears it down) — this is not
+			// a death, it's a scene transition. Don't touch _prevHP/_wasDead here so
+			// a real death mid-transition still isn't falsely re-armed once the
+			// avatar comes back on the next map.
+			if (!avatarPresent)
+				return;
 
 			// While HP is actively dropping, update who is hitting us
 			if (_prevHP > 0 && hp > 0 && hp < _prevHP)

@@ -8,16 +8,16 @@ package skua.module
 	 * (requires matching MOUSE_DOWN + MOUSE_UP on the same DisplayObject) which fails
 	 * when characters animate between the two events. MOUSE_DOWN fires the instant the
 	 * button is pressed so there is nothing to mis-match.
+	 *
+	 * Also the only way to target your own avatar at all: the native game doesn't
+	 * treat your own avatar's sprite as a mouse-interactive target, so this falls
+	 * back to a geometric hit test against it when nothing else matches.
 	 */
 	public class FastTarget extends Module
 	{
 		private var _game:*;
 
-		public function FastTarget()
-		{
-			super("FastTarget");
-			this.enabled = true;
-		}
+		public function FastTarget() { super("FastTarget"); }
 
 		override public function onToggle(game:*):void
 		{

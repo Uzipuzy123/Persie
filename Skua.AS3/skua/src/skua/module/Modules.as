@@ -90,6 +90,11 @@ package skua.module
 			registerModule(new EnemyOutline());
 			registerModule(new AutoQuality());
 			registerModule(new FastTarget());
+
+			// FastTarget wires its click listener up inside onToggle(), which only
+			// runs on a real enabled-state transition — registerModule() alone
+			// never triggers it, so without this call the listener is never attached.
+			enable("FastTarget");
 		}
 	}
 }

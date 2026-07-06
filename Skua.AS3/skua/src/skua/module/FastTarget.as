@@ -9,9 +9,10 @@ package skua.module
 	 * when characters animate between the two events. MOUSE_DOWN fires the instant the
 	 * button is pressed so there is nothing to mis-match.
 	 *
-	 * Also the only way to target your own avatar at all: the native game doesn't
-	 * treat your own avatar's sprite as a mouse-interactive target, so this falls
-	 * back to a geometric hit test against it when nothing else matches.
+	 * Also the only way to target your own avatar at all: your own avatar's pMC is
+	 * mouse-disabled by the game, so it's detected via a geometric hit test instead.
+	 * A real MouseEvent.CLICK must be dispatched on it (and world) before setTarget()
+	 * — calling setTarget() alone leaves the native target UI/state unrefreshed.
 	 */
 	public class FastTarget extends Module
 	{
@@ -56,15 +57,19 @@ package skua.module
 					obj = obj.parent;
 				}
 
-				// Your own avatar's pMC is normally mouse-disabled by the game (you're
-				// not meant to click yourself), so e.target above will never resolve to
-				// it or any of its children — the walk always misses. Fall back to a
-				// direct geometric hit test against your own pMC's shape.
+				// Self click fallback: geometric hit test, then a real CLICK dispatch
+				// on both the avatar and world before setTarget() — matches the game's
+				// own native click-to-target sequence closely enough that the target
+				// UI actually refreshes.
 				try
 				{
 					var myAv:* = _game.world.myAvatar;
 					if (myAv && myAv.pMC && myAv.pMC.hitTestPoint(e.stageX, e.stageY, true))
 					{
+						var click:MouseEvent = new MouseEvent(MouseEvent.CLICK, true, false,
+							e.stageX, e.stageY, myAv.pMC, false, false, false, true, 0);
+						myAv.pMC.dispatchEvent(click);
+						_game.world.dispatchEvent(click);
 						_game.world.setTarget(myAv);
 						return;
 					}

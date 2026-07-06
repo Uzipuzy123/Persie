@@ -267,10 +267,6 @@ public class ScriptInterface : IScriptInterface, IScriptInterfaceManager, IDispo
             Flash.Call("skipCutscenes");
         if (Options.WalkSpeed != 8)
             Player.WalkSpeed = Options.WalkSpeed;
-        if (!Lite.UntargetSelf)
-            Lite.UntargetSelf = true;
-        if (!Lite.UntargetDead)
-            Lite.UntargetDead = true;
     }
 
     /// <summary>

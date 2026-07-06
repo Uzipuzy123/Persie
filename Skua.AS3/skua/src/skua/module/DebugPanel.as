@@ -9,6 +9,7 @@ package skua.module
 	import flash.text.TextFieldAutoSize;
 	import flash.text.TextFieldType;
 	import flash.text.TextFormat;
+	import flash.utils.getQualifiedClassName;
 
 	public class DebugPanel extends Module
 	{
@@ -101,6 +102,7 @@ package skua.module
 				{
 					_stage = game.stage as Stage;
 					_stage.addEventListener(MouseEvent.MOUSE_UP, onDragStop);
+					_stage.addEventListener(MouseEvent.MOUSE_DOWN, onClickInspect, true, 1000);
 
 					if (_savedX > -1e8)
 					{
@@ -127,6 +129,7 @@ package skua.module
 				{
 					if (_dragHandle) _dragHandle.removeEventListener(MouseEvent.MOUSE_DOWN, onDragStart);
 					if (_stage)      _stage.removeEventListener(MouseEvent.MOUSE_UP, onDragStop);
+					if (_stage)      _stage.removeEventListener(MouseEvent.MOUSE_DOWN, onClickInspect, true);
 					if (_tf)         _tf.removeEventListener(MouseEvent.MOUSE_WHEEL, onWheel);
 				}
 				catch (e:Error) {}
@@ -160,6 +163,34 @@ package skua.module
 			_overlay.stopDrag();
 			if (_overlay) { _savedX = _overlay.x; _savedY = _overlay.y; }
 		}
+		// Temporary diagnostic: logs the full ancestor chain of whatever was clicked
+		// (class name + .name + local x/y) so we can identify real object names for
+		// gating features like fast-move without guessing. Purely observational —
+		// never stops propagation, so it can't affect normal game behavior.
+		private function onClickInspect(e:MouseEvent):void
+		{
+			try
+			{
+				var lines:String = "--- click @ stage(" + e.stageX + "," + e.stageY + ") ---";
+				var obj:* = e.target;
+				var depth:int = 0;
+				while (obj != null && depth < 25)
+				{
+					var cls:String = "?";
+					try { cls = getQualifiedClassName(obj); } catch (ce:Error) {}
+					var nm:String = "";
+					try { nm = obj.name; } catch (ne:Error) {}
+					var pos:String = "";
+					try { pos = " (" + obj.x + "," + obj.y + ")"; } catch (pe:Error) {}
+					lines += "\n  [" + depth + "] " + cls + (nm ? " name=" + nm : "") + pos;
+					obj = obj.parent;
+					depth++;
+				}
+				append(lines);
+			}
+			catch (err:Error) {}
+		}
+
 		private function onWheel(e:MouseEvent):void
 		{
 			if (!_tf) return;

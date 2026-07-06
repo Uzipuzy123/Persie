@@ -91,6 +91,9 @@ package skua.module
 			registerModule(new AutoQuality());
 			registerModule(new FastTarget());
 
+			// FastTarget now only handles self-targeting (native click-to-target
+			// never works on your own avatar). Its former fast-path for other
+			// avatars/monsters was removed — see FastTarget.as for why.
 			// FastTarget wires its click listener up inside onToggle(), which only
 			// runs on a real enabled-state transition — registerModule() alone
 			// never triggers it, so without this call the listener is never attached.

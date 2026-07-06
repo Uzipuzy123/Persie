@@ -3,16 +3,22 @@ package skua.module
 	import flash.events.MouseEvent;
 
 	/**
-	 * Intercepts MOUSE_DOWN in capture phase and calls world.setTarget() immediately,
-	 * bypassing the game's own CLICK-based targeting. The game uses MouseEvent.CLICK
-	 * (requires matching MOUSE_DOWN + MOUSE_UP on the same DisplayObject) which fails
-	 * when characters animate between the two events. MOUSE_DOWN fires the instant the
-	 * button is pressed so there is nothing to mis-match.
+	 * Handles the one case the native game genuinely cannot: clicking your own
+	 * avatar to target yourself. Your own avatar's pMC is mouse-disabled by the
+	 * game, so a normal click never resolves to it — detected here instead via a
+	 * geometric hit test. A real MouseEvent.CLICK is dispatched on it (and world)
+	 * before calling setTarget() — calling setTarget() alone leaves the native
+	 * target UI/state unrefreshed.
 	 *
-	 * Also the only way to target your own avatar at all: your own avatar's pMC is
-	 * mouse-disabled by the game, so it's detected via a geometric hit test instead.
-	 * A real MouseEvent.CLICK must be dispatched on it (and world) before setTarget()
-	 * — calling setTarget() alone leaves the native target UI/state unrefreshed.
+	 * This module used to also fast-track clicks on OTHER avatars/monsters (via
+	 * MOUSE_DOWN instead of waiting for the game's own CLICK), which was more
+	 * responsive but had a side effect: it matched by walking up from whatever
+	 * was clicked to find an avatar's pMC, and clicking a player's nameplate
+	 * (a separately-clickable child of that same pMC, floating above their head)
+	 * matched just as well as clicking their body — turning a rare accident
+	 * (under the old, stricter CLICK-based system) into an easy, consistent way
+	 * to target someone from well above their head. That part was removed;
+	 * targeting other players/monsters is native-only again.
 	 */
 	public class FastTarget extends Module
 	{
@@ -33,48 +39,15 @@ package skua.module
 		{
 			try
 			{
-				// Walk from the clicked DisplayObject upward to find an avatar/monster pMC.
-				// e.target is the innermost object hit; its ancestors may be av.pMC.
-				var obj:* = e.target;
-				while (obj != null && obj != _game.stage)
+				var myAv:* = _game.world.myAvatar;
+				if (myAv && myAv.pMC && myAv.pMC.hitTestPoint(e.stageX, e.stageY, true))
 				{
-					for each (var av:* in _game.world.avatars)
-					{
-						if (av && !av.isMyAvatar && av.pMC && obj === av.pMC)
-						{
-							_game.world.setTarget(av);
-							return;
-						}
-					}
-					for each (var mon:* in _game.world.monsters)
-					{
-						if (mon && mon.pMC && obj === mon.pMC)
-						{
-							_game.world.setTarget(mon);
-							return;
-						}
-					}
-					obj = obj.parent;
+					var click:MouseEvent = new MouseEvent(MouseEvent.CLICK, true, false,
+						e.stageX, e.stageY, myAv.pMC, false, false, false, true, 0);
+					myAv.pMC.dispatchEvent(click);
+					_game.world.dispatchEvent(click);
+					_game.world.setTarget(myAv);
 				}
-
-				// Self click fallback: geometric hit test, then a real CLICK dispatch
-				// on both the avatar and world before setTarget() — matches the game's
-				// own native click-to-target sequence closely enough that the target
-				// UI actually refreshes.
-				try
-				{
-					var myAv:* = _game.world.myAvatar;
-					if (myAv && myAv.pMC && myAv.pMC.hitTestPoint(e.stageX, e.stageY, true))
-					{
-						var click:MouseEvent = new MouseEvent(MouseEvent.CLICK, true, false,
-							e.stageX, e.stageY, myAv.pMC, false, false, false, true, 0);
-						myAv.pMC.dispatchEvent(click);
-						_game.world.dispatchEvent(click);
-						_game.world.setTarget(myAv);
-						return;
-					}
-				}
-				catch (e2:Error) {}
 			}
 			catch (err:Error) {}
 		}

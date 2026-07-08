@@ -10,7 +10,9 @@ package skua.module
 
 	public class PlayerHPBars extends Module
 	{
-		private static const TAG:String = "skua_hpbar";
+		// Public so FastTarget can look this child up by name and exclude it
+		// from the raw pMC hit test used for your own avatar's targeting.
+		public static const TAG:String = "skua_hpbar";
 		private static const BAR_W:int  = 118;
 		private static const HP_H:int   = 10;
 		private static const MP_H:int   = 5;

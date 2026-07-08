@@ -98,6 +98,8 @@ package skua.module
 			registerModule(new DisableNativeAnimation());
 			registerModule(new NameplateFont());
 			registerModule(new TeamFlagReskin());
+			registerModule(new SelfHud());
+			registerModule(new SkillBarSkin());
 
 			// FastTarget wires its click listener up inside onToggle(), which only
 			// runs on a real enabled-state transition — registerModule() alone
@@ -111,6 +113,14 @@ package skua.module
 			// Same story — TeamFlagReskin's per-team style is driven by
 			// setBlueStyle()/setRedStyle(), 0 = off, not a bool enable/disable.
 			enable("TeamFlagReskin");
+
+			// Same story — SelfHud's style is driven by setStyle(), 0 = off,
+			// not a bool enable/disable.
+			enable("SelfHud");
+
+			// Same story — SkillBarSkin's style is driven by setStyle(), 0 = off,
+			// not a bool enable/disable.
+			enable("SkillBarSkin");
 		}
 	}
 }

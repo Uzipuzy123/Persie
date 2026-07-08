@@ -175,6 +175,10 @@ public partial class ScriptOption : ObservableRecipient, IScriptOption, IOptionD
     [ModuleBinding("DisableNativeAnimation")]
     private bool _disableNativeAnimation;
     [ObservableProperty]
+    private int _selfHudStyle = 0;
+    [ObservableProperty]
+    private int _skillBarStyle = 0;
+    [ObservableProperty]
     private int _blueFlagStyle = 0;
     [ObservableProperty]
     private int _redFlagStyle = 0;

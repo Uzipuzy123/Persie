@@ -21,6 +21,7 @@ public partial class MainWindow : CustomWindow
     private BBJoinWindow? _bbJoinWindow;
     private ThemeManagerWindow? _themeManagerWindow;
     private ScoreboardWindow? _scoreboardWindow;
+    private HudWindow? _hudWindow;
 
     public MainWindow()
     {
@@ -40,6 +41,7 @@ public partial class MainWindow : CustomWindow
         StrongReferenceMessenger.Default.Register<MainWindow, ShowBBWindowMessage>(this, ToggleBBJoin);
         StrongReferenceMessenger.Default.Register<MainWindow, ShowThemeManagerMessage>(this, ToggleTheme);
         StrongReferenceMessenger.Default.Register<MainWindow, ShowScoreboardWindowMessage>(this, ToggleScoreboard);
+        StrongReferenceMessenger.Default.Register<MainWindow, ShowHudWindowMessage>(this, ToggleHud);
 
         this.Loaded += (s, e) => _statTrackerWindow = new StatTrackerWindow();
     }
@@ -170,6 +172,24 @@ public partial class MainWindow : CustomWindow
         else
         {
             _scoreboardWindow?.Hide();
+        }
+    }
+
+    private void ToggleHud(MainWindow r, ShowHudWindowMessage m)
+    {
+        if (m.Show)
+        {
+            if (_hudWindow == null || !_hudWindow.IsLoaded)
+            {
+                _hudWindow = new HudWindow();
+                _hudWindow.Closed += (s, e) =>
+                    Ioc.Default.GetRequiredService<MainMenuViewModel>().IsHudOpen = false;
+            }
+            _hudWindow.Show();
+        }
+        else
+        {
+            _hudWindow?.Hide();
         }
     }
 

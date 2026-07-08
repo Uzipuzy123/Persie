@@ -736,6 +736,26 @@ package skua
 		catch (e:Error) {}
 	}
 
+	public static function setSelfHudStyle(styleStr:String):void
+	{
+		try
+		{
+			var mod:* = skua.module.Modules.getModule("SelfHud");
+			if (mod) mod.setStyle(int(styleStr));
+		}
+		catch (e:Error) {}
+	}
+
+	public static function setSkillBarStyle(styleStr:String):void
+	{
+		try
+		{
+			var mod:* = skua.module.Modules.getModule("SkillBarSkin");
+			if (mod) mod.setStyle(int(styleStr));
+		}
+		catch (e:Error) {}
+	}
+
 	public static function setKillFlashScreenStyle(styleStr:String):void
 	{
 		try

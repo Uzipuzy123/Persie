@@ -110,6 +110,8 @@ package skua
 			this.addCallback("setNameplateFont",        Main.setNameplateFont);
 			this.addCallback("setBlueFlagStyle",        Main.setBlueFlagStyle);
 			this.addCallback("setRedFlagStyle",         Main.setRedFlagStyle);
+			this.addCallback("setSelfHudStyle",         Main.setSelfHudStyle);
+			this.addCallback("setSkillBarStyle",        Main.setSkillBarStyle);
 
 			this.debug("Externalizer::init done.");
 			this.call("requestLoadGame");

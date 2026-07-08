@@ -194,6 +194,21 @@ public interface IScriptOption : INotifyPropertyChanged
     /// </summary>
     bool DisableNativeAnimation { get; set; }
     /// <summary>
+    /// Selects which style reskins the native corner self-HUD (portrait HP/MP/
+    /// rage panel, bottom-left). 0 = native default; see HudWindow for the
+    /// rest of the options. Portrait art/frame/name/level chrome is always
+    /// left untouched — only the three fill bars are replaced.
+    /// </summary>
+    int SelfHudStyle { get; set; }
+    /// <summary>
+    /// Selects which style reskins the native action/skill bar slots
+    /// (game.ui.mcInterface.actBar). 0 = native default; see HudWindow's
+    /// Skill &amp; Actions section for the rest of the options. Only each
+    /// slot's decorative backplate is replaced — the icon itself, its native
+    /// locked/grayscale dimming, and the cooldown sweep are all untouched.
+    /// </summary>
+    int SkillBarStyle { get; set; }
+    /// <summary>
     /// Selects which flag icon replaces the blue team's native pvpFlag.
     /// 0 = off/native; see QualityWindow's FLAG tab for the option list.
     /// </summary>

@@ -89,6 +89,14 @@ public partial class MainMenuViewModel : ObservableRecipient
         StrongReferenceMessenger.Default.Send(new ShowScoreboardWindowMessage(value));
     }
 
+    [ObservableProperty]
+    private bool _isHudOpen;
+
+    partial void OnIsHudOpenChanged(bool value)
+    {
+        StrongReferenceMessenger.Default.Send(new ShowHudWindowMessage(value));
+    }
+
     [RelayCommand]
     public void ShowBotWindow()
     {

@@ -240,6 +240,12 @@
                     Style="{StaticResource BookmarkToggle}"
                     Margin="2,0,0,0"/>
 
+                <ToggleButton
+                    Content="HUD"
+                    IsChecked="{Binding IsHudOpen, Mode=TwoWay}"
+                    Style="{StaticResource BookmarkToggle}"
+                    Margin="2,0,0,0"/>
+
             </StackPanel>
         </Border>
 

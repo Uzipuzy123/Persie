@@ -1,0 +1,322 @@
+<Window x:Class="Skua.App.WPF.HudWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="HUD Styles"
+        Height="840" Width="380"
+        Topmost="True"
+        ShowInTaskbar="False"
+        ShowActivated="False"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="NoResize"
+        WindowStyle="None"
+        AllowsTransparency="False"
+        Background="{DynamicResource ThemeBg}"
+        FontFamily="Segoe UI">
+
+    <Grid>
+        <Border Margin="10" BorderThickness="3" CornerRadius="4"
+                BorderBrush="{DynamicResource ThemeBorderBrush}">
+
+            <StackPanel Background="{DynamicResource ThemeBg}">
+
+                <!-- Title / drag handle -->
+                <Border Background="Transparent" Cursor="SizeAll"
+                        MouseLeftButtonDown="Window_MouseDown" Padding="0,14,0,6">
+                    <TextBlock Text="HUD Styles"
+                               FontFamily="Georgia" FontStyle="Italic" FontSize="19"
+                               Foreground="{DynamicResource ThemeTitle}" HorizontalAlignment="Center"/>
+                </Border>
+
+                <Border Height="1" Margin="16,0" Background="{DynamicResource ThemeDividerBrush}"/>
+
+                <StackPanel Margin="14,10,14,12" x:Name="RowsPanel">
+
+                    <!-- 0: Default -->
+                    <Border x:Name="Row0" Tag="0" MouseLeftButtonUp="Row_Click"
+                            Cursor="Hand" CornerRadius="4" Padding="10,8" Margin="0,0,0,6" BorderThickness="1">
+                        <Border.Background><SolidColorBrush Color="#14161C"/></Border.Background>
+                        <Border.BorderBrush><SolidColorBrush Color="#3A3F4C"/></Border.BorderBrush>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock Text="Default" FontSize="12" Foreground="#DDDDDD" FontWeight="SemiBold"/>
+                                <TextBlock Text="Keep the game's native HP/MP/rage bars" FontSize="9.5" Foreground="#8A8F9C" Margin="0,2,0,0"/>
+                            </StackPanel>
+                            <StackPanel x:Name="Active0" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Visibility="Collapsed">
+                                <Ellipse Width="6" Height="6" Fill="#23A55A" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                                <TextBlock Text="Active" FontSize="9" Foreground="#23A55A"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <!-- 1: Sleek Gradient -->
+                    <Border x:Name="Row1" Tag="1" MouseLeftButtonUp="Row_Click"
+                            Cursor="Hand" CornerRadius="4" Padding="10,8" Margin="0,0,0,6" BorderThickness="1">
+                        <Border.Background><SolidColorBrush Color="#0F1420"/></Border.Background>
+                        <Border.BorderBrush><SolidColorBrush Color="#2A5080"/></Border.BorderBrush>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock Text="Sleek Gradient" FontSize="12" Foreground="#AACCEE" FontWeight="SemiBold"/>
+                                <TextBlock Text="Rounded gradient bars with quarter ticks, glow pulse on low HP/full rage" FontSize="9.5" Foreground="#8A8F9C" Margin="0,2,0,0"/>
+                            </StackPanel>
+                            <StackPanel x:Name="Active1" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Visibility="Collapsed">
+                                <Ellipse Width="6" Height="6" Fill="#23A55A" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                                <TextBlock Text="Active" FontSize="9" Foreground="#23A55A"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <!-- 2: Tactical -->
+                    <Border x:Name="Row2" Tag="2" MouseLeftButtonUp="Row_Click"
+                            Cursor="Hand" CornerRadius="4" Padding="10,8" Margin="0,0,0,6" BorderThickness="1">
+                        <Border.Background><SolidColorBrush Color="#161200"/></Border.Background>
+                        <Border.BorderBrush><SolidColorBrush Color="#806A2A"/></Border.BorderBrush>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock Text="Tactical" FontSize="12" Foreground="#EEDDAA" FontWeight="SemiBold"/>
+                                <TextBlock Text="Segmented armor-plate chevrons that light up as you fill, FPS-shield look" FontSize="9.5" Foreground="#8A8F9C" Margin="0,2,0,0"/>
+                            </StackPanel>
+                            <StackPanel x:Name="Active2" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Visibility="Collapsed">
+                                <Ellipse Width="6" Height="6" Fill="#23A55A" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                                <TextBlock Text="Active" FontSize="9" Foreground="#23A55A"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <!-- 3: Neon -->
+                    <Border x:Name="Row3" Tag="3" MouseLeftButtonUp="Row_Click"
+                            Cursor="Hand" CornerRadius="4" Padding="10,8" Margin="0,0,0,6" BorderThickness="1">
+                        <Border.Background><SolidColorBrush Color="#0F1A1A"/></Border.Background>
+                        <Border.BorderBrush><SolidColorBrush Color="#2A9090"/></Border.BorderBrush>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock Text="Neon" FontSize="12" Foreground="#AAEEEE" FontWeight="SemiBold"/>
+                                <TextBlock Text="Dark glass track, glowing outline instead of a solid fill, cyberpunk scanlines" FontSize="9.5" Foreground="#8A8F9C" Margin="0,2,0,0"/>
+                            </StackPanel>
+                            <StackPanel x:Name="Active3" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Visibility="Collapsed">
+                                <Ellipse Width="6" Height="6" Fill="#23A55A" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                                <TextBlock Text="Active" FontSize="9" Foreground="#23A55A"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <!-- 4: Ornate -->
+                    <Border x:Name="Row4" Tag="4" MouseLeftButtonUp="Row_Click"
+                            Cursor="Hand" CornerRadius="4" Padding="10,8" Margin="0,0,0,6" BorderThickness="1">
+                        <Border.Background><SolidColorBrush Color="#1A1400"/></Border.Background>
+                        <Border.BorderBrush><SolidColorBrush Color="#C8A040"/></Border.BorderBrush>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock Text="Ornate" FontSize="12" Foreground="#EEDDAA" FontWeight="SemiBold"/>
+                                <TextBlock Text="Beveled gold frame, animated shimmer sweep, rune tick marks" FontSize="9.5" Foreground="#8A8F9C" Margin="0,2,0,0"/>
+                            </StackPanel>
+                            <StackPanel x:Name="Active4" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Visibility="Collapsed">
+                                <Ellipse Width="6" Height="6" Fill="#23A55A" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                                <TextBlock Text="Active" FontSize="9" Foreground="#23A55A"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <!-- 5: Hex Plate -->
+                    <Border x:Name="Row5" Tag="5" MouseLeftButtonUp="Row_Click"
+                            Cursor="Hand" CornerRadius="4" Padding="10,8" Margin="0,0,0,6" BorderThickness="1">
+                        <Border.Background><SolidColorBrush Color="#161C22"/></Border.Background>
+                        <Border.BorderBrush><SolidColorBrush Color="#E8B840"/></Border.BorderBrush>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock Text="Hex Plate" FontSize="12" Foreground="#F0D080" FontWeight="SemiBold"/>
+                                <TextBlock Text="Overwatch-inspired hex armor-plate texture over a clean gradient fill" FontSize="9.5" Foreground="#8A8F9C" Margin="0,2,0,0"/>
+                            </StackPanel>
+                            <StackPanel x:Name="Active5" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Visibility="Collapsed">
+                                <Ellipse Width="6" Height="6" Fill="#23A55A" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                                <TextBlock Text="Active" FontSize="9" Foreground="#23A55A"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <!-- 6: Liquid -->
+                    <Border x:Name="Row6" Tag="6" MouseLeftButtonUp="Row_Click"
+                            Cursor="Hand" CornerRadius="4" Padding="10,8" Margin="0,0,0,6" BorderThickness="1">
+                        <Border.Background><SolidColorBrush Color="#0A2430"/></Border.Background>
+                        <Border.BorderBrush><SolidColorBrush Color="#40C0D0"/></Border.BorderBrush>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock Text="Liquid" FontSize="12" Foreground="#A8F0FF" FontWeight="SemiBold"/>
+                                <TextBlock Text="Diablo/Zelda-inspired rounded capsule with an animated liquid surface and rising bubbles" FontSize="9.5" Foreground="#8A8F9C" Margin="0,2,0,0"/>
+                            </StackPanel>
+                            <StackPanel x:Name="Active6" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Visibility="Collapsed">
+                                <Ellipse Width="6" Height="6" Fill="#23A55A" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                                <TextBlock Text="Active" FontSize="9" Foreground="#23A55A"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <!-- 7: Angular -->
+                    <Border x:Name="Row7" Tag="7" MouseLeftButtonUp="Row_Click"
+                            Cursor="Hand" CornerRadius="4" Padding="10,8" Margin="0,0,0,6" BorderThickness="1">
+                        <Border.Background><SolidColorBrush Color="#0A0A0A"/></Border.Background>
+                        <Border.BorderBrush><SolidColorBrush Color="#FF7A1A"/></Border.BorderBrush>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock Text="Angular" FontSize="12" Foreground="#FFDDBB" FontWeight="SemiBold"/>
+                                <TextBlock Text="Apex/Titanfall-inspired stark bar with sharp double-diagonal cut ends" FontSize="9.5" Foreground="#8A8F9C" Margin="0,2,0,0"/>
+                            </StackPanel>
+                            <StackPanel x:Name="Active7" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Visibility="Collapsed">
+                                <Ellipse Width="6" Height="6" Fill="#23A55A" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                                <TextBlock Text="Active" FontSize="9" Foreground="#23A55A"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <!-- 8: Gothic Blood -->
+                    <Border x:Name="Row8" Tag="8" MouseLeftButtonUp="Row_Click"
+                            Cursor="Hand" CornerRadius="4" Padding="10,8" Margin="0,0,0,6" BorderThickness="1">
+                        <Border.Background><SolidColorBrush Color="#1A0808"/></Border.Background>
+                        <Border.BorderBrush><SolidColorBrush Color="#882020"/></Border.BorderBrush>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock Text="Gothic Blood" FontSize="12" Foreground="#D8A8A8" FontWeight="SemiBold"/>
+                                <TextBlock Text="Dark Souls-inspired blood bar with cross end-caps and a slow dripping animation" FontSize="9.5" Foreground="#8A8F9C" Margin="0,2,0,0"/>
+                            </StackPanel>
+                            <StackPanel x:Name="Active8" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Visibility="Collapsed">
+                                <Ellipse Width="6" Height="6" Fill="#23A55A" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                                <TextBlock Text="Active" FontSize="9" Foreground="#23A55A"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <!-- 9: Orb -->
+                    <Border x:Name="Row9" Tag="9" MouseLeftButtonUp="Row_Click"
+                            Cursor="Hand" CornerRadius="4" Padding="10,8" Margin="0,0,0,0" BorderThickness="1">
+                        <Border.Background><SolidColorBrush Color="#1E1E28"/></Border.Background>
+                        <Border.BorderBrush><SolidColorBrush Color="#B0B8D0"/></Border.BorderBrush>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock Text="Orb" FontSize="12" Foreground="#E0E4F0" FontWeight="SemiBold"/>
+                                <TextBlock Text="Diablo-inspired glass orb with a circular progress ring, not a bar at all" FontSize="9.5" Foreground="#8A8F9C" Margin="0,2,0,0"/>
+                            </StackPanel>
+                            <StackPanel x:Name="Active9" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Visibility="Collapsed">
+                                <Ellipse Width="6" Height="6" Fill="#23A55A" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                                <TextBlock Text="Active" FontSize="9" Foreground="#23A55A"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                </StackPanel>
+
+                <Border Height="1" Margin="16,0" Background="{DynamicResource ThemeDividerBrush}"/>
+
+                <!-- SKILL & ACTIONS -->
+                <Border Padding="14,10,14,3" Background="{DynamicResource ThemeBg}">
+                    <TextBlock Text="─  SKILL &amp; ACTIONS  ─" Foreground="{DynamicResource ThemeSectionLabel}"
+                               FontSize="9" FontWeight="Bold" FontFamily="Consolas" HorizontalAlignment="Center"/>
+                </Border>
+
+                <StackPanel Margin="14,4,14,12" x:Name="SkillRowsPanel">
+
+                    <!-- 0: Default -->
+                    <Border x:Name="SkillRow0" Tag="0" MouseLeftButtonUp="SkillRow_Click"
+                            Cursor="Hand" CornerRadius="4" Padding="10,8" Margin="0,0,0,6" BorderThickness="1">
+                        <Border.Background><SolidColorBrush Color="#14161C"/></Border.Background>
+                        <Border.BorderBrush><SolidColorBrush Color="#3A3F4C"/></Border.BorderBrush>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock Text="Default" FontSize="12" Foreground="#DDDDDD" FontWeight="SemiBold"/>
+                                <TextBlock Text="Keep the game's native skill bar slots" FontSize="9.5" Foreground="#8A8F9C" Margin="0,2,0,0"/>
+                            </StackPanel>
+                            <StackPanel x:Name="SkillActive0" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Visibility="Collapsed">
+                                <Ellipse Width="6" Height="6" Fill="#23A55A" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                                <TextBlock Text="Active" FontSize="9" Foreground="#23A55A"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <!-- 1: Hex Grid -->
+                    <Border x:Name="SkillRow1" Tag="1" MouseLeftButtonUp="SkillRow_Click"
+                            Cursor="Hand" CornerRadius="4" Padding="10,8" Margin="0,0,0,0" BorderThickness="1">
+                        <Border.Background><SolidColorBrush Color="#160F26"/></Border.Background>
+                        <Border.BorderBrush><SolidColorBrush Color="#9A4FFF"/></Border.BorderBrush>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock Text="Hex Grid" FontSize="12" Foreground="#D8C0FF" FontWeight="SemiBold"/>
+                                <TextBlock Text="Every skill slot becomes a glowing violet/cyan honeycomb cell instead of a square" FontSize="9.5" Foreground="#8A8F9C" Margin="0,2,0,0"/>
+                            </StackPanel>
+                            <StackPanel x:Name="SkillActive1" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Visibility="Collapsed">
+                                <Ellipse Width="6" Height="6" Fill="#23A55A" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                                <TextBlock Text="Active" FontSize="9" Foreground="#23A55A"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                </StackPanel>
+            </StackPanel>
+        </Border>
+
+        <!-- Close button -->
+        <Button Click="BtnClose_Click"
+                HorizontalAlignment="Right" VerticalAlignment="Top"
+                Width="26" Height="26" Margin="0,0,0,0"
+                Panel.ZIndex="20" Cursor="Hand">
+            <Button.Template>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Bd" CornerRadius="13" Background="#BB1111">
+                        <TextBlock Text="✕" Foreground="White" FontSize="12" FontWeight="Bold"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="#EE0000"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Button.Template>
+        </Button>
+    </Grid>
+</Window>

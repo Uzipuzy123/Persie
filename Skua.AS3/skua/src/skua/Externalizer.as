@@ -106,6 +106,10 @@ package skua
 			this.addCallback("setEnemyOutlineColor",    Main.setEnemyOutlineColor);
 			this.addCallback("setMyHitStyle",           Main.setMyHitStyle);
 			this.addCallback("setEnemyHitStyle",        Main.setEnemyHitStyle);
+			this.addCallback("setScoreboardSkin",       Main.setScoreboardSkin);
+			this.addCallback("setNameplateFont",        Main.setNameplateFont);
+			this.addCallback("setBlueFlagStyle",        Main.setBlueFlagStyle);
+			this.addCallback("setRedFlagStyle",         Main.setRedFlagStyle);
 
 			this.debug("Externalizer::init done.");
 			this.call("requestLoadGame");

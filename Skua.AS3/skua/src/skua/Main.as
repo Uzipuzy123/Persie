@@ -696,6 +696,46 @@ package skua
 		catch (e:Error) {}
 	}
 
+	public static function setScoreboardSkin(styleStr:String):void
+	{
+		try
+		{
+			var mod:* = skua.module.Modules.getModule("ScoreboardSkin");
+			if (mod) mod.setSkin(int(styleStr));
+		}
+		catch (e:Error) {}
+	}
+
+	public static function setNameplateFont(styleStr:String):void
+	{
+		try
+		{
+			var mod:* = skua.module.Modules.getModule("NameplateFont");
+			if (mod) mod.setFont(int(styleStr));
+		}
+		catch (e:Error) {}
+	}
+
+	public static function setBlueFlagStyle(styleStr:String):void
+	{
+		try
+		{
+			var mod:* = skua.module.Modules.getModule("TeamFlagReskin");
+			if (mod) mod.setBlueStyle(int(styleStr));
+		}
+		catch (e:Error) {}
+	}
+
+	public static function setRedFlagStyle(styleStr:String):void
+	{
+		try
+		{
+			var mod:* = skua.module.Modules.getModule("TeamFlagReskin");
+			if (mod) mod.setRedStyle(int(styleStr));
+		}
+		catch (e:Error) {}
+	}
+
 	public static function setKillFlashScreenStyle(styleStr:String):void
 	{
 		try

@@ -75,6 +75,7 @@
                     <Grid.RowDefinitions>
                         <RowDefinition Height="28"/>
                         <RowDefinition Height="28"/>
+                        <RowDefinition Height="28"/>
                     </Grid.RowDefinitions>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
@@ -122,6 +123,21 @@
                             MouseLeftButtonUp="TabOutline_Click"
                             BorderBrush="Transparent" BorderThickness="0,0,0,2">
                         <TextBlock x:Name="TabOutlineText" Text="OUTLINE"
+                                   HorizontalAlignment="Center" FontSize="8" FontWeight="Bold"
+                                   FontFamily="Consolas" Foreground="{DynamicResource ThemeSubLabel}"/>
+                    </Border>
+
+                    <Border x:Name="TabNameplateBorder" Grid.Row="2" Grid.Column="0" Padding="0,6" Cursor="Hand"
+                            MouseLeftButtonUp="TabNameplate_Click"
+                            BorderBrush="Transparent" BorderThickness="0,0,0,2">
+                        <TextBlock x:Name="TabNameplateText" Text="NAMEPLATE"
+                                   HorizontalAlignment="Center" FontSize="8" FontWeight="Bold"
+                                   FontFamily="Consolas" Foreground="{DynamicResource ThemeSubLabel}"/>
+                    </Border>
+                    <Border x:Name="TabFlagBorder" Grid.Row="2" Grid.Column="1" Padding="0,6" Cursor="Hand"
+                            MouseLeftButtonUp="TabFlag_Click"
+                            BorderBrush="Transparent" BorderThickness="0,0,0,2">
+                        <TextBlock x:Name="TabFlagText" Text="FLAG"
                                    HorizontalAlignment="Center" FontSize="8" FontWeight="Bold"
                                    FontFamily="Consolas" Foreground="{DynamicResource ThemeSubLabel}"/>
                     </Border>
@@ -328,6 +344,61 @@
                             <Grid VerticalAlignment="Center">
                                 <TextBlock Text="Ingame Button" Foreground="{DynamicResource ThemeRowLabel}" FontSize="11"/>
                                 <TextBlock x:Name="SkuaBtnToggleText" Text="OFF" HorizontalAlignment="Right"
+                                           Foreground="{DynamicResource ThemeSubLabel}" FontFamily="Consolas" FontSize="10"/>
+                            </Grid>
+                        </Border>
+                    </Grid>
+                    <Border Height="1" Background="{DynamicResource ThemeDivider}"/>
+
+                    <Grid Height="28" Background="{DynamicResource ThemeRowBg}">
+                        <Border Padding="10,0" Cursor="Hand" MouseLeftButtonUp="FastDoorEnter_Click">
+                            <Grid VerticalAlignment="Center">
+                                <TextBlock Text="Fast Door Enter (experimental)" Foreground="{DynamicResource ThemeRowLabel}" FontSize="11"/>
+                                <TextBlock x:Name="FastDoorEnterToggleText" Text="OFF" HorizontalAlignment="Right"
+                                           Foreground="{DynamicResource ThemeSubLabel}" FontFamily="Consolas" FontSize="10"/>
+                            </Grid>
+                        </Border>
+                    </Grid>
+                    <Border Height="1" Background="{DynamicResource ThemeDivider}"/>
+
+                    <Grid Height="28" Background="{DynamicResource ThemeRowBg}">
+                        <Border Padding="10,0" Cursor="Hand" MouseLeftButtonUp="PortalFlash_Click">
+                            <Grid VerticalAlignment="Center">
+                                <TextBlock Text="Portal Flash" Foreground="{DynamicResource ThemeRowLabel}" FontSize="11"/>
+                                <TextBlock x:Name="PortalFlashToggleText" Text="OFF" HorizontalAlignment="Right"
+                                           Foreground="{DynamicResource ThemeSubLabel}" FontFamily="Consolas" FontSize="10"/>
+                            </Grid>
+                        </Border>
+                    </Grid>
+                    <Border Height="1" Background="{DynamicResource ThemeDivider}"/>
+
+                    <Grid Height="28" Background="{DynamicResource ThemeRowBg}">
+                        <Border Padding="10,0" Cursor="Hand" MouseLeftButtonUp="RespawnEffect_Click">
+                            <Grid VerticalAlignment="Center">
+                                <TextBlock Text="Respawn Effect" Foreground="{DynamicResource ThemeRowLabel}" FontSize="11"/>
+                                <TextBlock x:Name="RespawnEffectToggleText" Text="OFF" HorizontalAlignment="Right"
+                                           Foreground="{DynamicResource ThemeSubLabel}" FontFamily="Consolas" FontSize="10"/>
+                            </Grid>
+                        </Border>
+                    </Grid>
+                    <Border Height="1" Background="{DynamicResource ThemeDivider}"/>
+
+                    <Grid Height="28" Background="{DynamicResource ThemeRowBg}">
+                        <Border Padding="10,0" Cursor="Hand" MouseLeftButtonUp="DisableNativeGlow_Click">
+                            <Grid VerticalAlignment="Center">
+                                <TextBlock Text="Disable All Glow (native)" Foreground="{DynamicResource ThemeRowLabel}" FontSize="11"/>
+                                <TextBlock x:Name="DisableNativeGlowToggleText" Text="OFF" HorizontalAlignment="Right"
+                                           Foreground="{DynamicResource ThemeSubLabel}" FontFamily="Consolas" FontSize="10"/>
+                            </Grid>
+                        </Border>
+                    </Grid>
+                    <Border Height="1" Background="{DynamicResource ThemeDivider}"/>
+
+                    <Grid Height="28" Background="{DynamicResource ThemeRowBg}">
+                        <Border Padding="10,0" Cursor="Hand" MouseLeftButtonUp="DisableNativeAnimation_Click">
+                            <Grid VerticalAlignment="Center">
+                                <TextBlock Text="Disable All Animation (native)" Foreground="{DynamicResource ThemeRowLabel}" FontSize="11"/>
+                                <TextBlock x:Name="DisableNativeAnimationToggleText" Text="OFF" HorizontalAlignment="Right"
                                            Foreground="{DynamicResource ThemeSubLabel}" FontFamily="Consolas" FontSize="10"/>
                             </Grid>
                         </Border>
@@ -1652,6 +1723,397 @@
                                 <TextBlock Text="Cyan" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource ThemeRowLabel}"/>
                             </StackPanel>
                             <TextBlock x:Name="MyHitCheck9" Text="✓" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                       FontSize="13" FontWeight="Bold" Foreground="{DynamicResource ThemeTitle}" Visibility="Collapsed"/>
+                        </Grid>
+                    </Border>
+                    <Border Height="1" Background="{DynamicResource ThemeSectionDiv}"/>
+
+                    <Border Height="12" Background="{DynamicResource ThemeBg}"/>
+
+                </StackPanel>
+
+                <!-- ═══ NAMEPLATE TAB ═══ -->
+                <StackPanel x:Name="NameplateContent" Visibility="Collapsed">
+
+                    <Border Padding="14,7,14,4" Background="{DynamicResource ThemeBg}">
+                        <TextBlock Text="─  NAMEPLATE FONT  ─" Foreground="{DynamicResource ThemeSectionLabel}"
+                                   FontSize="9" FontWeight="Bold" FontFamily="Consolas" HorizontalAlignment="Center"/>
+                    </Border>
+
+                    <!-- Off -->
+                    <Border Height="34" Padding="14,0" Cursor="Hand" Tag="0"
+                            MouseLeftButtonUp="NameplateFont_Click" Background="{DynamicResource ThemeRowBg}">
+                        <Grid VerticalAlignment="Center">
+                            <TextBlock Text="Off (Native)" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource ThemeRowLabel}"/>
+                            <TextBlock x:Name="NameplateCheck0" Text="✓" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                       FontSize="13" FontWeight="Bold" Foreground="{DynamicResource ThemeTitle}" Visibility="Visible"/>
+                        </Grid>
+                    </Border>
+                    <Border Height="1" Background="{DynamicResource ThemeDivider}"/>
+
+                    <Border Height="34" Padding="14,0" Cursor="Hand" Tag="1"
+                            MouseLeftButtonUp="NameplateFont_Click" Background="{DynamicResource ThemeRowBg}">
+                        <Grid VerticalAlignment="Center">
+                            <TextBlock Text="Comic Sans MS" FontFamily="Comic Sans MS" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource ThemeRowLabel}"/>
+                            <TextBlock x:Name="NameplateCheck1" Text="✓" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                       FontSize="13" FontWeight="Bold" Foreground="{DynamicResource ThemeTitle}" Visibility="Collapsed"/>
+                        </Grid>
+                    </Border>
+                    <Border Height="1" Background="{DynamicResource ThemeDivider}"/>
+
+                    <Border Height="34" Padding="14,0" Cursor="Hand" Tag="2"
+                            MouseLeftButtonUp="NameplateFont_Click" Background="{DynamicResource ThemeRowBg}">
+                        <Grid VerticalAlignment="Center">
+                            <TextBlock Text="Impact" FontFamily="Impact" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource ThemeRowLabel}"/>
+                            <TextBlock x:Name="NameplateCheck2" Text="✓" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                       FontSize="13" FontWeight="Bold" Foreground="{DynamicResource ThemeTitle}" Visibility="Collapsed"/>
+                        </Grid>
+                    </Border>
+                    <Border Height="1" Background="{DynamicResource ThemeDivider}"/>
+
+                    <Border Height="34" Padding="14,0" Cursor="Hand" Tag="3"
+                            MouseLeftButtonUp="NameplateFont_Click" Background="{DynamicResource ThemeRowBg}">
+                        <Grid VerticalAlignment="Center">
+                            <TextBlock Text="Papyrus" FontFamily="Papyrus" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource ThemeRowLabel}"/>
+                            <TextBlock x:Name="NameplateCheck3" Text="✓" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                       FontSize="13" FontWeight="Bold" Foreground="{DynamicResource ThemeTitle}" Visibility="Collapsed"/>
+                        </Grid>
+                    </Border>
+                    <Border Height="1" Background="{DynamicResource ThemeDivider}"/>
+
+                    <Border Height="34" Padding="14,0" Cursor="Hand" Tag="4"
+                            MouseLeftButtonUp="NameplateFont_Click" Background="{DynamicResource ThemeRowBg}">
+                        <Grid VerticalAlignment="Center">
+                            <TextBlock Text="Arial Black" FontFamily="Arial Black" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource ThemeRowLabel}"/>
+                            <TextBlock x:Name="NameplateCheck4" Text="✓" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                       FontSize="13" FontWeight="Bold" Foreground="{DynamicResource ThemeTitle}" Visibility="Collapsed"/>
+                        </Grid>
+                    </Border>
+                    <Border Height="1" Background="{DynamicResource ThemeDivider}"/>
+
+                    <Border Height="34" Padding="14,0" Cursor="Hand" Tag="5"
+                            MouseLeftButtonUp="NameplateFont_Click" Background="{DynamicResource ThemeRowBg}">
+                        <Grid VerticalAlignment="Center">
+                            <TextBlock Text="Consolas" FontFamily="Consolas" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource ThemeRowLabel}"/>
+                            <TextBlock x:Name="NameplateCheck5" Text="✓" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                       FontSize="13" FontWeight="Bold" Foreground="{DynamicResource ThemeTitle}" Visibility="Collapsed"/>
+                        </Grid>
+                    </Border>
+                    <Border Height="1" Background="{DynamicResource ThemeDivider}"/>
+
+                    <Border Height="34" Padding="14,0" Cursor="Hand" Tag="6"
+                            MouseLeftButtonUp="NameplateFont_Click" Background="{DynamicResource ThemeRowBg}">
+                        <Grid VerticalAlignment="Center">
+                            <TextBlock Text="Segoe Script" FontFamily="Segoe Script" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource ThemeRowLabel}"/>
+                            <TextBlock x:Name="NameplateCheck6" Text="✓" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                       FontSize="13" FontWeight="Bold" Foreground="{DynamicResource ThemeTitle}" Visibility="Collapsed"/>
+                        </Grid>
+                    </Border>
+                    <Border Height="1" Background="{DynamicResource ThemeDivider}"/>
+
+                    <Border Height="34" Padding="14,0" Cursor="Hand" Tag="7"
+                            MouseLeftButtonUp="NameplateFont_Click" Background="{DynamicResource ThemeRowBg}">
+                        <Grid VerticalAlignment="Center">
+                            <TextBlock Text="Gabriola" FontFamily="Gabriola" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource ThemeRowLabel}"/>
+                            <TextBlock x:Name="NameplateCheck7" Text="✓" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                       FontSize="13" FontWeight="Bold" Foreground="{DynamicResource ThemeTitle}" Visibility="Collapsed"/>
+                        </Grid>
+                    </Border>
+                    <Border Height="1" Background="{DynamicResource ThemeDivider}"/>
+
+                    <Border Height="34" Padding="14,0" Cursor="Hand" Tag="8"
+                            MouseLeftButtonUp="NameplateFont_Click" Background="{DynamicResource ThemeRowBg}">
+                        <Grid VerticalAlignment="Center">
+                            <TextBlock Text="MV Boli" FontFamily="MV Boli" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource ThemeRowLabel}"/>
+                            <TextBlock x:Name="NameplateCheck8" Text="✓" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                       FontSize="13" FontWeight="Bold" Foreground="{DynamicResource ThemeTitle}" Visibility="Collapsed"/>
+                        </Grid>
+                    </Border>
+                    <Border Height="1" Background="{DynamicResource ThemeDivider}"/>
+
+                    <Border Height="34" Padding="14,0" Cursor="Hand" Tag="9"
+                            MouseLeftButtonUp="NameplateFont_Click" Background="{DynamicResource ThemeRowBg}">
+                        <Grid VerticalAlignment="Center">
+                            <TextBlock Text="Bahnschrift" FontFamily="Bahnschrift" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource ThemeRowLabel}"/>
+                            <TextBlock x:Name="NameplateCheck9" Text="✓" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                       FontSize="13" FontWeight="Bold" Foreground="{DynamicResource ThemeTitle}" Visibility="Collapsed"/>
+                        </Grid>
+                    </Border>
+                    <Border Height="1" Background="{DynamicResource ThemeDivider}"/>
+
+                    <Border Height="34" Padding="14,0" Cursor="Hand" Tag="10"
+                            MouseLeftButtonUp="NameplateFont_Click" Background="{DynamicResource ThemeRowBg}">
+                        <Grid VerticalAlignment="Center">
+                            <TextBlock Text="Ink Free" FontFamily="Ink Free" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource ThemeRowLabel}"/>
+                            <TextBlock x:Name="NameplateCheck10" Text="✓" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                       FontSize="13" FontWeight="Bold" Foreground="{DynamicResource ThemeTitle}" Visibility="Collapsed"/>
+                        </Grid>
+                    </Border>
+                    <Border Height="1" Background="{DynamicResource ThemeSectionDiv}"/>
+
+                    <Border Padding="14,7,14,4" Background="{DynamicResource ThemeBg}">
+                        <TextBlock Text="─  THEMED EFFECTS  ─" Foreground="{DynamicResource ThemeSectionLabel}"
+                                   FontSize="9" FontWeight="Bold" FontFamily="Consolas" HorizontalAlignment="Center"/>
+                    </Border>
+
+                    <Border Height="34" Padding="14,0" Cursor="Hand" Tag="11"
+                            MouseLeftButtonUp="NameplateFont_Click" Background="{DynamicResource ThemeRowBg}">
+                        <Grid VerticalAlignment="Center">
+                            <TextBlock Text="Golden Royalty" FontFamily="Constantia" FontSize="12" FontWeight="Bold" Foreground="#FFD700">
+                                <TextBlock.Effect>
+                                    <DropShadowEffect Color="#FFAA00" BlurRadius="10" ShadowDepth="0" Opacity="0.9"/>
+                                </TextBlock.Effect>
+                            </TextBlock>
+                            <TextBlock x:Name="NameplateCheck11" Text="✓" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                       FontSize="13" FontWeight="Bold" Foreground="{DynamicResource ThemeTitle}" Visibility="Collapsed"/>
+                        </Grid>
+                    </Border>
+                    <Border Height="1" Background="{DynamicResource ThemeDivider}"/>
+
+                    <Border Height="34" Padding="14,0" Cursor="Hand" Tag="12"
+                            MouseLeftButtonUp="NameplateFont_Click" Background="{DynamicResource ThemeRowBg}">
+                        <Grid VerticalAlignment="Center">
+                            <TextBlock Text="Ancient Blood" FontFamily="Sylfaen" FontSize="12" FontWeight="Bold" Foreground="#CC1010">
+                                <TextBlock.Effect>
+                                    <DropShadowEffect Color="#FF0000" BlurRadius="10" ShadowDepth="0" Opacity="0.85"/>
+                                </TextBlock.Effect>
+                            </TextBlock>
+                            <TextBlock x:Name="NameplateCheck12" Text="✓" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                       FontSize="13" FontWeight="Bold" Foreground="{DynamicResource ThemeTitle}" Visibility="Collapsed"/>
+                        </Grid>
+                    </Border>
+                    <Border Height="1" Background="{DynamicResource ThemeDivider}"/>
+
+                    <Border Height="34" Padding="14,0" Cursor="Hand" Tag="13"
+                            MouseLeftButtonUp="NameplateFont_Click" Background="{DynamicResource ThemeRowBg}">
+                        <Grid VerticalAlignment="Center">
+                            <TextBlock Text="Toxic Glow" FontFamily="Candara" FontSize="12" FontWeight="Bold" Foreground="#39FF14">
+                                <TextBlock.Effect>
+                                    <DropShadowEffect Color="#22FF00" BlurRadius="12" ShadowDepth="0" Opacity="0.9"/>
+                                </TextBlock.Effect>
+                            </TextBlock>
+                            <TextBlock x:Name="NameplateCheck13" Text="✓" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                       FontSize="13" FontWeight="Bold" Foreground="{DynamicResource ThemeTitle}" Visibility="Collapsed"/>
+                        </Grid>
+                    </Border>
+                    <Border Height="1" Background="{DynamicResource ThemeDivider}"/>
+
+                    <Border Height="34" Padding="14,0" Cursor="Hand" Tag="14"
+                            MouseLeftButtonUp="NameplateFont_Click" Background="{DynamicResource ThemeRowBg}">
+                        <Grid VerticalAlignment="Center">
+                            <TextBlock Text="Frostbite" FontFamily="Corbel" FontSize="12" FontWeight="Bold" Foreground="#66E0FF">
+                                <TextBlock.Effect>
+                                    <DropShadowEffect Color="#00CCFF" BlurRadius="12" ShadowDepth="0" Opacity="0.9"/>
+                                </TextBlock.Effect>
+                            </TextBlock>
+                            <TextBlock x:Name="NameplateCheck14" Text="✓" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                       FontSize="13" FontWeight="Bold" Foreground="{DynamicResource ThemeTitle}" Visibility="Collapsed"/>
+                        </Grid>
+                    </Border>
+                    <Border Height="1" Background="{DynamicResource ThemeDivider}"/>
+
+                    <Border Height="34" Padding="14,0" Cursor="Hand" Tag="15"
+                            MouseLeftButtonUp="NameplateFont_Click" Background="{DynamicResource ThemeRowBg}">
+                        <Grid VerticalAlignment="Center">
+                            <TextBlock Text="Cyber Pink" FontFamily="Malgun Gothic" FontSize="12" FontWeight="Bold" Foreground="#FF2FD8">
+                                <TextBlock.Effect>
+                                    <DropShadowEffect Color="#FF00CC" BlurRadius="12" ShadowDepth="0" Opacity="0.9"/>
+                                </TextBlock.Effect>
+                            </TextBlock>
+                            <TextBlock x:Name="NameplateCheck15" Text="✓" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                       FontSize="13" FontWeight="Bold" Foreground="{DynamicResource ThemeTitle}" Visibility="Collapsed"/>
+                        </Grid>
+                    </Border>
+                    <Border Height="1" Background="{DynamicResource ThemeSectionDiv}"/>
+
+                    <Border Height="12" Background="{DynamicResource ThemeBg}"/>
+
+                </StackPanel>
+
+                <!-- ═══ FLAG TAB ═══ -->
+                <StackPanel x:Name="FlagContent" Visibility="Collapsed">
+
+                    <Border Padding="14,7,14,4" Background="{DynamicResource ThemeBg}">
+                        <TextBlock Text="─  BLUE FLAG  ─" Foreground="{DynamicResource ThemeSectionLabel}"
+                                   FontSize="9" FontWeight="Bold" FontFamily="Consolas" HorizontalAlignment="Center"/>
+                    </Border>
+
+                    <Border Height="34" Padding="14,0" Cursor="Hand" Tag="0"
+                            MouseLeftButtonUp="BlueFlagStyle_Click" Background="{DynamicResource ThemeRowBg}">
+                        <Grid VerticalAlignment="Center">
+                            <TextBlock Text="Off (Native)" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource ThemeRowLabel}"/>
+                            <TextBlock x:Name="BlueFlagCheck0" Text="✓" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                       FontSize="13" FontWeight="Bold" Foreground="{DynamicResource ThemeTitle}" Visibility="Visible"/>
+                        </Grid>
+                    </Border>
+                    <Border Height="1" Background="{DynamicResource ThemeDivider}"/>
+
+                    <Border Height="34" Padding="14,0" Cursor="Hand" Tag="1"
+                            MouseLeftButtonUp="BlueFlagStyle_Click" Background="{DynamicResource ThemeRowBg}">
+                        <Grid VerticalAlignment="Center">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <Ellipse Width="13" Height="13" Fill="#00E5FF" Margin="0,0,10,0"/>
+                                <TextBlock Text="Rising Sun" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource ThemeRowLabel}"/>
+                            </StackPanel>
+                            <TextBlock x:Name="BlueFlagCheck1" Text="✓" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                       FontSize="13" FontWeight="Bold" Foreground="{DynamicResource ThemeTitle}" Visibility="Collapsed"/>
+                        </Grid>
+                    </Border>
+                    <Border Height="1" Background="{DynamicResource ThemeDivider}"/>
+
+                    <Border Height="34" Padding="14,0" Cursor="Hand" Tag="2"
+                            MouseLeftButtonUp="BlueFlagStyle_Click" Background="{DynamicResource ThemeRowBg}">
+                        <Grid VerticalAlignment="Center">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <Ellipse Width="13" Height="13" Fill="#2288FF" Margin="0,0,10,0"/>
+                                <TextBlock Text="Shuriken" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource ThemeRowLabel}"/>
+                            </StackPanel>
+                            <TextBlock x:Name="BlueFlagCheck2" Text="✓" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                       FontSize="13" FontWeight="Bold" Foreground="{DynamicResource ThemeTitle}" Visibility="Collapsed"/>
+                        </Grid>
+                    </Border>
+                    <Border Height="1" Background="{DynamicResource ThemeDivider}"/>
+
+                    <Border Height="34" Padding="14,0" Cursor="Hand" Tag="3"
+                            MouseLeftButtonUp="BlueFlagStyle_Click" Background="{DynamicResource ThemeRowBg}">
+                        <Grid VerticalAlignment="Center">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <Ellipse Width="13" Height="13" Fill="#00C2A8" Margin="0,0,10,0"/>
+                                <TextBlock Text="Sakura" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource ThemeRowLabel}"/>
+                            </StackPanel>
+                            <TextBlock x:Name="BlueFlagCheck3" Text="✓" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                       FontSize="13" FontWeight="Bold" Foreground="{DynamicResource ThemeTitle}" Visibility="Collapsed"/>
+                        </Grid>
+                    </Border>
+                    <Border Height="1" Background="{DynamicResource ThemeDivider}"/>
+
+                    <Border Height="34" Padding="14,0" Cursor="Hand" Tag="4"
+                            MouseLeftButtonUp="BlueFlagStyle_Click" Background="{DynamicResource ThemeRowBg}">
+                        <Grid VerticalAlignment="Center">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <Ellipse Width="13" Height="13" Fill="#4FC3F7" Margin="0,0,10,0"/>
+                                <TextBlock Text="Lightning Bolt" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource ThemeRowLabel}"/>
+                            </StackPanel>
+                            <TextBlock x:Name="BlueFlagCheck4" Text="✓" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                       FontSize="13" FontWeight="Bold" Foreground="{DynamicResource ThemeTitle}" Visibility="Collapsed"/>
+                        </Grid>
+                    </Border>
+                    <Border Height="1" Background="{DynamicResource ThemeDivider}"/>
+
+                    <Border Height="34" Padding="14,0" Cursor="Hand" Tag="5"
+                            MouseLeftButtonUp="BlueFlagStyle_Click" Background="{DynamicResource ThemeRowBg}">
+                        <Grid VerticalAlignment="Center">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <Ellipse Width="13" Height="13" Fill="#1565C0" Margin="0,0,10,0"/>
+                                <TextBlock Text="Crescent Moon" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource ThemeRowLabel}"/>
+                            </StackPanel>
+                            <TextBlock x:Name="BlueFlagCheck5" Text="✓" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                       FontSize="13" FontWeight="Bold" Foreground="{DynamicResource ThemeTitle}" Visibility="Collapsed"/>
+                        </Grid>
+                    </Border>
+                    <Border Height="1" Background="{DynamicResource ThemeDivider}"/>
+
+                    <Border Height="34" Padding="14,0" Cursor="Hand" Tag="6"
+                            MouseLeftButtonUp="BlueFlagStyle_Click" Background="{DynamicResource ThemeRowBg}">
+                        <Grid VerticalAlignment="Center">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <Ellipse Width="13" Height="13" Fill="#536DFE" Margin="0,0,10,0"/>
+                                <TextBlock Text="Katana" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource ThemeRowLabel}"/>
+                            </StackPanel>
+                            <TextBlock x:Name="BlueFlagCheck6" Text="✓" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                       FontSize="13" FontWeight="Bold" Foreground="{DynamicResource ThemeTitle}" Visibility="Collapsed"/>
+                        </Grid>
+                    </Border>
+                    <Border Height="1" Background="{DynamicResource ThemeSectionDiv}"/>
+
+                    <Border Padding="14,7,14,4" Background="{DynamicResource ThemeBg}">
+                        <TextBlock Text="─  RED FLAG  ─" Foreground="{DynamicResource ThemeSectionLabel}"
+                                   FontSize="9" FontWeight="Bold" FontFamily="Consolas" HorizontalAlignment="Center"/>
+                    </Border>
+
+                    <Border Height="34" Padding="14,0" Cursor="Hand" Tag="0"
+                            MouseLeftButtonUp="RedFlagStyle_Click" Background="{DynamicResource ThemeRowBg}">
+                        <Grid VerticalAlignment="Center">
+                            <TextBlock Text="Off (Native)" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource ThemeRowLabel}"/>
+                            <TextBlock x:Name="RedFlagCheck0" Text="✓" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                       FontSize="13" FontWeight="Bold" Foreground="{DynamicResource ThemeTitle}" Visibility="Visible"/>
+                        </Grid>
+                    </Border>
+                    <Border Height="1" Background="{DynamicResource ThemeDivider}"/>
+
+                    <Border Height="34" Padding="14,0" Cursor="Hand" Tag="1"
+                            MouseLeftButtonUp="RedFlagStyle_Click" Background="{DynamicResource ThemeRowBg}">
+                        <Grid VerticalAlignment="Center">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <Ellipse Width="13" Height="13" Fill="#FF2D2D" Margin="0,0,10,0"/>
+                                <TextBlock Text="Flame" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource ThemeRowLabel}"/>
+                            </StackPanel>
+                            <TextBlock x:Name="RedFlagCheck1" Text="✓" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                       FontSize="13" FontWeight="Bold" Foreground="{DynamicResource ThemeTitle}" Visibility="Collapsed"/>
+                        </Grid>
+                    </Border>
+                    <Border Height="1" Background="{DynamicResource ThemeDivider}"/>
+
+                    <Border Height="34" Padding="14,0" Cursor="Hand" Tag="2"
+                            MouseLeftButtonUp="RedFlagStyle_Click" Background="{DynamicResource ThemeRowBg}">
+                        <Grid VerticalAlignment="Center">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <Ellipse Width="13" Height="13" Fill="#FF5722" Margin="0,0,10,0"/>
+                                <TextBlock Text="Oni Eye" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource ThemeRowLabel}"/>
+                            </StackPanel>
+                            <TextBlock x:Name="RedFlagCheck2" Text="✓" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                       FontSize="13" FontWeight="Bold" Foreground="{DynamicResource ThemeTitle}" Visibility="Collapsed"/>
+                        </Grid>
+                    </Border>
+                    <Border Height="1" Background="{DynamicResource ThemeDivider}"/>
+
+                    <Border Height="34" Padding="14,0" Cursor="Hand" Tag="3"
+                            MouseLeftButtonUp="RedFlagStyle_Click" Background="{DynamicResource ThemeRowBg}">
+                        <Grid VerticalAlignment="Center">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <Ellipse Width="13" Height="13" Fill="#E53935" Margin="0,0,10,0"/>
+                                <TextBlock Text="Demon Horns" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource ThemeRowLabel}"/>
+                            </StackPanel>
+                            <TextBlock x:Name="RedFlagCheck3" Text="✓" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                       FontSize="13" FontWeight="Bold" Foreground="{DynamicResource ThemeTitle}" Visibility="Collapsed"/>
+                        </Grid>
+                    </Border>
+                    <Border Height="1" Background="{DynamicResource ThemeDivider}"/>
+
+                    <Border Height="34" Padding="14,0" Cursor="Hand" Tag="4"
+                            MouseLeftButtonUp="RedFlagStyle_Click" Background="{DynamicResource ThemeRowBg}">
+                        <Grid VerticalAlignment="Center">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <Ellipse Width="13" Height="13" Fill="#FF4081" Margin="0,0,10,0"/>
+                                <TextBlock Text="Claw Marks" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource ThemeRowLabel}"/>
+                            </StackPanel>
+                            <TextBlock x:Name="RedFlagCheck4" Text="✓" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                       FontSize="13" FontWeight="Bold" Foreground="{DynamicResource ThemeTitle}" Visibility="Collapsed"/>
+                        </Grid>
+                    </Border>
+                    <Border Height="1" Background="{DynamicResource ThemeDivider}"/>
+
+                    <Border Height="34" Padding="14,0" Cursor="Hand" Tag="5"
+                            MouseLeftButtonUp="RedFlagStyle_Click" Background="{DynamicResource ThemeRowBg}">
+                        <Grid VerticalAlignment="Center">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <Ellipse Width="13" Height="13" Fill="#B71C1C" Margin="0,0,10,0"/>
+                                <TextBlock Text="Blood Drop" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource ThemeRowLabel}"/>
+                            </StackPanel>
+                            <TextBlock x:Name="RedFlagCheck5" Text="✓" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                       FontSize="13" FontWeight="Bold" Foreground="{DynamicResource ThemeTitle}" Visibility="Collapsed"/>
+                        </Grid>
+                    </Border>
+                    <Border Height="1" Background="{DynamicResource ThemeDivider}"/>
+
+                    <Border Height="34" Padding="14,0" Cursor="Hand" Tag="6"
+                            MouseLeftButtonUp="RedFlagStyle_Click" Background="{DynamicResource ThemeRowBg}">
+                        <Grid VerticalAlignment="Center">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <Ellipse Width="13" Height="13" Fill="#8B0000" Margin="0,0,10,0"/>
+                                <TextBlock Text="Phoenix Wing" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource ThemeRowLabel}"/>
+                            </StackPanel>
+                            <TextBlock x:Name="RedFlagCheck6" Text="✓" HorizontalAlignment="Right" VerticalAlignment="Center"
                                        FontSize="13" FontWeight="Bold" Foreground="{DynamicResource ThemeTitle}" Visibility="Collapsed"/>
                         </Grid>
                     </Border>

@@ -92,43 +92,8 @@ package skua.module
 					}
 					obj = obj.parent;
 				}
-
-				// Ground click-to-move fast-path. Confirmed live (via DebugPanel's click
-				// inspector) that the native movement hit area is a real, literally-named
-				// SimpleButton ("btnWalkingArea") inside the current map's own timeline —
-				// distinct from the UI, which lives under a separate "ui" MovieClip off
-				// Game directly. Movement uses the same MOUSE_DOWN+MOUSE_UP-on-same-object
-				// CLICK gesture as targeting did, so redispatching CLICK on MOUSE_DOWN
-				// starts walking instantly instead of waiting for release. The button
-				// never moves out from under the cursor, so the real CLICK will still
-				// complete normally afterward too — a harmless repeat of the same "walk to
-				// this exact spot" command, not a distinct action like a shop purchase.
-				var walkBtn:* = findWalkingAreaButton(e.target);
-				if (walkBtn != null)
-				{
-					var moveClick:MouseEvent = new MouseEvent(MouseEvent.CLICK, true, false,
-						e.stageX, e.stageY, walkBtn, false, false, false, true, 0);
-					walkBtn.dispatchEvent(moveClick);
-					return;
-				}
 			}
 			catch (err:Error) {}
-		}
-
-		// True if `target` (or a close ancestor) is the map's ground/movement hit
-		// area button, returning that button. Depth is capped since it should only
-		// ever be e.target itself or an immediate wrapper, never deeply nested.
-		private function findWalkingAreaButton(target:*):*
-		{
-			var o:* = target;
-			var depth:int = 0;
-			while (o != null && depth < 5)
-			{
-				try { if (o.name == "btnWalkingArea") return o; } catch (e:Error) {}
-				o = o.parent;
-				depth++;
-			}
-			return null;
 		}
 
 		// True if `target` is a nameplate ("pname") or nested inside one, for any

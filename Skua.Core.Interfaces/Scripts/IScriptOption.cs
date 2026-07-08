@@ -151,6 +151,59 @@ public interface IScriptOption : INotifyPropertyChanged
     /// </summary>
     bool DebugPanel { get; set; }
     /// <summary>
+    /// Experimental: skips the ~100ms native delay between a same-map room (cell)
+    /// change registering and the avatar actually being repositioned into it.
+    /// </summary>
+    bool FastDoorEnter { get; set; }
+    /// <summary>
+    /// Selects which scoreboard skin fully replaces the native PvP team score bar.
+    /// 0 = native default; see ScoreboardWindow for the rest of the options.
+    /// </summary>
+    int ScoreboardSkin { get; set; }
+    /// <summary>
+    /// Plays a glowing portal-materialize burst wherever you land after a same-map
+    /// room (cell) transition.
+    /// </summary>
+    bool PortalFlash { get; set; }
+    /// <summary>
+    /// Enables overriding every player nameplate's font. 0 = off/native.
+    /// </summary>
+    bool NameplateFont { get; set; }
+    /// <summary>
+    /// Selects which font every nameplate is rendered in; see QualityWindow's
+    /// Nameplate tab for the list. 0 = off/native.
+    /// </summary>
+    int NameplateFontId { get; set; }
+    /// <summary>
+    /// Plays a materialize burst (ring + beam + white flash) wherever any player respawns.
+    /// </summary>
+    bool RespawnEffect { get; set; }
+    /// <summary>
+    /// Strips AQW's own native glow/aura effects (not a Skua feature) from
+    /// every avatar's entire body — weapons, cape, robe, and every other
+    /// equipped/body part, not just held items.
+    /// </summary>
+    bool DisableNativeGlow { get; set; }
+    /// <summary>
+    /// Freezes the internal animation baked into every part of every
+    /// avatar's mcChar body tree (weapon, cape, robe, backrobe, backhair,
+    /// pvpFlag, and every body segment) — decorative motion only (rotating
+    /// gems, pulsing sparks, idle sway baked into a part), not the
+    /// character's own Walk/Idle/Attack pose (mcChar itself is never
+    /// touched, only its children).
+    /// </summary>
+    bool DisableNativeAnimation { get; set; }
+    /// <summary>
+    /// Selects which flag icon replaces the blue team's native pvpFlag.
+    /// 0 = off/native; see QualityWindow's FLAG tab for the option list.
+    /// </summary>
+    int BlueFlagStyle { get; set; }
+    /// <summary>
+    /// Selects which flag icon replaces the red team's native pvpFlag.
+    /// 0 = off/native; see QualityWindow's FLAG tab for the option list.
+    /// </summary>
+    int RedFlagStyle { get; set; }
+    /// <summary>
     /// Replaces the Bludrutbrawl room number in the bottom-right map display with ????.
     /// </summary>
     bool HideRoomNumber { get; set; }

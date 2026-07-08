@@ -90,11 +90,27 @@ package skua.module
 			registerModule(new EnemyOutline());
 			registerModule(new AutoQuality());
 			registerModule(new FastTarget());
+			registerModule(new FastDoorEnter());
+			registerModule(new ScoreboardSkin());
+			registerModule(new PortalFlash());
+			registerModule(new RespawnEffect());
+			registerModule(new DisableNativeGlow());
+			registerModule(new DisableNativeAnimation());
+			registerModule(new NameplateFont());
+			registerModule(new TeamFlagReskin());
 
 			// FastTarget wires its click listener up inside onToggle(), which only
 			// runs on a real enabled-state transition — registerModule() alone
 			// never triggers it, so without this call the listener is never attached.
 			enable("FastTarget");
+
+			// ScoreboardSkin's skin selection is driven by setSkin(), independent of
+			// enabled/disabled — it must always run onFrame to react to that call.
+			enable("ScoreboardSkin");
+
+			// Same story — TeamFlagReskin's per-team style is driven by
+			// setBlueStyle()/setRedStyle(), 0 = off, not a bool enable/disable.
+			enable("TeamFlagReskin");
 		}
 	}
 }

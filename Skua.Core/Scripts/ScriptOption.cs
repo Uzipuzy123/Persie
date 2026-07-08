@@ -158,6 +158,26 @@ public partial class ScriptOption : ObservableRecipient, IScriptOption, IOptionD
     private bool _scoreboardOverlay;
     [ModuleBinding("DebugPanel")]
     private bool _debugPanel;
+    [ModuleBinding("FastDoorEnter")]
+    private bool _fastDoorEnter;
+    [ObservableProperty]
+    private int _scoreboardSkin = 0;
+    [ModuleBinding("PortalFlash")]
+    private bool _portalFlash;
+    [ModuleBinding("NameplateFont")]
+    private bool _nameplateFont;
+    [ObservableProperty]
+    private int _nameplateFontId = 0;
+    [ModuleBinding("RespawnEffect")]
+    private bool _respawnEffect;
+    [ModuleBinding("DisableNativeGlow")]
+    private bool _disableNativeGlow;
+    [ModuleBinding("DisableNativeAnimation")]
+    private bool _disableNativeAnimation;
+    [ObservableProperty]
+    private int _blueFlagStyle = 0;
+    [ObservableProperty]
+    private int _redFlagStyle = 0;
     [ModuleBinding("HideRoomNumber")]
     private bool _hideRoomNumber;
     [ModuleBinding("SkuaSettingsButton")]

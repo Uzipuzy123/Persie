@@ -81,6 +81,14 @@ public partial class MainMenuViewModel : ObservableRecipient
         StrongReferenceMessenger.Default.Send(new ShowThemeManagerMessage(value));
     }
 
+    [ObservableProperty]
+    private bool _isScoreboardOpen;
+
+    partial void OnIsScoreboardOpenChanged(bool value)
+    {
+        StrongReferenceMessenger.Default.Send(new ShowScoreboardWindowMessage(value));
+    }
+
     [RelayCommand]
     public void ShowBotWindow()
     {

@@ -20,6 +20,7 @@ public partial class MainWindow : CustomWindow
     private QualityWindow? _qualityWindow;
     private BBJoinWindow? _bbJoinWindow;
     private ThemeManagerWindow? _themeManagerWindow;
+    private ScoreboardWindow? _scoreboardWindow;
 
     public MainWindow()
     {
@@ -38,6 +39,7 @@ public partial class MainWindow : CustomWindow
         StrongReferenceMessenger.Default.Register<MainWindow, ShowQualityWindowMessage>(this, ToggleQuality);
         StrongReferenceMessenger.Default.Register<MainWindow, ShowBBWindowMessage>(this, ToggleBBJoin);
         StrongReferenceMessenger.Default.Register<MainWindow, ShowThemeManagerMessage>(this, ToggleTheme);
+        StrongReferenceMessenger.Default.Register<MainWindow, ShowScoreboardWindowMessage>(this, ToggleScoreboard);
 
         this.Loaded += (s, e) => _statTrackerWindow = new StatTrackerWindow();
     }
@@ -150,6 +152,24 @@ public partial class MainWindow : CustomWindow
         else
         {
             _themeManagerWindow?.Hide();
+        }
+    }
+
+    private void ToggleScoreboard(MainWindow r, ShowScoreboardWindowMessage m)
+    {
+        if (m.Show)
+        {
+            if (_scoreboardWindow == null || !_scoreboardWindow.IsLoaded)
+            {
+                _scoreboardWindow = new ScoreboardWindow();
+                _scoreboardWindow.Closed += (s, e) =>
+                    Ioc.Default.GetRequiredService<MainMenuViewModel>().IsScoreboardOpen = false;
+            }
+            _scoreboardWindow.Show();
+        }
+        else
+        {
+            _scoreboardWindow?.Hide();
         }
     }
 

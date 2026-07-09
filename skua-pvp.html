@@ -1045,6 +1045,9 @@ async function testSolo() {
   if (!username) { alert('Enter your in-game username first'); return; }
   saveUsername(username);
   try {
+    // Force a fresh room every time — see skua-server/public/index.html for
+    // why /queue/leave needs to run first.
+    await fetch(CENTRAL_SERVER + '/queue/leave', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ username }) });
     // Add a bot to the queue first so we match instantly
     await fetch(CENTRAL_SERVER + '/queue/test', { method:'POST', headers:{'Content-Type':'application/json'}, body:'{}' });
     // Now queue ourselves — server will match us with the bot

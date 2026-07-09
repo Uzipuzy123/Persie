@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; }
+  object, embed { width: 100%; height: 100%; }
+</style>
+<script>
+  console.log('page script start, typeof CefSharp = ' + typeof CefSharp);
+
+  // Flash -> host direction. skua.swf's Externalizer.call(name, ...) invokes
+  // a same-named global JS function on this page (standard ExternalInterface
+  // behavior) — each one just relays into the C#-bound skuaHost object.
+  // CefSharp's isAsync binding requires explicitly binding before use (method
+  // names are camelCased by default, so C#'s OnFlashCall -> JS onFlashCall),
+  // and calls now return Promises instead of resolving synchronously.
+  var skuaHostReady;
+  try
+  {
+    skuaHostReady = CefSharp.BindObjectAsync('skuaHost');
+    skuaHostReady.then(function () { console.log('skuaHost bound OK'); })
+                 .catch(function (e) { console.log('skuaHost bind failed: ' + e); });
+  }
+  catch (e) { console.log('CefSharp.BindObjectAsync threw: ' + e); }
+
+  function skuaRelay(name, args) {
+    console.log('skuaRelay called: ' + name + ' ' + JSON.stringify(args));
+    if (!skuaHostReady) { console.log('skuaHostReady missing, dropping call'); return; }
+    skuaHostReady.then(function () {
+      window.skuaHost.onFlashCall(name, JSON.stringify(args));
+    }).catch(function (e) { console.log('skuaRelay error: ' + e); });
+  }
+  function requestLoadGame() { skuaRelay('requestLoadGame', []); }
+  function debug(message) { skuaRelay('debug', [message]); }
+  function skuaOnDeath(lastAttacker) { skuaRelay('skuaOnDeath', [lastAttacker]); }
+
+  console.log('page script end');
+</script>
+</head>
+<body>
+<object id="game" type="application/x-shockwave-flash" data="https://game.aq.com/game/gamefiles/skua_boot.swf" width="100%" height="100%">
+  <param name="movie" value="https://game.aq.com/game/gamefiles/skua_boot.swf" />
+  <param name="wmode" value="direct" />
+  <param name="allowScriptAccess" value="always" />
+  <param name="allowNetworking" value="all" />
+  <param name="allowFullScreen" value="true" />
+  <param name="scale" value="exactFit" />
+</object>
+</body>
+</html>

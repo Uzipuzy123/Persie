@@ -1,6 +1,7 @@
 const express = require('express');
 const cors    = require('cors');
 const path    = require('path');
+const fs      = require('fs');
 const app     = express();
 
 app.use(cors());
@@ -239,6 +240,29 @@ app.post('/queue/test', (req, res) => {
 const avatarCache     = {}; // username(lower) -> { flashvars, ts }
 const AVATAR_CACHE_MS = 10 * 60 * 1000;
 const PATCHED_SWF_PATH = path.join(__dirname, 'assets', 'characterB_patched.swf');
+const GAMEFILES_FALLBACK_DIR = path.join(__dirname, 'assets', 'gamefiles_fallback');
+
+// TEMPORARY: account.aq.com's WAF intermittently 403-blocks Railway's IP
+// (seems to be a rate-limit triggered by our own testing traffic — it does
+// clear up, then re-trigger). Seed a known-good real capture so the avatar
+// render can still be tested/demoed while that's active. Remove once this
+// has settled down and we're not actively iterating on the render.
+avatarCache['artix'] = {
+    ts: Date.now(),
+    flashvars: {
+        intColorHair: '6697728', intColorSkin: '15121555', intColorEye: '6697728', intColorTrim: '5398908',
+        intColorBase: '8556972', intColorAccessory: '10027008', level: '100', guild: '', ia1: '14240',
+        strGender: 'M', strHairFile: 'hair/M/Normal.swf', strHairName: 'Normal', strName: 'Artix',
+        intLevel: '100', strFaction: 'Good', strClassName: 'Mage', strClassFile: 'PalidanRevamp.swf',
+        strClassLink: 'PalidanRevamp', strArmorName: 'ArchPaladin Armor', strWeaponFile: 'items/swords/sword01.swf',
+        strWeaponLink: '', strWeaponType: '', strWeaponName: 'Default Sword', strCapeFile: 'items/capes/PalidanRevampCape.swf',
+        strCapeLink: 'PalidanRevampCape', strCapeName: 'Bright Paladin Cape', strHelmFile: 'items/helms/ArtixHeadGRR.swf',
+        strHelmLink: 'ArtixHeadGRR', strHelmName: 'Battle-ready Artix Mask', strPetFile: 'none', strPetLink: 'none',
+        strPetName: '', strMiscFile: 'none', strMiscLink: '', strMiscName: '', strCustWeaponFile: 'items/axes/axe05.swf',
+        strCustWeaponLink: '', strCustWeaponType: 'Axe', strCustWeaponName: 'Blinding Light of Destiny III',
+        strCustCapeFile: 'items/capes/redcape.swf', strCustCapeLink: 'RedCape', strCustCapeName: 'Red Cape', bgindex: '6',
+    },
+};
 
 app.get('/api/avatar', async (req, res) => {
     const username = (req.query.username || '').trim();
@@ -308,6 +332,7 @@ app.get('/game/gamefiles/*', async (req, res) => {
         const upstream = await fetch('https://game.aq.com/game/gamefiles/' + subPath);
         if (!upstream.ok) {
             console.log(`[gamefiles debug] ${subPath}: status=${upstream.status} server=${upstream.headers.get('server')} cf-ray=${upstream.headers.get('cf-ray')} cf-cache-status=${upstream.headers.get('cf-cache-status')} cf-mitigated=${upstream.headers.get('cf-mitigated')} retry-after=${upstream.headers.get('retry-after')}`);
+            if (serveGamefileFallback(subPath, res)) return;
             return res.status(upstream.status).end();
         }
         const buf = Buffer.from(await upstream.arrayBuffer());
@@ -316,9 +341,21 @@ app.get('/game/gamefiles/*', async (req, res) => {
         res.set('Content-Type', contentType);
         res.send(buf);
     } catch {
+        if (serveGamefileFallback(subPath, res)) return;
         res.status(502).end();
     }
 });
+
+// TEMPORARY: same WAF issue as /api/avatar above — a small set of Artix's
+// gear files (see assets/gamefiles_fallback/) are pre-downloaded so the
+// avatar render still works end-to-end when game.aq.com is blocked.
+function serveGamefileFallback(subPath, res) {
+    const filePath = path.join(GAMEFILES_FALLBACK_DIR, subPath);
+    if (!filePath.startsWith(GAMEFILES_FALLBACK_DIR) || !fs.existsSync(filePath)) return false;
+    res.set('Content-Type', 'application/x-shockwave-flash');
+    res.sendFile(filePath);
+    return true;
+}
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`GunLive Server on port ${PORT}`));

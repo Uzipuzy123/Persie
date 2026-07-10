@@ -843,10 +843,20 @@ function renderAvatar(containerId, data) {
   // (smooth) without the per-frame cost that was previously competing with
   // Ruffle's own update loop for main-thread time and slowing its actual
   // animation playback down.
+  //
+  // The mask itself only needs to roughly track the character's silhouette
+  // (it gets scaled back up to tmpW/tmpH when composited) — it doesn't need
+  // RENDER_SCALE's full supersampled resolution, which would make the pixel
+  // scan far more expensive for no visible benefit. Sample it much smaller.
+  const MASK_SCALE = 2;
+  const maskW = CHAR_CROP.w * MASK_SCALE, maskH = CHAR_CROP.h * MASK_SCALE;
   const maskCanvas = document.createElement('canvas');
-  maskCanvas.width  = tmpW;
-  maskCanvas.height = tmpH;
-  const maskCtx = maskCanvas.getContext('2d');
+  maskCanvas.width  = maskW;
+  maskCanvas.height = maskH;
+  // willReadFrequently: this canvas gets getImageData'd repeatedly (every
+  // mask refresh) — hints the browser to optimize for CPU-side readback
+  // instead of round-tripping through the GPU each time.
+  const maskCtx = maskCanvas.getContext('2d', { willReadFrequently: true });
 
   let stopped        = false;
   let rafId          = null;
@@ -856,15 +866,15 @@ function renderAvatar(containerId, data) {
                                       // than doing the full pixel scan on every render frame.
 
   function refreshMask(src) {
-    maskCtx.clearRect(0, 0, tmpW, tmpH);
-    maskCtx.drawImage(src, CHAR_CROP.x * RENDER_SCALE, CHAR_CROP.y * RENDER_SCALE, tmpW, tmpH, 0, 0, tmpW, tmpH);
+    maskCtx.clearRect(0, 0, maskW, maskH);
+    maskCtx.drawImage(src, CHAR_CROP.x * RENDER_SCALE, CHAR_CROP.y * RENDER_SCALE, CHAR_CROP.w * RENDER_SCALE, CHAR_CROP.h * RENDER_SCALE, 0, 0, maskW, maskH);
     try {
-      const imgData = maskCtx.getImageData(0, 0, tmpW, tmpH);
+      const imgData = maskCtx.getImageData(0, 0, maskW, maskH);
       const d = imgData.data;
       // Sample all four corners (definitely backdrop, never character) and
       // average them — self-calibrates to whatever solid color the card
       // backdrop actually is, rather than hardcoding one.
-      const corners = [0, (tmpW - 1) * 4, (tmpH - 1) * tmpW * 4, (tmpH * tmpW - 1) * 4];
+      const corners = [0, (maskW - 1) * 4, (maskH - 1) * maskW * 4, (maskH * maskW - 1) * 4];
       let cr = 0, cg = 0, cb = 0;
       corners.forEach(i => { cr += d[i]; cg += d[i + 1]; cb += d[i + 2]; });
       cr /= corners.length; cg /= corners.length; cb /= corners.length;
@@ -893,7 +903,7 @@ function renderAvatar(containerId, data) {
       tctx.clearRect(0, 0, tmpW, tmpH);
       tctx.drawImage(src, CHAR_CROP.x * RENDER_SCALE, CHAR_CROP.y * RENDER_SCALE, tmpW, tmpH, 0, 0, tmpW, tmpH);
       tctx.globalCompositeOperation = 'destination-in';
-      tctx.drawImage(maskCanvas, 0, 0);
+      tctx.drawImage(maskCanvas, 0, 0, maskW, maskH, 0, 0, tmpW, tmpH);
       tctx.globalCompositeOperation = 'source-over';
 
       outCtx.clearRect(0, 0, outCanvas.width, outCanvas.height);

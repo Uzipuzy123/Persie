@@ -10,6 +10,22 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 const players        = {};  // live stats keyed by username
 const matches        = [];  // completed match history
+
+// Match history is purely in-memory, so it's wiped on every deploy/restart —
+// seed one always-there demo match so there's something to click in Most
+// Recent Games without re-running simulate-1v1.js after every push.
+matches.push({
+    id:        1,
+    timestamp: new Date().toISOString(),
+    map:       'bludrutbrawl-demo',
+    type:      '1v1',
+    duration:  '0:10',
+    winner:    'Artix',
+    players: [
+        { username: 'Artix', kills: 10, deaths: 3, dmgDealt: 122200, dmgTaken: 18100, crits: 6, dodges: 3, map: 'bludrutbrawl-demo', isSelf: true },
+        { username: 'Jase',  kills: 3,  deaths: 9, dmgDealt: 37300,  dmgTaken: 55300, crits: 1, dodges: 0, map: 'bludrutbrawl-demo', isSelf: true },
+    ],
+});
 const queue          = [];  // usernames waiting for a 1v1
 const pendingMatches = {};  // { username: { room, opponent, createdAt } }
 const activeRooms    = {};  // { username: { room, opponent } } — persists for rejoin

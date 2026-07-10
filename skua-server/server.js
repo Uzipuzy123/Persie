@@ -254,7 +254,10 @@ app.get('/api/avatar', async (req, res) => {
         const pageRes = await fetch('https://account.aq.com/CharPage?id=' + encodeURIComponent(username));
         const html  = await pageRes.text();
         const match = html.match(/flashvars="([^"]+)"/);
-        if (!match) return res.status(404).json({ error: 'character not found' });
+        if (!match) {
+            console.log(`[avatar debug] ${username}: status=${pageRes.status} len=${html.length} snippet=${JSON.stringify(html.slice(0, 300))}`);
+            return res.status(404).json({ error: 'character not found' });
+        }
 
         // Values here are raw text (e.g. "ArchPaladin Armor"), not
         // percent-encoded — only the &amp; HTML entity needs undoing.

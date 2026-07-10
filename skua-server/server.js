@@ -328,7 +328,10 @@ app.get('/game/gamefiles/*', async (req, res) => {
     }
     try {
         const upstream = await fetch('https://game.aq.com/game/gamefiles/' + subPath);
-        if (!upstream.ok) return res.status(upstream.status).end();
+        if (!upstream.ok) {
+            console.log(`[gamefiles debug] ${subPath}: status=${upstream.status} server=${upstream.headers.get('server')} cf-ray=${upstream.headers.get('cf-ray')} cf-cache-status=${upstream.headers.get('cf-cache-status')} cf-mitigated=${upstream.headers.get('cf-mitigated')} retry-after=${upstream.headers.get('retry-after')}`);
+            return res.status(upstream.status).end();
+        }
         const buf = Buffer.from(await upstream.arrayBuffer());
         const contentType = upstream.headers.get('content-type') || 'application/octet-stream';
         gameAssetCache[subPath] = { buf, contentType };

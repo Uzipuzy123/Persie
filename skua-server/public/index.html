@@ -764,8 +764,8 @@ const CHAR_STAGE_W = 550, CHAR_STAGE_H = 350;
 const CHAR_CROP = { x: 150, y: 10, w: 395, h: 340 }; // wide + tall enough that weapon swings/capes/ground effects never clip — the text panel is now hidden, so there's no bleed risk from going bigger
 const CHAR_DISPLAY_W = 260;
 const CHROMA_THRESHOLD = 28; // color-distance under which a pixel counts as "background"
-const RENDER_SCALE = 5; // supersample the SWF well above native res before downscaling, for crisper output
-const OUTPUT_DPR = Math.min(window.devicePixelRatio || 1, 3); // match the screen's real pixel density, capped to avoid runaway canvas sizes
+const RENDER_SCALE = 7; // supersample the SWF well above native res before downscaling, for crisper output
+const OUTPUT_DPR = Math.min(window.devicePixelRatio || 1, 4); // match the screen's real pixel density, capped to avoid runaway canvas sizes
 
 // Any avatar render loop currently running, keyed by container id — so
 // reopening the modal (or closing it) can stop the old loop instead of
@@ -810,6 +810,7 @@ function renderAvatar(containerId, data) {
     // point ever ran, hence the stuck built-in demo character.
     allowScriptAccess: 'always',
     backgroundColor: null,
+    quality: 'best', // highest internal anti-aliasing Ruffle supports, on top of our own supersampling
   });
 
   // Size the canvas's actual backing store to the screen's real pixel

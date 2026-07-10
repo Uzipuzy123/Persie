@@ -848,7 +848,7 @@ function renderAvatar(containerId, data) {
   // (it gets scaled back up to tmpW/tmpH when composited) — it doesn't need
   // RENDER_SCALE's full supersampled resolution, which would make the pixel
   // scan far more expensive for no visible benefit. Sample it much smaller.
-  const MASK_SCALE = 2;
+  const MASK_SCALE = 4;
   const maskW = CHAR_CROP.w * MASK_SCALE, maskH = CHAR_CROP.h * MASK_SCALE;
   const maskCanvas = document.createElement('canvas');
   maskCanvas.width  = maskW;
@@ -903,7 +903,12 @@ function renderAvatar(containerId, data) {
       tctx.clearRect(0, 0, tmpW, tmpH);
       tctx.drawImage(src, CHAR_CROP.x * RENDER_SCALE, CHAR_CROP.y * RENDER_SCALE, tmpW, tmpH, 0, 0, tmpW, tmpH);
       tctx.globalCompositeOperation = 'destination-in';
+      // Smoothing off just for this scale-up — a blurred/soft mask edge was
+      // reading as an overall softer image even though the character's own
+      // color detail (drawn above) is still at full supersampled quality.
+      tctx.imageSmoothingEnabled = false;
       tctx.drawImage(maskCanvas, 0, 0, maskW, maskH, 0, 0, tmpW, tmpH);
+      tctx.imageSmoothingEnabled = true;
       tctx.globalCompositeOperation = 'source-over';
 
       outCtx.clearRect(0, 0, outCanvas.width, outCanvas.height);

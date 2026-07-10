@@ -753,19 +753,36 @@ async function fetchAvatar(username) {
 // page load — it doesn't pick up embeds we inject later via innerHTML when
 // a match row is clicked, which just silently renders nothing. Driving it
 // through the JS API instead works regardless of when the element appears.
+// The widget's full 550x350 stage is a whole info card (name, gear list,
+// camera/cosmetics buttons) with the actual character standing in roughly
+// the right 60% of it. We don't control the SWF's layout, so instead of
+// showing the whole card, render it oversized and clip down to just that
+// region via overflow:hidden — same trick as cropping a bigger photo.
+const CHAR_STAGE_W = 550, CHAR_STAGE_H = 350;
+const CHAR_CROP = { x: 220, y: 38, w: 320, h: 302 }; // native-stage px around the character
+const CHAR_DISPLAY_W = 160;
+
 function renderAvatar(containerId, data) {
   const container = document.getElementById(containerId);
   if (!container || !window.RufflePlayer) return;
   container.innerHTML = '';
+
+  const scale  = CHAR_DISPLAY_W / CHAR_CROP.w;
+  const dispH  = CHAR_CROP.h * scale;
+  container.style.width    = CHAR_DISPLAY_W + 'px';
+  container.style.height   = dispH + 'px';
+  container.style.overflow = 'hidden';
+  container.style.position = 'relative';
+  container.style.borderRadius = '8px';
+
   const ruffle = window.RufflePlayer.newest();
   const player = ruffle.createPlayer();
-  player.style.width  = '150px';
-  player.style.height = '96px';
-  player.style.borderRadius = '8px';
+  player.style.position = 'absolute';
+  player.style.width  = (CHAR_STAGE_W * scale) + 'px';
+  player.style.height = (CHAR_STAGE_H * scale) + 'px';
+  player.style.left   = (-CHAR_CROP.x * scale) + 'px';
+  player.style.top    = (-CHAR_CROP.y * scale) + 'px';
   container.appendChild(player);
-  // base must point at the SWF's real original folder, not our proxy path —
-  // its sub-assets (hair/cape/weapon files) load via paths relative to this,
-  // and get the wrong ones (falling back to a demo character) otherwise.
   player.load({
     url: data.swf,
     parameters: data.flashvars,

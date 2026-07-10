@@ -276,20 +276,6 @@ main { flex:1; padding:28px 32px; overflow-y:auto; }
 .pv-empty-text { font-size:0.85rem; color:var(--muted); }
 
 /* ── AVATAR EFFECTS (layered on top of the character render, not baked into it) ── */
-@keyframes avatarBob {
-  0%, 100% { transform:translateY(0) rotate(0deg); }
-  50%      { transform:translateY(-6px) rotate(0deg); }
-}
-@keyframes avatarCelebrate {
-  0%   { transform:translateY(0) rotate(0deg) scale(1); }
-  10%  { transform:translateY(-16px) rotate(-9deg) scale(1.06); }
-  22%  { transform:translateY(0) rotate(7deg) scale(0.97); }
-  34%  { transform:translateY(-12px) rotate(-6deg) scale(1.04); }
-  46%  { transform:translateY(0) rotate(5deg) scale(1); }
-  58%  { transform:translateY(-18px) rotate(-9deg) scale(1.07); }
-  72%  { transform:translateY(0) rotate(0deg) scale(1); }
-  100% { transform:translateY(0) rotate(0deg) scale(1); }
-}
 @keyframes avatarSlideIn {
   from { opacity:0; transform:translateY(18px) scale(0.94); }
   to   { opacity:1; transform:translateY(0) scale(1); }
@@ -300,16 +286,15 @@ main { flex:1; padding:28px 32px; overflow-y:auto; }
 }
 .avatar-fx {
   position:relative;
-  animation: avatarSlideIn 0.45s cubic-bezier(.2,.8,.3,1) both,
-             avatarBob 3.2s ease-in-out 0.45s infinite;
+  animation: avatarSlideIn 0.45s cubic-bezier(.2,.8,.3,1) both;
 }
 .avatar-fx.winner {
-  animation-name: avatarSlideIn, avatarCelebrate, avatarWinnerGlow;
-  animation-duration: 0.45s, 1.7s, 1.8s;
-  animation-timing-function: cubic-bezier(.2,.8,.3,1), ease-in-out, ease-in-out;
-  animation-delay: 0s, 0.45s, 0s;
-  animation-iteration-count: 1, infinite, infinite;
-  animation-fill-mode: both, none, none;
+  animation-name: avatarSlideIn, avatarWinnerGlow;
+  animation-duration: 0.45s, 1.8s;
+  animation-timing-function: cubic-bezier(.2,.8,.3,1), ease-in-out;
+  animation-delay: 0s, 0s;
+  animation-iteration-count: 1, infinite;
+  animation-fill-mode: both, none;
 }
 
 @keyframes sparkleBurst {

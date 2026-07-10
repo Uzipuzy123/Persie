@@ -908,9 +908,19 @@ function renderAvatar(containerId, data) {
   let stopped        = false;
   let rafId          = null;
   let lastMaskRefresh = 0;
+  let lastFrameDraw   = 0;
   const MASK_REFRESH_MS = 1000 / 12; // ~12/sec — the character keeps subtly animating (breathing, cape sway), so a
                                       // stale mask visibly mismatches its silhouette at the edges; still ~5x cheaper
                                       // than doing the full pixel scan on every render frame.
+  // requestAnimationFrame fires once per display refresh with no ceiling —
+  // on a high-refresh-rate monitor (144Hz/240Hz) that's 2-4x more of this
+  // per-frame cost (a full-canvas composite, on top of the mask scan above)
+  // than a 60Hz display, for idle character animation that doesn't need it.
+  // That extra load was enough to crash a GPU driver on a 240Hz setup in
+  // testing, with up to two of these running at once in the match modal.
+  // Capping to a fixed rate makes the cost the same for every viewer
+  // regardless of their monitor.
+  const FRAME_MS = 1000 / 30;
 
   function refreshMask(src) {
     maskCtx.clearRect(0, 0, maskW, maskH);
@@ -940,6 +950,10 @@ function renderAvatar(containerId, data) {
 
   function frame(now) {
     if (stopped) return;
+    rafId = requestAnimationFrame(frame);
+    if (now - lastFrameDraw < FRAME_MS) return;
+    lastFrameDraw = now;
+
     const src = player.shadowRoot?.querySelector('canvas') || player.querySelector('canvas');
     if (src) {
       if (now - lastMaskRefresh >= MASK_REFRESH_MS) {
@@ -961,7 +975,6 @@ function renderAvatar(containerId, data) {
       outCtx.clearRect(0, 0, outCanvas.width, outCanvas.height);
       outCtx.drawImage(tmp, 0, 0, tmpW, tmpH, 0, 0, outCanvas.width, outCanvas.height);
     }
-    rafId = requestAnimationFrame(frame);
   }
   rafId = requestAnimationFrame(frame);
 

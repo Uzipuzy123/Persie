@@ -284,17 +284,42 @@ main { flex:1; padding:28px 32px; overflow-y:auto; }
   0%, 100% { filter:drop-shadow(0 0 6px var(--gold)) drop-shadow(0 0 2px var(--gold)); }
   50%      { filter:drop-shadow(0 0 18px var(--gold)) drop-shadow(0 0 6px var(--gold)); }
 }
+/* Dougie-style lean/dip/roll, looped on the winner. */
+@keyframes winnerDougie {
+  0%   { transform:translateX(0)    translateY(0) rotate(0deg); }
+  12%  { transform:translateX(-10px) translateY(3px) rotate(-10deg); }
+  25%  { transform:translateX(-6px)  translateY(0)  rotate(-5deg); }
+  37%  { transform:translateX(2px)   translateY(4px) rotate(3deg); }
+  50%  { transform:translateX(10px)  translateY(0)  rotate(10deg); }
+  62%  { transform:translateX(6px)   translateY(3px) rotate(5deg); }
+  75%  { transform:translateX(-2px)  translateY(0)  rotate(-3deg); }
+  87%  { transform:translateX(-8px)  translateY(2px) rotate(-7deg); }
+  100% { transform:translateX(0)    translateY(0) rotate(0deg); }
+}
+/* Slow head-hang slump, plays once and holds on the loser. */
+@keyframes loserSlump {
+  0%   { transform:translateY(0)   rotate(0deg) scale(1);    filter:saturate(1)    brightness(1); }
+  100% { transform:translateY(10px) rotate(6deg) scale(0.92); filter:saturate(0.35) brightness(0.6); }
+}
 .avatar-fx {
   position:relative;
   animation: avatarSlideIn 0.45s cubic-bezier(.2,.8,.3,1) both;
 }
 .avatar-fx.winner {
-  animation-name: avatarSlideIn, avatarWinnerGlow;
-  animation-duration: 0.45s, 1.8s;
-  animation-timing-function: cubic-bezier(.2,.8,.3,1), ease-in-out;
-  animation-delay: 0s, 0s;
-  animation-iteration-count: 1, infinite;
-  animation-fill-mode: both, none;
+  animation-name: avatarSlideIn, winnerDougie, avatarWinnerGlow;
+  animation-duration: 0.45s, 1.8s, 1.8s;
+  animation-timing-function: cubic-bezier(.2,.8,.3,1), ease-in-out, ease-in-out;
+  animation-delay: 0s, 0.45s, 0s;
+  animation-iteration-count: 1, infinite, infinite;
+  animation-fill-mode: both, none, none;
+}
+.avatar-fx.loser {
+  animation-name: avatarSlideIn, loserSlump;
+  animation-duration: 0.45s, 1.2s;
+  animation-timing-function: cubic-bezier(.2,.8,.3,1), ease-out;
+  animation-delay: 0s, 0.5s;
+  animation-iteration-count: 1, 1;
+  animation-fill-mode: both, forwards;
 }
 
 @keyframes sparkleBurst {
@@ -1023,7 +1048,7 @@ async function openMatchDetail(id) {
       <div style="font-family:Georgia,serif;font-style:italic;color:var(--gold);font-size:1.3rem;font-weight:700">PvP Game Results</div>
       <div style="font-family:Georgia,serif;font-style:italic;color:var(--gold);font-size:0.85rem;margin-top:2px">Hosted in ${mapName}</div>
       <div style="display:flex;align-items:center;justify-content:center;gap:40px;margin-top:22px">
-        <div id="mm-av1" class="avatar-fx${p1IsWinner ? ' winner' : ''}">${silhouetteHtml('#3b82f6')}</div>
+        <div id="mm-av1" class="avatar-fx${p1IsWinner ? ' winner' : (p2 ? ' loser' : '')}">${silhouetteHtml('#3b82f6')}</div>
         <div style="text-align:center">
           <div style="font-size:0.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px">Score</div>
           <div style="font-size:1.7rem;font-weight:900;margin-top:2px">
@@ -1031,7 +1056,7 @@ async function openMatchDetail(id) {
           </div>
           <div style="font-size:0.65rem;color:var(--gold);margin-top:6px;letter-spacing:0.5px">&#9656; VIEW GAME</div>
         </div>
-        <div id="mm-av2" class="avatar-fx${p2 && !p1IsWinner ? ' winner' : ''}">${p2 ? silhouetteHtml('#ef4444') : silhouetteHtml('#555')}</div>
+        <div id="mm-av2" class="avatar-fx${p2 && !p1IsWinner ? ' winner' : (p2 ? ' loser' : '')}">${p2 ? silhouetteHtml('#ef4444') : silhouetteHtml('#555')}</div>
       </div>
       <div style="font-size:0.7rem;color:var(--muted);margin-top:16px;line-height:1.6">
         *Hover for username<br>*Click on player to view individual stats

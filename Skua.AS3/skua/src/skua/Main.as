@@ -756,6 +756,16 @@ package skua
 		catch (e:Error) {}
 	}
 
+	public static function setPingOffset(msStr:String):void
+	{
+		try
+		{
+			var mod:* = skua.module.Modules.getModule("PingSpoof");
+			if (mod) mod.setOffset(int(msStr));
+		}
+		catch (e:Error) {}
+	}
+
 	public static function setKillFlashScreenStyle(styleStr:String):void
 	{
 		try

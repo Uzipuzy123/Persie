@@ -15,6 +15,20 @@ const activeRooms    = {};  // { username: { room, opponent } } — persists for
 const MAX_MATCHES    = 50;
 const PLAYER_TIMEOUT_MS  = 15000;
 const MATCH_EXPIRE_MS    = 120000; // pending match expires after 2 min
+// Live view is polled once a second — deleting a finished player's entry in
+// the same tick that writes their final kill count means the poll can never
+// actually observe the 10th kill, only "gone". Keep it visible this long
+// first so the live page has a real window to show the true final state.
+const MATCH_END_VISIBLE_MS = 4000;
+// In a real 1v1 only the winner's client ever crosses 10 kills and sends
+// matchEnd — the loser's client has no local signal the match is over, so it
+// just keeps pushing its own regular stats every second, which would
+// resurrect the live entry right after it's cleared. Remember which rooms
+// just ended and reject/flag further regular pushes for them for a while,
+// so the loser's client can be told (via the matchEnded response flag) to
+// stop tracking on its own.
+const ENDED_ROOM_SUPPRESS_MS = 20000;
+const endedRooms = {}; // room -> timestamp it ended
 
 // ── Receive stats from a Skua client ──────────────────────────────
 app.post('/stats', (req, res) => {
@@ -22,6 +36,11 @@ app.post('/stats', (req, res) => {
     if (!data || !data.username) return res.status(400).json({ error: 'missing username' });
 
     if (data.matchEnd) {
+        // Write this player's final stats (e.g. the 10th kill that triggered
+        // matchEnd) into players{} before snapshotting — otherwise the
+        // snapshot only reflects whatever was last pushed a second earlier,
+        // silently dropping the last update that actually ended the match.
+        players[data.username] = { ...data, lastSeen: Date.now() };
         const snapshot = Object.values(players).map(p => ({ ...p }));
         if (snapshot.length > 0) {
             matches.unshift({
@@ -32,27 +51,48 @@ app.post('/stats', (req, res) => {
             });
             if (matches.length > MAX_MATCHES) matches.pop();
         }
-        delete players[data.username];
-    } else {
-        players[data.username] = { ...data, lastSeen: Date.now() };
-        // Clear pending match once player has joined the brawl map
-        if (data.map && data.map.startsWith('bludrutbrawl') && pendingMatches[data.username])
-            delete pendingMatches[data.username];
-        // Auto end match when someone hits 10 kills
-        if (data.map && data.map.startsWith('bludrutbrawl') && data.kills >= 10) {
-            const snapshot = Object.values(players).map(p => ({ ...p }));
-            if (snapshot.length > 0) {
-                matches.unshift({
-                    id:        Date.now(),
-                    timestamp: new Date().toISOString(),
-                    map:       data.map,
-                    winner:    data.username,
-                    players:   snapshot,
-                });
-                if (matches.length > MAX_MATCHES) matches.pop();
-            }
-            snapshot.forEach(p => { delete players[p.username]; delete activeRooms[p.username]; });
+        if (data.map) endedRooms[data.map] = Date.now();
+        // Clear EVERYONE currently live, not just the reporting player — in a
+        // real 1v1 only the winner's client ever sends matchEnd (their kills
+        // hit 10; the opponent's never will), so clearing just data.username
+        // left the loser's row stuck in Live forever with nothing to end it.
+        snapshot.forEach(p => {
+            delete activeRooms[p.username];
+            setTimeout(() => { delete players[p.username]; }, MATCH_END_VISIBLE_MS);
+        });
+        return res.json({ ok: true });
+    }
+
+    const roomJustEnded = data.map && endedRooms[data.map] &&
+        (Date.now() - endedRooms[data.map]) < ENDED_ROOM_SUPPRESS_MS;
+    if (roomJustEnded) {
+        // Don't let this straggling push (e.g. from the loser) resurrect the
+        // live entry — just tell the client the match is already over.
+        return res.json({ ok: true, matchEnded: true });
+    }
+
+    players[data.username] = { ...data, lastSeen: Date.now() };
+    // Clear pending match once player has joined the brawl map
+    if (data.map && data.map.startsWith('bludrutbrawl') && pendingMatches[data.username])
+        delete pendingMatches[data.username];
+    // Auto end match when someone hits 10 kills
+    if (data.map && data.map.startsWith('bludrutbrawl') && data.kills >= 10) {
+        const snapshot = Object.values(players).map(p => ({ ...p }));
+        if (snapshot.length > 0) {
+            matches.unshift({
+                id:        Date.now(),
+                timestamp: new Date().toISOString(),
+                map:       data.map,
+                winner:    data.username,
+                players:   snapshot,
+            });
+            if (matches.length > MAX_MATCHES) matches.pop();
         }
+        endedRooms[data.map] = Date.now();
+        snapshot.forEach(p => {
+            delete activeRooms[p.username];
+            setTimeout(() => { delete players[p.username]; }, MATCH_END_VISIBLE_MS);
+        });
     }
 
     res.json({ ok: true });

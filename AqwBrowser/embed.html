@@ -34,6 +34,10 @@
   function requestLoadGame() { skuaRelay('requestLoadGame', []); }
   function debug(message) { skuaRelay('debug', [message]); }
   function skuaOnDeath(lastAttacker) { skuaRelay('skuaOnDeath', [lastAttacker]); }
+  // Fires on every game packet (Main.as onExtensionResponse -> external.call
+  // ('pext', ...)) — this was never relayed before, so stat tracking (kills,
+  // deaths, damage, crits, dodges) silently never worked in this client.
+  function pext(packet) { skuaRelay('pext', [packet]); }
 
   console.log('page script end');
 </script>

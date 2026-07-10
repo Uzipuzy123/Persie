@@ -112,6 +112,7 @@ package skua
 			this.addCallback("setRedFlagStyle",         Main.setRedFlagStyle);
 			this.addCallback("setSelfHudStyle",         Main.setSelfHudStyle);
 			this.addCallback("setSkillBarStyle",        Main.setSkillBarStyle);
+			this.addCallback("setPingOffset",           Main.setPingOffset);
 
 			this.debug("Externalizer::init done.");
 			this.call("requestLoadGame");

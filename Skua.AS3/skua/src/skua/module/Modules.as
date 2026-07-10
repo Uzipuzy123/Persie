@@ -100,6 +100,12 @@ package skua.module
 			registerModule(new TeamFlagReskin());
 			registerModule(new SelfHud());
 			registerModule(new SkillBarSkin());
+			registerModule(new MenuHotkeys());
+			registerModule(new IngameMenu());
+			registerModule(new FpsControl());
+			registerModule(new PingSpoof());
+			// Always on at the default -10ms offset — no manual toggle needed.
+			enable("PingSpoof");
 
 			// FastTarget wires its click listener up inside onToggle(), which only
 			// runs on a real enabled-state transition — registerModule() alone
@@ -121,6 +127,30 @@ package skua.module
 			// Same story — SkillBarSkin's style is driven by setStyle(), 0 = off,
 			// not a bool enable/disable.
 			enable("SkillBarSkin");
+
+			// MenuHotkeys wires its keyboard listener up inside onToggle(), which
+			// only runs on a real enabled-state transition — same reason as
+			// FastTarget above.
+			enable("MenuHotkeys");
+
+			// Same story — IngameMenu's own keyboard listener (Ctrl+M toggle).
+			enable("IngameMenu");
+
+			// Same story — all five are driven by setXStyle()/setColor(), 0 = off,
+			// not a bool enable/disable, so onFrame must always run to react to
+			// those calls (registerModule() alone leaves enabled = false, meaning
+			// handleFrame()'s "if (module.enabled)" gate would otherwise skip
+			// onFrame forever regardless of what style gets picked).
+			enable("SelfOutline");
+			enable("EnemyOutline");
+			enable("Vignette");
+			enable("HitFlash");
+			enable("KillFlash");
+			enable("NameplateFont");
+
+			// Same story — FpsControl's rate is driven by setFps(), not a bool
+			// enable/disable, and must keep re-applying every frame.
+			enable("FpsControl");
 		}
 	}
 }

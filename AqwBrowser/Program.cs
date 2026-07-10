@@ -8,9 +8,14 @@ namespace AqwBrowser;
 
 internal static class Program
 {
-    // CleanFlash 34.0.0.175's PPAPI build (x64), confirmed installed at:
-    //   C:\Windows\System32\Macromed\Flash\pepflashplayer64_34_0_0_175.dll
-    private const string PepperFlashPath = @"C:\Windows\System32\Macromed\Flash\pepflashplayer64_34_0_0_175.dll";
+    // CleanFlash 34.0.0.175's PPAPI build (x64). Bundled directly under
+    // PepperFlash/ next to the exe (see AqwBrowser.csproj) rather than
+    // relying on it already being installed system-wide at
+    // C:\Windows\System32\Macromed\Flash\ — that made this app only runnable
+    // on the machine it was originally set up on. This way the whole output
+    // folder is self-contained and works on a fresh machine after unzipping.
+    private static readonly string PepperFlashPath =
+        System.IO.Path.Combine(AppContext.BaseDirectory, "PepperFlash", "pepflashplayer64_34_0_0_175.dll");
     private const string PepperFlashVersion = "34.0.0.175";
 
     // OutputType is WinExe (needed so no console flashes up behind the game

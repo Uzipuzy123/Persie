@@ -850,7 +850,9 @@ function renderAvatar(containerId, data) {
   let stopped        = false;
   let rafId          = null;
   let lastMaskRefresh = 0;
-  const MASK_REFRESH_MS = 500;
+  const MASK_REFRESH_MS = 1000 / 12; // ~12/sec — the character keeps subtly animating (breathing, cape sway), so a
+                                      // stale mask visibly mismatches its silhouette at the edges; still ~5x cheaper
+                                      // than doing the full pixel scan on every render frame.
 
   function refreshMask(src) {
     maskCtx.clearRect(0, 0, tmpW, tmpH);

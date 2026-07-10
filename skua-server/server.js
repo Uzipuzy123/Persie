@@ -26,6 +26,21 @@ matches.push({
         { username: 'Jase',  kills: 3,  deaths: 9, dmgDealt: 37300,  dmgTaken: 55300, crits: 1, dodges: 0, map: 'bludrutbrawl-demo', isSelf: true },
     ],
 });
+// Second demo match with two different real characters — a quick way to
+// confirm avatar rendering isn't specific to Artix/Jase (e.g. after cache or
+// WAF changes) without needing a real 1v1 to happen first.
+matches.push({
+    id:        2,
+    timestamp: new Date().toISOString(),
+    map:       'bludrutbrawl-demo',
+    type:      '1v1',
+    duration:  '0:14',
+    winner:    'Warlic',
+    players: [
+        { username: 'Warlic',  kills: 10, deaths: 5, dmgDealt: 98500, dmgTaken: 26400, crits: 4, dodges: 2, map: 'bludrutbrawl-demo', isSelf: true },
+        { username: 'Nulgath', kills: 5,  deaths: 10, dmgDealt: 61200, dmgTaken: 51900, crits: 2, dodges: 1, map: 'bludrutbrawl-demo', isSelf: true },
+    ],
+});
 const queue          = [];  // usernames waiting for a 1v1
 const pendingMatches = {};  // { username: { room, opponent, createdAt } }
 const activeRooms    = {};  // { username: { room, opponent } } — persists for rejoin

@@ -761,9 +761,10 @@ async function fetchAvatar(username) {
 // support here — so instead we render it off-screen, crop to the character's
 // region, and chroma-key out the backdrop's flat color ourselves.
 const CHAR_STAGE_W = 550, CHAR_STAGE_H = 350;
-const CHAR_CROP = { x: 220, y: 38, w: 320, h: 302 }; // native-stage px around the character
-const CHAR_DISPLAY_W = 160;
+const CHAR_CROP = { x: 260, y: 30, w: 275, h: 310 }; // native-stage px around the character, clear of the text panel
+const CHAR_DISPLAY_W = 220;
 const CHROMA_THRESHOLD = 28; // color-distance under which a pixel counts as "background"
+const RENDER_SCALE = 3; // supersample the SWF well above native res before downscaling, for crisper output
 
 function renderAvatar(containerId, data) {
   const container = document.getElementById(containerId);
@@ -776,16 +777,18 @@ function renderAvatar(containerId, data) {
   container.style.height = dispH + 'px';
   container.style.position = 'relative';
 
-  // Ruffle renders off-screen at native size — we read its canvas back,
+  // Ruffle renders off-screen at RENDER_SCALE x native size (the SWF is
+  // mostly vector art, so it redraws crisply at a higher target resolution
+  // instead of just stretching a low-res raster) — we read its canvas back,
   // crop, and key out the backdrop rather than showing its element directly.
   const stage = document.createElement('div');
-  stage.style.cssText = `position:absolute;left:-9999px;top:0;width:${CHAR_STAGE_W}px;height:${CHAR_STAGE_H}px`;
+  stage.style.cssText = `position:absolute;left:-9999px;top:0;width:${CHAR_STAGE_W * RENDER_SCALE}px;height:${CHAR_STAGE_H * RENDER_SCALE}px`;
   document.body.appendChild(stage);
 
   const ruffle = window.RufflePlayer.newest();
   const player = ruffle.createPlayer();
-  player.style.width  = CHAR_STAGE_W + 'px';
-  player.style.height = CHAR_STAGE_H + 'px';
+  player.style.width  = (CHAR_STAGE_W * RENDER_SCALE) + 'px';
+  player.style.height = (CHAR_STAGE_H * RENDER_SCALE) + 'px';
   stage.appendChild(player);
   player.load({
     url: data.swf,
@@ -819,19 +822,20 @@ function renderAvatar(containerId, data) {
       return;
     }
 
+    const tmpW = CHAR_CROP.w * RENDER_SCALE, tmpH = CHAR_CROP.h * RENDER_SCALE;
     const tmp  = document.createElement('canvas');
-    tmp.width  = CHAR_CROP.w;
-    tmp.height = CHAR_CROP.h;
+    tmp.width  = tmpW;
+    tmp.height = tmpH;
     const tctx = tmp.getContext('2d');
-    tctx.drawImage(src, CHAR_CROP.x, CHAR_CROP.y, CHAR_CROP.w, CHAR_CROP.h, 0, 0, CHAR_CROP.w, CHAR_CROP.h);
+    tctx.drawImage(src, CHAR_CROP.x * RENDER_SCALE, CHAR_CROP.y * RENDER_SCALE, tmpW, tmpH, 0, 0, tmpW, tmpH);
 
     try {
-      const imgData = tctx.getImageData(0, 0, CHAR_CROP.w, CHAR_CROP.h);
+      const imgData = tctx.getImageData(0, 0, tmpW, tmpH);
       const d = imgData.data;
       // Sample all four corners (definitely backdrop, never character) and
       // average them — self-calibrates to whatever solid color the card
       // backdrop actually is, rather than hardcoding one.
-      const corners = [0, (CHAR_CROP.w - 1) * 4, (CHAR_CROP.h - 1) * CHAR_CROP.w * 4, (CHAR_CROP.h * CHAR_CROP.w - 1) * 4];
+      const corners = [0, (tmpW - 1) * 4, (tmpH - 1) * tmpW * 4, (tmpH * tmpW - 1) * 4];
       let cr = 0, cg = 0, cb = 0;
       corners.forEach(i => { cr += d[i]; cg += d[i + 1]; cb += d[i + 2]; });
       cr /= corners.length; cg /= corners.length; cb /= corners.length;
@@ -845,7 +849,7 @@ function renderAvatar(containerId, data) {
       console.warn('avatar chroma-key failed, showing uncropped background', e);
     }
 
-    outCtx.drawImage(tmp, 0, 0, CHAR_CROP.w, CHAR_CROP.h, 0, 0, CHAR_DISPLAY_W, dispH);
+    outCtx.drawImage(tmp, 0, 0, tmpW, tmpH, 0, 0, CHAR_DISPLAY_W, dispH);
     document.body.removeChild(stage);
   }, 2000);
 }

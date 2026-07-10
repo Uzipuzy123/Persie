@@ -359,6 +359,16 @@ async function scrapeCharPage(username) {
         if (idx === -1) return;
         flashvars[pair.slice(0, idx)] = pair.slice(idx + 1);
     });
+
+    // bgindex picks the player's CharPage backdrop — most players never set
+    // one, which defaults to "0", a real illustrated scene (sky/grass/rocks)
+    // rather than a flat color. We chroma-key the backdrop away regardless
+    // of what it is, so a non-flat one just shows through un-keyed instead
+    // of being punched out — the character renders fine, but with all that
+    // scenery bleeding through around it. Force a value known to render as
+    // a plain flat color (same as Artix's real profile) since we never show
+    // the real backdrop anyway.
+    flashvars.bgindex = '6';
     return flashvars;
 }
 

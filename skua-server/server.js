@@ -251,7 +251,19 @@ app.get('/api/avatar', async (req, res) => {
     }
 
     try {
-        const pageRes = await fetch('https://account.aq.com/CharPage?id=' + encodeURIComponent(username));
+        // account.aq.com's WAF returns a 403 challenge page to requests that
+        // look like a bot (bare server-side fetch, no browser-like headers)
+        // — this started happening only after repeated automated hits from
+        // Railway's IP during testing, so it's likely IP-based, but sending
+        // realistic browser headers is worth trying first.
+        const pageRes = await fetch('https://account.aq.com/CharPage?id=' + encodeURIComponent(username), {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Referer': 'https://account.aq.com/',
+            },
+        });
         const html  = await pageRes.text();
         const match = html.match(/flashvars="([^"]+)"/);
         if (!match) {

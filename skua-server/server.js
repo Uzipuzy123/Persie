@@ -253,10 +253,39 @@ app.post('/queue/test', (req, res) => {
 // the widget stuck on its own built-in demo character. Those two calls
 // were stripped out with FFDec (they're only used for an unrelated
 // camera/screenshot feature we don't need).
-const avatarCache     = {}; // username(lower) -> { flashvars, ts }
-const AVATAR_CACHE_MS = 10 * 60 * 1000;
+// Scraped gear data is cached indefinitely (not just a short TTL) and
+// persisted to disk — account.aq.com's WAF 403-blocks our IP when we hit it
+// too often (see below), so each real username should only ever need to be
+// scraped once, not re-fetched on some timer. Re-scraping only happens via
+// the explicit /api/avatar/refresh endpoint, for when a player changes gear.
+const avatarCache      = {}; // username(lower) -> { flashvars, ts }
 const PATCHED_SWF_PATH = path.join(__dirname, 'assets', 'characterB_patched.swf');
 const GAMEFILES_FALLBACK_DIR = path.join(__dirname, 'assets', 'gamefiles_fallback');
+
+// Railway mounts a persistent volume at /data (survives deploys, unlike the
+// rest of the container's filesystem). Falls back to a local file next to
+// this script when /data doesn't exist, so local dev doesn't need the volume.
+const AVATAR_CACHE_FILE = fs.existsSync('/data')
+    ? path.join('/data', 'avatarCache.json')
+    : path.join(__dirname, 'avatarCache.local.json');
+
+function loadAvatarCache() {
+    try {
+        const saved = JSON.parse(fs.readFileSync(AVATAR_CACHE_FILE, 'utf8'));
+        Object.assign(avatarCache, saved);
+        console.log(`[avatar cache] loaded ${Object.keys(saved).length} cached character(s) from ${AVATAR_CACHE_FILE}`);
+    } catch {
+        // No cache file yet (first run) — nothing to load.
+    }
+}
+
+function saveAvatarCache() {
+    try {
+        fs.writeFileSync(AVATAR_CACHE_FILE, JSON.stringify(avatarCache));
+    } catch (err) {
+        console.log(`[avatar cache] could not persist to ${AVATAR_CACHE_FILE}: ${err.message}`);
+    }
+}
 
 // TEMPORARY: account.aq.com's WAF intermittently 403-blocks Railway's IP
 // (seems to be a rate-limit triggered by our own testing traffic — it does
@@ -280,47 +309,81 @@ avatarCache['artix'] = {
     },
 };
 
+// Persisted entries load after the seed above, so a real scrape (if one's
+// ever been done for 'artix') takes precedence over the hardcoded fallback.
+loadAvatarCache();
+
+// Scrapes account.aq.com's CharPage for a username's equipped-gear FlashVars.
+// Throws on network failure; returns null if the page has no character.
+async function scrapeCharPage(username) {
+    // account.aq.com's WAF returns a 403 challenge page to requests that
+    // look like a bot (bare server-side fetch, no browser-like headers)
+    // — this started happening only after repeated automated hits from
+    // Railway's IP during testing, so it's likely IP-based, but sending
+    // realistic browser headers is worth trying first.
+    const pageRes = await fetch('https://account.aq.com/CharPage?id=' + encodeURIComponent(username), {
+        headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Referer': 'https://account.aq.com/',
+        },
+    });
+    const html  = await pageRes.text();
+    const match = html.match(/flashvars="([^"]+)"/);
+    if (!match) {
+        console.log(`[avatar debug] ${username}: status=${pageRes.status} len=${html.length} snippet=${JSON.stringify(html.slice(0, 300))}`);
+        return null;
+    }
+
+    // Values here are raw text (e.g. "ArchPaladin Armor"), not
+    // percent-encoded — only the &amp; HTML entity needs undoing.
+    const flashvars = {};
+    match[1].replace(/&amp;/g, '&').replace(/^&/, '').split('&').forEach(pair => {
+        const idx = pair.indexOf('=');
+        if (idx === -1) return;
+        flashvars[pair.slice(0, idx)] = pair.slice(idx + 1);
+    });
+    return flashvars;
+}
+
 app.get('/api/avatar', async (req, res) => {
     const username = (req.query.username || '').trim();
     if (!username) return res.status(400).json({ error: 'missing username' });
     const key = username.toLowerCase();
 
+    // Cached entries never expire on their own — a real username only gets
+    // re-scraped when explicitly requested via /api/avatar/refresh.
     const cached = avatarCache[key];
-    if (cached && Date.now() - cached.ts < AVATAR_CACHE_MS) {
+    if (cached) {
         return res.json({ swf: '/api/charswf', flashvars: cached.flashvars });
     }
 
     try {
-        // account.aq.com's WAF returns a 403 challenge page to requests that
-        // look like a bot (bare server-side fetch, no browser-like headers)
-        // — this started happening only after repeated automated hits from
-        // Railway's IP during testing, so it's likely IP-based, but sending
-        // realistic browser headers is worth trying first.
-        const pageRes = await fetch('https://account.aq.com/CharPage?id=' + encodeURIComponent(username), {
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-                'Accept-Language': 'en-US,en;q=0.9',
-                'Referer': 'https://account.aq.com/',
-            },
-        });
-        const html  = await pageRes.text();
-        const match = html.match(/flashvars="([^"]+)"/);
-        if (!match) {
-            console.log(`[avatar debug] ${username}: status=${pageRes.status} len=${html.length} snippet=${JSON.stringify(html.slice(0, 300))}`);
-            return res.status(404).json({ error: 'character not found' });
-        }
-
-        // Values here are raw text (e.g. "ArchPaladin Armor"), not
-        // percent-encoded — only the &amp; HTML entity needs undoing.
-        const flashvars = {};
-        match[1].replace(/&amp;/g, '&').replace(/^&/, '').split('&').forEach(pair => {
-            const idx = pair.indexOf('=');
-            if (idx === -1) return;
-            flashvars[pair.slice(0, idx)] = pair.slice(idx + 1);
-        });
+        const flashvars = await scrapeCharPage(username);
+        if (!flashvars) return res.status(404).json({ error: 'character not found' });
 
         avatarCache[key] = { flashvars, ts: Date.now() };
+        saveAvatarCache();
+        res.json({ swf: '/api/charswf', flashvars });
+    } catch {
+        res.status(502).json({ error: 'could not reach account.aq.com' });
+    }
+});
+
+// Forces a re-scrape of a username, bypassing the cache — for when a player
+// changes gear and wants their portrait to catch up.
+app.post('/api/avatar/refresh', async (req, res) => {
+    const username = (req.body.username || '').trim();
+    if (!username) return res.status(400).json({ error: 'missing username' });
+    const key = username.toLowerCase();
+
+    try {
+        const flashvars = await scrapeCharPage(username);
+        if (!flashvars) return res.status(404).json({ error: 'character not found' });
+
+        avatarCache[key] = { flashvars, ts: Date.now() };
+        saveAvatarCache();
         res.json({ swf: '/api/charswf', flashvars });
     } catch {
         res.status(502).json({ error: 'could not reach account.aq.com' });

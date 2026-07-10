@@ -285,6 +285,10 @@ FakesAssemblies/
 .ntvs_analysis.dat
 node_modules/
 
+# Local-dev fallback for the persistent avatar cache (production uses a
+# Railway volume at /data instead)
+skua-server/avatarCache.local.json
+
 # Visual Studio 6 build log
 *.plg
 

@@ -240,6 +240,28 @@ const avatarCache     = {}; // username(lower) -> { flashvars, ts }
 const AVATAR_CACHE_MS = 10 * 60 * 1000;
 const PATCHED_SWF_PATH = path.join(__dirname, 'assets', 'characterB_patched.swf');
 
+// TEMPORARY: account.aq.com's WAF is currently 403-blocking Railway's IP,
+// so live lookups fail regardless of what we send. Seed a known-good real
+// capture (grabbed before the block started) so the crop/chroma-key
+// rendering can still be tested end-to-end while that's sorted out.
+// Remove once account.aq.com is reachable from Railway again.
+avatarCache['artix'] = {
+    ts: Date.now(),
+    flashvars: {
+        intColorHair: '6697728', intColorSkin: '15121555', intColorEye: '6697728', intColorTrim: '5398908',
+        intColorBase: '8556972', intColorAccessory: '10027008', level: '100', guild: '', ia1: '14240',
+        strGender: 'M', strHairFile: 'hair/M/Normal.swf', strHairName: 'Normal', strName: 'Artix',
+        intLevel: '100', strFaction: 'Good', strClassName: 'Mage', strClassFile: 'PalidanRevamp.swf',
+        strClassLink: 'PalidanRevamp', strArmorName: 'ArchPaladin Armor', strWeaponFile: 'items/swords/sword01.swf',
+        strWeaponLink: '', strWeaponType: '', strWeaponName: 'Default Sword', strCapeFile: 'items/capes/PalidanRevampCape.swf',
+        strCapeLink: 'PalidanRevampCape', strCapeName: 'Bright Paladin Cape', strHelmFile: 'items/helms/ArtixHeadGRR.swf',
+        strHelmLink: 'ArtixHeadGRR', strHelmName: 'Battle-ready Artix Mask', strPetFile: 'none', strPetLink: 'none',
+        strPetName: '', strMiscFile: 'none', strMiscLink: '', strMiscName: '', strCustWeaponFile: 'items/axes/axe05.swf',
+        strCustWeaponLink: '', strCustWeaponType: 'Axe', strCustWeaponName: 'Blinding Light of Destiny III',
+        strCustCapeFile: 'items/capes/redcape.swf', strCustCapeLink: 'RedCape', strCustCapeName: 'Red Cape', bgindex: '6',
+    },
+};
+
 app.get('/api/avatar', async (req, res) => {
     const username = (req.query.username || '').trim();
     if (!username) return res.status(400).json({ error: 'missing username' });

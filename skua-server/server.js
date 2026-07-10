@@ -225,5 +225,82 @@ app.post('/queue/test', (req, res) => {
     res.json({ ok: true });
 });
 
+// ── Character avatar (CharPage) ─────────────────────────────────────
+// account.aq.com/CharPage renders a player's exact equipped gear via the
+// game's own "characterB.swf" widget, fed by FlashVars scraped from that
+// page's <embed> tag. We serve a locally-patched copy of that SWF (see
+// assets/characterB_patched.swf) — the original calls
+// ExternalInterface.addCallback() as the first thing it does on frame 1,
+// which Ruffle doesn't support; the uncaught exception aborts the rest of
+// that frame's script before it ever applies the real FlashVars, leaving
+// the widget stuck on its own built-in demo character. Those two calls
+// were stripped out with FFDec (they're only used for an unrelated
+// camera/screenshot feature we don't need).
+const avatarCache     = {}; // username(lower) -> { flashvars, ts }
+const AVATAR_CACHE_MS = 10 * 60 * 1000;
+const PATCHED_SWF_PATH = path.join(__dirname, 'assets', 'characterB_patched.swf');
+
+app.get('/api/avatar', async (req, res) => {
+    const username = (req.query.username || '').trim();
+    if (!username) return res.status(400).json({ error: 'missing username' });
+    const key = username.toLowerCase();
+
+    const cached = avatarCache[key];
+    if (cached && Date.now() - cached.ts < AVATAR_CACHE_MS) {
+        return res.json({ swf: '/api/charswf', flashvars: cached.flashvars });
+    }
+
+    try {
+        const pageRes = await fetch('https://account.aq.com/CharPage?id=' + encodeURIComponent(username));
+        const html  = await pageRes.text();
+        const match = html.match(/flashvars="([^"]+)"/);
+        if (!match) return res.status(404).json({ error: 'character not found' });
+
+        // Values here are raw text (e.g. "ArchPaladin Armor"), not
+        // percent-encoded — only the &amp; HTML entity needs undoing.
+        const flashvars = {};
+        match[1].replace(/&amp;/g, '&').replace(/^&/, '').split('&').forEach(pair => {
+            const idx = pair.indexOf('=');
+            if (idx === -1) return;
+            flashvars[pair.slice(0, idx)] = pair.slice(idx + 1);
+        });
+
+        avatarCache[key] = { flashvars, ts: Date.now() };
+        res.json({ swf: '/api/charswf', flashvars });
+    } catch {
+        res.status(502).json({ error: 'could not reach account.aq.com' });
+    }
+});
+
+app.get('/api/charswf', (req, res) => {
+    res.set('Content-Type', 'application/x-shockwave-flash');
+    res.sendFile(PATCHED_SWF_PATH);
+});
+
+// characterB.swf figures out its own asset base URL from wherever it was
+// actually served (loaderInfo.url), not from anything we pass Ruffle — so
+// once it's loaded from our domain, its hair/cape/weapon/armor sub-asset
+// loads land here too. Mirror the real gamefiles tree so those resolve.
+const gameAssetCache = {};
+app.get('/game/gamefiles/*', async (req, res) => {
+    const subPath = req.params[0];
+    if (gameAssetCache[subPath]) {
+        const { buf, contentType } = gameAssetCache[subPath];
+        res.set('Content-Type', contentType);
+        return res.send(buf);
+    }
+    try {
+        const upstream = await fetch('https://game.aq.com/game/gamefiles/' + subPath);
+        if (!upstream.ok) return res.status(upstream.status).end();
+        const buf = Buffer.from(await upstream.arrayBuffer());
+        const contentType = upstream.headers.get('content-type') || 'application/octet-stream';
+        gameAssetCache[subPath] = { buf, contentType };
+        res.set('Content-Type', contentType);
+        res.send(buf);
+    } catch {
+        res.status(502).end();
+    }
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`GunLive Server on port ${PORT}`));

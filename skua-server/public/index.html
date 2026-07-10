@@ -754,16 +754,15 @@ async function fetchAvatar(username) {
 // a match row is clicked, which just silently renders nothing. Driving it
 // through the JS API instead works regardless of when the element appears.
 // The widget's full 550x350 stage is a whole info card (name, gear list,
-// camera/cosmetics buttons, solid-color backdrop) with the actual character
-// standing in roughly the right 60% of it. The widget has its own built-in
-// "clean transparent character" mode (used for its download-profile-pic
-// feature), but reaching it needs ExternalInterface, which Ruffle doesn't
-// support here — so instead we render it off-screen, crop to the character's
-// region, and chroma-key out the backdrop's flat color ourselves.
+// camera/cosmetics buttons) with the actual character standing in roughly
+// the right 60% of it. It used to also paint a solid cream backdrop via its
+// own SetBackgroundColorTag, which Ruffle's backgroundColor:null override
+// doesn't beat — patched that tag out of assets/characterB_patched.swf
+// (see FFDec -remove) so the stage is genuinely transparent now, no
+// chroma-keying needed. We still crop down to just the character's region.
 const CHAR_STAGE_W = 550, CHAR_STAGE_H = 350;
 const CHAR_CROP = { x: 260, y: 30, w: 275, h: 310 }; // native-stage px around the character, clear of the text panel
 const CHAR_DISPLAY_W = 220;
-const CHROMA_THRESHOLD = 28; // color-distance under which a pixel counts as "background"
 const RENDER_SCALE = 3; // supersample the SWF well above native res before downscaling, for crisper output
 
 // Any avatar render loop currently running, keyed by container id — so
@@ -820,12 +819,6 @@ function renderAvatar(containerId, data) {
   container.appendChild(outCanvas);
   const outCtx = outCanvas.getContext('2d');
 
-  const tmpW = CHAR_CROP.w * RENDER_SCALE, tmpH = CHAR_CROP.h * RENDER_SCALE;
-  const tmp  = document.createElement('canvas');
-  tmp.width  = tmpW;
-  tmp.height = tmpH;
-  const tctx = tmp.getContext('2d');
-
   let stopped = false;
   let rafId   = null;
 
@@ -833,29 +826,12 @@ function renderAvatar(containerId, data) {
     if (stopped) return;
     const src = player.shadowRoot?.querySelector('canvas') || player.querySelector('canvas');
     if (src) {
-      tctx.clearRect(0, 0, tmpW, tmpH);
-      tctx.drawImage(src, CHAR_CROP.x * RENDER_SCALE, CHAR_CROP.y * RENDER_SCALE, tmpW, tmpH, 0, 0, tmpW, tmpH);
-
-      try {
-        const imgData = tctx.getImageData(0, 0, tmpW, tmpH);
-        const d = imgData.data;
-        // Sample all four corners (definitely backdrop, never character)
-        // and average them — self-calibrates to whatever solid color the
-        // card backdrop actually is, rather than hardcoding one.
-        const corners = [0, (tmpW - 1) * 4, (tmpH - 1) * tmpW * 4, (tmpH * tmpW - 1) * 4];
-        let cr = 0, cg = 0, cb = 0;
-        corners.forEach(i => { cr += d[i]; cg += d[i + 1]; cb += d[i + 2]; });
-        cr /= corners.length; cg /= corners.length; cb /= corners.length;
-
-        for (let i = 0; i < d.length; i += 4) {
-          const dr = d[i] - cr, dg = d[i + 1] - cg, db = d[i + 2] - cb;
-          if (Math.sqrt(dr * dr + dg * dg + db * db) < CHROMA_THRESHOLD) d[i + 3] = 0;
-        }
-        tctx.putImageData(imgData, 0, 0);
-      } catch { /* tainted canvas — leave this frame un-keyed rather than blank */ }
-
       outCtx.clearRect(0, 0, CHAR_DISPLAY_W, dispH);
-      outCtx.drawImage(tmp, 0, 0, tmpW, tmpH, 0, 0, CHAR_DISPLAY_W, dispH);
+      outCtx.drawImage(
+        src,
+        CHAR_CROP.x * RENDER_SCALE, CHAR_CROP.y * RENDER_SCALE, CHAR_CROP.w * RENDER_SCALE, CHAR_CROP.h * RENDER_SCALE,
+        0, 0, CHAR_DISPLAY_W, dispH
+      );
     }
     rafId = requestAnimationFrame(frame);
   }

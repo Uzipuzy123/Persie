@@ -29,6 +29,21 @@ const MATCH_END_VISIBLE_MS = 4000;
 // stop tracking on its own.
 const ENDED_ROOM_SUPPRESS_MS = 20000;
 const endedRooms = {}; // room -> timestamp it ended
+const roomStartTimes = {}; // room -> timestamp of first stats push seen for it, for Duration
+
+function formatDuration(ms) {
+    const totalSec = Math.max(0, Math.round(ms / 1000));
+    const m = Math.floor(totalSec / 60);
+    const s = totalSec % 60;
+    return `${m}:${String(s).padStart(2, '0')}`;
+}
+
+function matchType(playerCount) {
+    if (playerCount === 2) return '1v1';
+    if (playerCount === 4) return '2v2';
+    if (playerCount === 6) return '3v3';
+    return `${playerCount}p`;
+}
 
 // ── Receive stats from a Skua client ──────────────────────────────
 app.post('/stats', (req, res) => {
@@ -43,15 +58,18 @@ app.post('/stats', (req, res) => {
         players[data.username] = { ...data, lastSeen: Date.now() };
         const snapshot = Object.values(players).map(p => ({ ...p }));
         if (snapshot.length > 0) {
+            const room = data.map || 'bludrutbrawl';
             matches.unshift({
                 id:        Date.now(),
                 timestamp: new Date().toISOString(),
-                map:       data.map || 'bludrutbrawl',
+                map:       room,
+                type:      matchType(snapshot.length),
+                duration:  formatDuration(Date.now() - (roomStartTimes[room] || Date.now())),
                 players:   snapshot,
             });
             if (matches.length > MAX_MATCHES) matches.pop();
         }
-        if (data.map) endedRooms[data.map] = Date.now();
+        if (data.map) { endedRooms[data.map] = Date.now(); delete roomStartTimes[data.map]; }
         // Clear EVERYONE currently live, not just the reporting player — in a
         // real 1v1 only the winner's client ever sends matchEnd (their kills
         // hit 10; the opponent's never will), so clearing just data.username
@@ -72,6 +90,10 @@ app.post('/stats', (req, res) => {
     }
 
     players[data.username] = { ...data, lastSeen: Date.now() };
+    // First time we've seen a live push for this room — mark it as the
+    // match's start, so Duration can be computed once it ends.
+    if (data.map && data.map.startsWith('bludrutbrawl') && !roomStartTimes[data.map])
+        roomStartTimes[data.map] = Date.now();
     // Clear pending match once player has joined the brawl map
     if (data.map && data.map.startsWith('bludrutbrawl') && pendingMatches[data.username])
         delete pendingMatches[data.username];
@@ -83,12 +105,15 @@ app.post('/stats', (req, res) => {
                 id:        Date.now(),
                 timestamp: new Date().toISOString(),
                 map:       data.map,
+                type:      matchType(snapshot.length),
+                duration:  formatDuration(Date.now() - (roomStartTimes[data.map] || Date.now())),
                 winner:    data.username,
                 players:   snapshot,
             });
             if (matches.length > MAX_MATCHES) matches.pop();
         }
         endedRooms[data.map] = Date.now();
+        delete roomStartTimes[data.map];
         snapshot.forEach(p => {
             delete activeRooms[p.username];
             setTimeout(() => { delete players[p.username]; }, MATCH_END_VISIBLE_MS);

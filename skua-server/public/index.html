@@ -409,7 +409,16 @@ main { margin-left:var(--nav-w); flex:1; padding:28px 32px; overflow-y:auto; }
         <h2>Recent Matches</h2>
         <span>bludrutbrawl</span>
       </div>
-      <div class="box-body" id="history-list"></div>
+      <div class="box-body">
+        <div style="display:flex;justify-content:center;margin-bottom:18px">
+          <input id="history-search" type="text" placeholder="Search username..."
+                 oninput="renderHistory()"
+                 style="background:var(--card);border:1px solid var(--border);border-radius:20px;
+                        padding:10px 18px;color:var(--text);font-size:0.85rem;width:280px;
+                        text-align:center;outline:none">
+        </div>
+        <div id="history-list"></div>
+      </div>
     </div>
   </div>
 
@@ -599,12 +608,12 @@ main { margin-left:var(--nav-w); flex:1; padding:28px 32px; overflow-y:auto; }
 <!-- Match detail modal (opened from History) — outside .page containers
      since those are display:none when inactive, which would hide this too -->
 <div id="match-modal-backdrop" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:999" onclick="closeMatchDetail()">
-  <div style="max-width:600px;margin:60px auto;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;max-height:80vh;overflow-y:auto" onclick="event.stopPropagation()">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-      <div id="mm-title" style="font-size:1.1rem;font-weight:800"></div>
+  <div style="max-width:680px;margin:50px auto;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;max-height:85vh;overflow-y:auto" onclick="event.stopPropagation()">
+    <div style="display:flex;justify-content:flex-end">
       <button onclick="closeMatchDetail()" style="background:none;border:none;color:var(--muted);font-size:1.3rem;cursor:pointer;line-height:1">&times;</button>
     </div>
-    <div id="mm-sub" style="color:var(--muted);font-size:0.8rem;margin-bottom:18px"></div>
+    <div id="mm-hero"></div>
+    <div style="border-top:1px solid var(--border);margin:4px 0 16px"></div>
     <div id="mm-players"></div>
   </div>
 </div>
@@ -871,12 +880,34 @@ function openMatchDetail(id) {
   const m = lastHistoryMatches.find(x => String(x.id) === String(id));
   if (!m) return;
 
+  const [p1, p2] = m.players;
   const sorted = [...m.players].sort((a,b) => b.kills - a.kills);
   const winner = sorted[0];
+  const mapName = (m.map || 'bludrutbrawl').replace(/^bludrutbrawl-?\d*/i, 'GunliveTest');
 
-  document.getElementById('mm-title').textContent = 'Match Stats';
-  document.getElementById('mm-sub').textContent =
-    `${new Date(m.timestamp).toLocaleString()} • Winner: ${winner.username}`;
+  // Silhouette + colored score "hero" section, matching the old PVPHero
+  // match-result layout — real character art isn't available here, so a
+  // simple colored silhouette per side stands in for it.
+  document.getElementById('mm-hero').innerHTML = `
+    <div style="text-align:center;padding:4px 0 20px">
+      <div style="font-family:Georgia,serif;font-style:italic;color:var(--gold);font-size:1.3rem;font-weight:700">PvP Game Results</div>
+      <div style="font-family:Georgia,serif;font-style:italic;color:var(--gold);font-size:0.85rem;margin-top:2px">Hosted in ${mapName}</div>
+      <div style="display:flex;align-items:center;justify-content:center;gap:40px;margin-top:22px">
+        <div style="width:64px;height:64px;border-radius:50%;background:#3b82f622;border:3px solid #3b82f6;
+                    display:flex;align-items:center;justify-content:center;font-size:1.8rem;flex-shrink:0">🧍</div>
+        <div style="text-align:center">
+          <div style="font-size:0.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px">Score</div>
+          <div style="font-size:1.7rem;font-weight:900;margin-top:2px">
+            <span style="color:#3b82f6">${p1.kills}</span> - <span style="color:#ef4444">${p2 ? p2.kills : 0}</span>
+          </div>
+        </div>
+        <div style="width:64px;height:64px;border-radius:50%;background:#ef444422;border:3px solid #ef4444;
+                    display:flex;align-items:center;justify-content:center;font-size:1.8rem;flex-shrink:0">🧍</div>
+      </div>
+      <div style="font-size:0.7rem;color:var(--muted);margin-top:16px">
+        *Click a player below to see their individual stats
+      </div>
+    </div>`;
 
   document.getElementById('mm-players').innerHTML = sorted.map(p => `
     <div style="border:1px solid ${p===winner?'var(--gold)':'var(--border)'};border-radius:8px;padding:14px;margin-bottom:10px">
@@ -900,50 +931,58 @@ function closeMatchDetail() {
 
 async function renderHistory() {
   const list = document.getElementById('history-list');
-  list.innerHTML = '<div style="color:var(--muted);font-size:0.8rem;padding:12px 0">Loading...</div>';
+  list.innerHTML = '<div style="color:var(--muted);font-size:0.8rem;padding:12px 0;text-align:center">Loading...</div>';
 
   const serverMatches = await fetchMatches();
+  const searchVal = (document.getElementById('history-search')?.value || '').trim().toLowerCase();
 
-  if (serverMatches && serverMatches.length > 0) {
-    lastHistoryMatches = serverMatches;
-    list.innerHTML = serverMatches.map(m => {
-      const sorted = [...m.players].sort((a,b) => b.kills - a.kills);
-      const winner = sorted[0];
-      const date   = new Date(m.timestamp).toLocaleString();
-      return `
-      <div class="match-row" onclick="openMatchDetail(${m.id})" style="cursor:pointer">
-        <div class="match-result win">DONE</div>
-        <div class="match-info">
-          <div class="mi-title">GunliveTest</div>
-          <div class="mi-sub">${date}</div>
-        </div>
-        <div class="match-stats">
-          ${sorted.map(p => `<div class="ms-item">
-            <div class="mv" style="font-size:0.75rem">${p.username}</div>
-            <div class="mv">${p.kills}K / ${p.deaths}D</div>
-            <div class="ml">${fmt(p.dmgDealt)} dmg</div>
-          </div>`).join('')}
-        </div>
-        <div class="match-winner you">👑 ${winner.username}</div>
-      </div>`;
-    }).join('');
-  } else {
-    // Fall back to mock data
-    list.innerHTML = HISTORY.map(m => `
-    <div class="match-row">
-      <div class="match-result ${m.result}">${m.result==='win'?'WIN':'LOSS'}</div>
-      <div class="match-info">
-        <div class="mi-title">${m.map}</div>
-        <div class="mi-sub">${m.date}</div>
-      </div>
-      <div class="match-stats">
-        <div class="ms-item"><div class="mv">${m.kills}</div><div class="ml">Kills</div></div>
-        <div class="ms-item"><div class="mv">${m.deaths}</div><div class="ml">Deaths</div></div>
-        <div class="ms-item"><div class="mv">${fmt(m.dmgDealt)}</div><div class="ml">Dmg</div></div>
-      </div>
-      <div class="match-winner ${m.result==='win'?'you':'them'}">${m.winner === 'Uzair' ? '★ You' : m.winner}</div>
-    </div>`).join('') + (CENTRAL_SERVER ? '' : '<div style="margin-top:16px;font-size:0.75rem;color:var(--muted)">Set CENTRAL_SERVER in the HTML to see real match history</div>');
+  if (!serverMatches || serverMatches.length === 0) {
+    list.innerHTML = '<div style="color:var(--muted);font-size:0.8rem;padding:24px 0;text-align:center">No match history yet — play a match to see it here.</div>';
+    return;
   }
+
+  lastHistoryMatches = serverMatches;
+  const filtered = searchVal
+    ? serverMatches.filter(m => m.players.some(p => p.username.toLowerCase().includes(searchVal)))
+    : serverMatches;
+
+  const gridCols = '60px 1fr 130px 1fr 90px 160px';
+  const header = `
+    <div style="display:grid;grid-template-columns:${gridCols};gap:8px;
+                padding:8px 14px;font-size:0.62rem;color:var(--muted);text-transform:uppercase;
+                letter-spacing:1px;font-weight:700">
+      <div>Type</div>
+      <div style="text-align:center;border-bottom:2px solid #3b82f6;padding-bottom:6px">Team A</div>
+      <div style="text-align:center">Score Result</div>
+      <div style="text-align:center;border-bottom:2px solid #ef4444;padding-bottom:6px">Team B</div>
+      <div style="text-align:center">Duration</div>
+      <div style="text-align:center">Date</div>
+    </div>`;
+
+  const rows = filtered.map(m => {
+    const [p1, p2] = m.players;
+    const p1Wins = p2 ? p1.kills >= p2.kills : true;
+    const date = new Date(m.timestamp).toLocaleString();
+    return `
+    <div onclick="openMatchDetail(${m.id})" style="display:grid;grid-template-columns:${gridCols};
+         gap:8px;align-items:center;padding:12px 14px;border-radius:6px;cursor:pointer;
+         background:var(--card);margin-bottom:2px"
+         onmouseover="this.style.background='rgba(249,115,22,0.06)'"
+         onmouseout="this.style.background='var(--card)'">
+      <div style="font-size:0.75rem;color:var(--muted);font-weight:700">${m.type || (m.players.length + 'p')}</div>
+      <div style="text-align:center;font-size:0.85rem;font-weight:700;color:#fff">${p1.username}</div>
+      <div style="text-align:center;display:flex;align-items:center;justify-content:center;gap:6px;font-weight:800">
+        ${p1Wins ? '<span>🏆</span>' : ''}
+        <span style="color:#3b82f6">${p1.kills}</span> - <span style="color:#ef4444">${p2 ? p2.kills : 0}</span>
+        ${!p1Wins ? '<span>🏆</span>' : ''}
+      </div>
+      <div style="text-align:center;font-size:0.85rem;font-weight:700;color:#fff">${p2 ? p2.username : '—'}</div>
+      <div style="text-align:center;font-size:0.8rem;color:var(--muted)">${m.duration || '—'}</div>
+      <div style="text-align:center;font-size:0.75rem;color:var(--muted)">${date}</div>
+    </div>`;
+  }).join('');
+
+  list.innerHTML = header + (rows || '<div style="color:var(--muted);font-size:0.8rem;padding:16px 0;text-align:center">No matches found.</div>');
 }
 
 // ── PROFILE PAGE ────────────────────────────────────────────────────

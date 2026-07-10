@@ -766,9 +766,15 @@ const CHAR_DISPLAY_W = 220;
 const CHROMA_THRESHOLD = 28; // color-distance under which a pixel counts as "background"
 const RENDER_SCALE = 3; // supersample the SWF well above native res before downscaling, for crisper output
 
+// Any avatar render loop currently running, keyed by container id — so
+// reopening the modal (or closing it) can stop the old loop instead of
+// piling up requestAnimationFrame loops rendering into detached elements.
+const activeAvatarLoops = {};
+
 function renderAvatar(containerId, data) {
   const container = document.getElementById(containerId);
   if (!container || !window.RufflePlayer) return;
+  activeAvatarLoops[containerId]?.stop();
   container.innerHTML = '';
 
   const scale = CHAR_DISPLAY_W / CHAR_CROP.w;
@@ -779,8 +785,10 @@ function renderAvatar(containerId, data) {
 
   // Ruffle renders off-screen at RENDER_SCALE x native size (the SWF is
   // mostly vector art, so it redraws crisply at a higher target resolution
-  // instead of just stretching a low-res raster) — we read its canvas back,
-  // crop, and key out the backdrop rather than showing its element directly.
+  // instead of just stretching a low-res raster) — we continuously read its
+  // canvas back, crop, and key out the backdrop every frame, so the
+  // character's own idle animation keeps playing instead of freezing on a
+  // single snapshot.
   const stage = document.createElement('div');
   stage.style.cssText = `position:absolute;left:-9999px;top:0;width:${CHAR_STAGE_W * RENDER_SCALE}px;height:${CHAR_STAGE_H * RENDER_SCALE}px`;
   document.body.appendChild(stage);
@@ -812,46 +820,54 @@ function renderAvatar(containerId, data) {
   container.appendChild(outCanvas);
   const outCtx = outCanvas.getContext('2d');
 
-  // Sub-assets (armor/hair/weapon/cape) load asynchronously over the
-  // network — give them time to arrive before reading the canvas back.
-  setTimeout(() => {
+  const tmpW = CHAR_CROP.w * RENDER_SCALE, tmpH = CHAR_CROP.h * RENDER_SCALE;
+  const tmp  = document.createElement('canvas');
+  tmp.width  = tmpW;
+  tmp.height = tmpH;
+  const tctx = tmp.getContext('2d');
+
+  let stopped = false;
+  let rafId   = null;
+
+  function frame() {
+    if (stopped) return;
     const src = player.shadowRoot?.querySelector('canvas') || player.querySelector('canvas');
-    if (!src) {
-      console.warn('avatar: no ruffle canvas found to crop');
-      document.body.removeChild(stage);
-      return;
+    if (src) {
+      tctx.clearRect(0, 0, tmpW, tmpH);
+      tctx.drawImage(src, CHAR_CROP.x * RENDER_SCALE, CHAR_CROP.y * RENDER_SCALE, tmpW, tmpH, 0, 0, tmpW, tmpH);
+
+      try {
+        const imgData = tctx.getImageData(0, 0, tmpW, tmpH);
+        const d = imgData.data;
+        // Sample all four corners (definitely backdrop, never character)
+        // and average them — self-calibrates to whatever solid color the
+        // card backdrop actually is, rather than hardcoding one.
+        const corners = [0, (tmpW - 1) * 4, (tmpH - 1) * tmpW * 4, (tmpH * tmpW - 1) * 4];
+        let cr = 0, cg = 0, cb = 0;
+        corners.forEach(i => { cr += d[i]; cg += d[i + 1]; cb += d[i + 2]; });
+        cr /= corners.length; cg /= corners.length; cb /= corners.length;
+
+        for (let i = 0; i < d.length; i += 4) {
+          const dr = d[i] - cr, dg = d[i + 1] - cg, db = d[i + 2] - cb;
+          if (Math.sqrt(dr * dr + dg * dg + db * db) < CHROMA_THRESHOLD) d[i + 3] = 0;
+        }
+        tctx.putImageData(imgData, 0, 0);
+      } catch { /* tainted canvas — leave this frame un-keyed rather than blank */ }
+
+      outCtx.clearRect(0, 0, CHAR_DISPLAY_W, dispH);
+      outCtx.drawImage(tmp, 0, 0, tmpW, tmpH, 0, 0, CHAR_DISPLAY_W, dispH);
     }
+    rafId = requestAnimationFrame(frame);
+  }
+  rafId = requestAnimationFrame(frame);
 
-    const tmpW = CHAR_CROP.w * RENDER_SCALE, tmpH = CHAR_CROP.h * RENDER_SCALE;
-    const tmp  = document.createElement('canvas');
-    tmp.width  = tmpW;
-    tmp.height = tmpH;
-    const tctx = tmp.getContext('2d');
-    tctx.drawImage(src, CHAR_CROP.x * RENDER_SCALE, CHAR_CROP.y * RENDER_SCALE, tmpW, tmpH, 0, 0, tmpW, tmpH);
-
-    try {
-      const imgData = tctx.getImageData(0, 0, tmpW, tmpH);
-      const d = imgData.data;
-      // Sample all four corners (definitely backdrop, never character) and
-      // average them — self-calibrates to whatever solid color the card
-      // backdrop actually is, rather than hardcoding one.
-      const corners = [0, (tmpW - 1) * 4, (tmpH - 1) * tmpW * 4, (tmpH * tmpW - 1) * 4];
-      let cr = 0, cg = 0, cb = 0;
-      corners.forEach(i => { cr += d[i]; cg += d[i + 1]; cb += d[i + 2]; });
-      cr /= corners.length; cg /= corners.length; cb /= corners.length;
-
-      for (let i = 0; i < d.length; i += 4) {
-        const dr = d[i] - cr, dg = d[i + 1] - cg, db = d[i + 2] - cb;
-        if (Math.sqrt(dr * dr + dg * dg + db * db) < CHROMA_THRESHOLD) d[i + 3] = 0;
-      }
-      tctx.putImageData(imgData, 0, 0);
-    } catch (e) {
-      console.warn('avatar chroma-key failed, showing uncropped background', e);
-    }
-
-    outCtx.drawImage(tmp, 0, 0, tmpW, tmpH, 0, 0, CHAR_DISPLAY_W, dispH);
-    document.body.removeChild(stage);
-  }, 2000);
+  activeAvatarLoops[containerId] = {
+    stop() {
+      stopped = true;
+      if (rafId) cancelAnimationFrame(rafId);
+      if (stage.parentNode) document.body.removeChild(stage);
+    },
+  };
 }
 
 function silhouetteHtml(col) {
@@ -913,6 +929,8 @@ async function openMatchDetail(id) {
 
 function closeMatchDetail() {
   document.getElementById('match-modal-backdrop').style.display = 'none';
+  activeAvatarLoops['mm-av1']?.stop();
+  activeAvatarLoops['mm-av2']?.stop();
 }
 
 async function renderHistory() {

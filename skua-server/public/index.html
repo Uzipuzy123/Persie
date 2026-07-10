@@ -833,11 +833,18 @@ function renderAvatar(containerId, data) {
   tmp.height = tmpH;
   const tctx = tmp.getContext('2d');
 
-  let stopped = false;
-  let rafId   = null;
+  let stopped  = false;
+  let rafId    = null;
+  let lastDraw = 0;
+  const FRAME_INTERVAL_MS = 1000 / 24; // matches the SWF's own native 24fps — redrawing our (expensive, full-frame
+                                        // pixel readback) crop/chroma-key faster than that just burns CPU competing
+                                        // with Ruffle's own update loop for main-thread time, which was making its
+                                        // actual animation playback look like slow motion.
 
-  function frame() {
+  function frame(now) {
     if (stopped) return;
+    if (now - lastDraw < FRAME_INTERVAL_MS) { rafId = requestAnimationFrame(frame); return; }
+    lastDraw = now;
     const src = player.shadowRoot?.querySelector('canvas') || player.querySelector('canvas');
     if (src) {
       tctx.clearRect(0, 0, tmpW, tmpH);

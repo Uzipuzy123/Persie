@@ -969,6 +969,13 @@ function renderAvatar(containerId, data) {
     stop() {
       stopped = true;
       if (rafId) cancelAnimationFrame(rafId);
+      // Explicitly tear down the player's own WASM/WebGL resources rather
+      // than relying on the custom element's disconnectedCallback to catch
+      // it — each avatar render opens a new WebGL context, and repeatedly
+      // switching between matches without a hard release of the old ones
+      // can pile up contexts until the browser (or GPU driver) hits its
+      // limit and the whole page's WebGL rendering breaks.
+      try { player.remove(); } catch { /* already torn down */ }
       if (stage.parentNode) document.body.removeChild(stage);
     },
   };

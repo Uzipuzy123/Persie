@@ -833,40 +833,65 @@ function renderAvatar(containerId, data) {
   tmp.height = tmpH;
   const tctx = tmp.getContext('2d');
 
-  let stopped  = false;
-  let rafId    = null;
-  let lastDraw = 0;
-  const FRAME_INTERVAL_MS = 1000 / 24; // matches the SWF's own native 24fps — redrawing our (expensive, full-frame
-                                        // pixel readback) crop/chroma-key faster than that just burns CPU competing
-                                        // with Ruffle's own update loop for main-thread time, which was making its
-                                        // actual animation playback look like slow motion.
+  // The expensive part (a full getImageData/putImageData pass to figure out
+  // which pixels are backdrop) doesn't need to run every frame — the
+  // backdrop color never changes, only the character's pose does. Cache the
+  // result as an alpha mask and reapply it every frame via a cheap
+  // GPU-composited 'destination-in' draw instead, refreshing the mask only
+  // occasionally. This is what lets the main loop run at full framerate
+  // (smooth) without the per-frame cost that was previously competing with
+  // Ruffle's own update loop for main-thread time and slowing its actual
+  // animation playback down.
+  const maskCanvas = document.createElement('canvas');
+  maskCanvas.width  = tmpW;
+  maskCanvas.height = tmpH;
+  const maskCtx = maskCanvas.getContext('2d');
+
+  let stopped        = false;
+  let rafId          = null;
+  let lastMaskRefresh = 0;
+  const MASK_REFRESH_MS = 500;
+
+  function refreshMask(src) {
+    maskCtx.clearRect(0, 0, tmpW, tmpH);
+    maskCtx.drawImage(src, CHAR_CROP.x * RENDER_SCALE, CHAR_CROP.y * RENDER_SCALE, tmpW, tmpH, 0, 0, tmpW, tmpH);
+    try {
+      const imgData = maskCtx.getImageData(0, 0, tmpW, tmpH);
+      const d = imgData.data;
+      // Sample all four corners (definitely backdrop, never character) and
+      // average them — self-calibrates to whatever solid color the card
+      // backdrop actually is, rather than hardcoding one.
+      const corners = [0, (tmpW - 1) * 4, (tmpH - 1) * tmpW * 4, (tmpH * tmpW - 1) * 4];
+      let cr = 0, cg = 0, cb = 0;
+      corners.forEach(i => { cr += d[i]; cg += d[i + 1]; cb += d[i + 2]; });
+      cr /= corners.length; cg /= corners.length; cb /= corners.length;
+
+      for (let i = 0; i < d.length; i += 4) {
+        const dr = d[i] - cr, dg = d[i + 1] - cg, db = d[i + 2] - cb;
+        // Mask pixel: opaque white where the character is (keep), fully
+        // transparent where it's backdrop (punch out via destination-in).
+        const isBackdrop = Math.sqrt(dr * dr + dg * dg + db * db) < CHROMA_THRESHOLD;
+        d[i] = d[i + 1] = d[i + 2] = 255;
+        d[i + 3] = isBackdrop ? 0 : 255;
+      }
+      maskCtx.putImageData(imgData, 0, 0);
+    } catch { /* tainted canvas — mask stays whatever it was (or blank first time) */ }
+  }
 
   function frame(now) {
     if (stopped) return;
-    if (now - lastDraw < FRAME_INTERVAL_MS) { rafId = requestAnimationFrame(frame); return; }
-    lastDraw = now;
     const src = player.shadowRoot?.querySelector('canvas') || player.querySelector('canvas');
     if (src) {
+      if (now - lastMaskRefresh >= MASK_REFRESH_MS) {
+        lastMaskRefresh = now;
+        refreshMask(src);
+      }
+
       tctx.clearRect(0, 0, tmpW, tmpH);
       tctx.drawImage(src, CHAR_CROP.x * RENDER_SCALE, CHAR_CROP.y * RENDER_SCALE, tmpW, tmpH, 0, 0, tmpW, tmpH);
-
-      try {
-        const imgData = tctx.getImageData(0, 0, tmpW, tmpH);
-        const d = imgData.data;
-        // Sample all four corners (definitely backdrop, never character)
-        // and average them — self-calibrates to whatever solid color the
-        // card backdrop actually is, rather than hardcoding one.
-        const corners = [0, (tmpW - 1) * 4, (tmpH - 1) * tmpW * 4, (tmpH * tmpW - 1) * 4];
-        let cr = 0, cg = 0, cb = 0;
-        corners.forEach(i => { cr += d[i]; cg += d[i + 1]; cb += d[i + 2]; });
-        cr /= corners.length; cg /= corners.length; cb /= corners.length;
-
-        for (let i = 0; i < d.length; i += 4) {
-          const dr = d[i] - cr, dg = d[i + 1] - cg, db = d[i + 2] - cb;
-          if (Math.sqrt(dr * dr + dg * dg + db * db) < CHROMA_THRESHOLD) d[i + 3] = 0;
-        }
-        tctx.putImageData(imgData, 0, 0);
-      } catch { /* tainted canvas — leave this frame un-keyed rather than blank */ }
+      tctx.globalCompositeOperation = 'destination-in';
+      tctx.drawImage(maskCanvas, 0, 0);
+      tctx.globalCompositeOperation = 'source-over';
 
       outCtx.clearRect(0, 0, outCanvas.width, outCanvas.height);
       outCtx.drawImage(tmp, 0, 0, tmpW, tmpH, 0, 0, outCanvas.width, outCanvas.height);

@@ -761,8 +761,8 @@ async function fetchAvatar(username) {
 // support here — so instead we render it off-screen, crop to the character's
 // region, and chroma-key out the backdrop's flat color ourselves.
 const CHAR_STAGE_W = 550, CHAR_STAGE_H = 350;
-const CHAR_CROP = { x: 260, y: 30, w: 275, h: 310 }; // native-stage px around the character, clear of the text panel
-const CHAR_DISPLAY_W = 220;
+const CHAR_CROP = { x: 150, y: 15, w: 395, h: 330 }; // wide enough that weapon swings/capes never clip — the text panel is now hidden, so there's no bleed risk from going wider
+const CHAR_DISPLAY_W = 260;
 const CHROMA_THRESHOLD = 28; // color-distance under which a pixel counts as "background"
 const RENDER_SCALE = 3; // supersample the SWF well above native res before downscaling, for crisper output
 

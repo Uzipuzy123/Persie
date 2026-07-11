@@ -284,18 +284,6 @@ main { flex:1; padding:28px 32px; overflow-y:auto; }
   0%, 100% { filter:drop-shadow(0 0 6px var(--gold)) drop-shadow(0 0 2px var(--gold)); }
   50%      { filter:drop-shadow(0 0 18px var(--gold)) drop-shadow(0 0 6px var(--gold)); }
 }
-/* Dougie-style lean/dip/roll, looped on the winner. */
-@keyframes winnerDougie {
-  0%   { transform:translateX(0)    translateY(0) rotate(0deg); }
-  12%  { transform:translateX(-10px) translateY(3px) rotate(-10deg); }
-  25%  { transform:translateX(-6px)  translateY(0)  rotate(-5deg); }
-  37%  { transform:translateX(2px)   translateY(4px) rotate(3deg); }
-  50%  { transform:translateX(10px)  translateY(0)  rotate(10deg); }
-  62%  { transform:translateX(6px)   translateY(3px) rotate(5deg); }
-  75%  { transform:translateX(-2px)  translateY(0)  rotate(-3deg); }
-  87%  { transform:translateX(-8px)  translateY(2px) rotate(-7deg); }
-  100% { transform:translateX(0)    translateY(0) rotate(0deg); }
-}
 /* Slow head-hang slump, plays once and holds on the loser. */
 @keyframes loserSlump {
   0%   { transform:translateY(0)   rotate(0deg) scale(1);    filter:saturate(1)    brightness(1); }
@@ -306,12 +294,12 @@ main { flex:1; padding:28px 32px; overflow-y:auto; }
   animation: avatarSlideIn 0.45s cubic-bezier(.2,.8,.3,1) both;
 }
 .avatar-fx.winner {
-  animation-name: avatarSlideIn, winnerDougie, avatarWinnerGlow;
-  animation-duration: 0.45s, 1.8s, 1.8s;
-  animation-timing-function: cubic-bezier(.2,.8,.3,1), ease-in-out, ease-in-out;
-  animation-delay: 0s, 0.45s, 0s;
-  animation-iteration-count: 1, infinite, infinite;
-  animation-fill-mode: both, none, none;
+  animation-name: avatarSlideIn, avatarWinnerGlow;
+  animation-duration: 0.45s, 1.8s;
+  animation-timing-function: cubic-bezier(.2,.8,.3,1), ease-in-out;
+  animation-delay: 0s, 0s;
+  animation-iteration-count: 1, infinite;
+  animation-fill-mode: both, none;
 }
 .avatar-fx.loser {
   animation-name: avatarSlideIn, loserSlump;

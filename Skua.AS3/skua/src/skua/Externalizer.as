@@ -113,6 +113,8 @@ package skua
 			this.addCallback("setSelfHudStyle",         Main.setSelfHudStyle);
 			this.addCallback("setSkillBarStyle",        Main.setSkillBarStyle);
 			this.addCallback("setPingOffset",           Main.setPingOffset);
+			this.addCallback("setCancelTargetKeyBind",  Main.setCancelTargetKeyBind);
+			this.addCallback("setPartyTargetModifierKeyBind", Main.setPartyTargetModifierKeyBind);
 
 			this.debug("Externalizer::init done.");
 			this.call("requestLoadGame");

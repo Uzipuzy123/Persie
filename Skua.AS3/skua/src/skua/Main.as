@@ -766,6 +766,31 @@ package skua
 		catch (e:Error) {}
 	}
 
+	// Called from AqwBrowser's native "PVP Keybinds" popup (C#), not the
+	// in-game Flash menu — lets Cancel Target be rebound off Escape at
+	// runtime without recompiling.
+	public static function setCancelTargetKeyBind(keyCodeStr:String):void
+	{
+		try
+		{
+			var mod:* = skua.module.Modules.getModule("InstantCancelTarget");
+			if (mod) mod.setCancelKey(int(keyCodeStr));
+		}
+		catch (e:Error) {}
+	}
+
+	// Same bridge, for the party-panel click-to-target modifier key
+	// (default Shift) — see PartyTargetModifier.as.
+	public static function setPartyTargetModifierKeyBind(keyCodeStr:String):void
+	{
+		try
+		{
+			var mod:* = skua.module.Modules.getModule("PartyTargetModifier");
+			if (mod) mod.setModifierKey(int(keyCodeStr));
+		}
+		catch (e:Error) {}
+	}
+
 	public static function setKillFlashScreenStyle(styleStr:String):void
 	{
 		try

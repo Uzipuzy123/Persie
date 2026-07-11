@@ -28,7 +28,15 @@ package skua.module
 	{
 		private var _gameRef:* = null;
 
+		// Rebindable via the "PVP Keybinds" popup in AqwBrowser's own
+		// toolbar (native window, not the in-game Flash menu) — see
+		// Main.setCancelTargetKeyBind(), called from C# through the same
+		// ExternalInterface bridge as setPingOffset()/modEnable()/etc.
+		private var _cancelKey:int = Keyboard.ESCAPE;
+
 		public function InstantCancelTarget() { super("InstantCancelTarget"); }
+
+		public function setCancelKey(keyCode:int):void { _cancelKey = keyCode; }
 
 		override public function onToggle(game:*):void
 		{
@@ -43,7 +51,7 @@ package skua.module
 
 		private function onKeyDown(e:KeyboardEvent):void
 		{
-			if (e.keyCode != Keyboard.ESCAPE) return;
+			if (e.keyCode != _cancelKey) return;
 
 			try { if (_gameRef.stage.focus is TextField) return; } // typing in chat/a text box
 			catch (e1:Error) {}

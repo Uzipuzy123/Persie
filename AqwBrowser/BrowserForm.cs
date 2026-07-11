@@ -14,6 +14,7 @@ public class BrowserForm : Form
     private readonly ChromiumWebBrowser _browser;
     private readonly Panel _gameArea;
     private SkuaHostBridge? _hostBridge;
+    private readonly PvpKeybindSettings _keybindSettings = PvpKeybindSettings.Load();
 
     public BrowserForm(string startUrl, string bootHtmlPath, string bootSwfPath)
     {
@@ -57,7 +58,10 @@ public class BrowserForm : Form
         _browser.FrameLoadStart += (s, e) =>
             System.Console.WriteLine($"[FrameLoadStart] {e.Url} (main={e.Frame.IsMain})");
         _browser.FrameLoadEnd += (s, e) =>
+        {
             System.Console.WriteLine($"[FrameLoadEnd] {e.Url} (main={e.Frame.IsMain}, httpStatus={e.HttpStatusCode})");
+            if (e.Frame.IsMain) ScheduleSavedKeybindPush();
+        };
         _browser.LoadError += (s, e) =>
             System.Console.WriteLine($"[LoadError] {e.FailedUrl} — {e.ErrorCode} {e.ErrorText}");
         System.Console.WriteLine($"[startup] navigating to: {startUrl}");
@@ -73,6 +77,34 @@ public class BrowserForm : Form
         // actually settled, unlike Load) between them reliably catch it.
         Resize += (s, e) => LayoutGameViewport();
         Shown += (s, e) => LayoutGameViewport();
+    }
+
+    private bool _savedKeybindPushed;
+
+    // Re-applies any previously-saved rebinds once the game's actually
+    // loaded — best-effort: if Flash hasn't finished initializing its
+    // ExternalInterface callbacks yet, each eval just no-ops harmlessly and
+    // the AS3 side keeps its own default (Escape / Shift) until the
+    // "PVP Keybinds" dialog is opened manually.
+    private void ScheduleSavedKeybindPush()
+    {
+        if (_savedKeybindPushed) return;
+        bool cancelTargetNonDefault = _keybindSettings.CancelTargetKey != (int)Keys.Escape;
+        bool partyModifierNonDefault = _keybindSettings.PartyTargetModifierKey != (int)Keys.ShiftKey;
+        if (!cancelTargetNonDefault && !partyModifierNonDefault) return;
+        _savedKeybindPushed = true;
+
+        var timer = new System.Windows.Forms.Timer { Interval = 4000 };
+        timer.Tick += (s, e) =>
+        {
+            timer.Stop();
+            timer.Dispose();
+            if (cancelTargetNonDefault)
+                PvpKeybindsForm.PushKeyBind(_browser, "setCancelTargetKeyBind", _keybindSettings.CancelTargetKey);
+            if (partyModifierNonDefault)
+                PvpKeybindsForm.PushKeyBind(_browser, "setPartyTargetModifierKeyBind", _keybindSettings.PartyTargetModifierKey);
+        };
+        timer.Start();
     }
 
     private void LayoutGameViewport()
@@ -148,17 +180,35 @@ public class BrowserForm : Form
         };
         rejoinBtn.Click += (s, e) => _hostBridge?.Rejoin();
 
+        var keybindsBtn = new Button
+        {
+            Text = "⌨ PVP Keybinds",
+            AutoSize = false,
+            Width = 130,
+            Height = 26,
+            Font = new Font("Segoe UI", 8.5f, FontStyle.Bold),
+            Location = new Point(0, 7),
+            Anchor = AnchorStyles.Top | AnchorStyles.Right,
+        };
+        keybindsBtn.Click += (s, e) =>
+        {
+            using var dlg = new PvpKeybindsForm(_browser, _keybindSettings);
+            dlg.ShowDialog(this);
+        };
+
         toolbar.Resize += (s, e) =>
         {
-            addressBar.Width = Math.Max(0, toolbar.Width - addressBar.Left - testSoloBtn.Width - rejoinBtn.Width - 28);
+            addressBar.Width = Math.Max(0, toolbar.Width - addressBar.Left - testSoloBtn.Width - rejoinBtn.Width - keybindsBtn.Width - 36);
             rejoinBtn.Left = toolbar.Width - rejoinBtn.Width - 8;
             testSoloBtn.Left = rejoinBtn.Left - testSoloBtn.Width - 8;
+            keybindsBtn.Left = testSoloBtn.Left - keybindsBtn.Width - 8;
         };
 
         toolbar.Controls.Add(nav);
         toolbar.Controls.Add(addressBar);
         toolbar.Controls.Add(testSoloBtn);
         toolbar.Controls.Add(rejoinBtn);
+        toolbar.Controls.Add(keybindsBtn);
         return toolbar;
     }
 }

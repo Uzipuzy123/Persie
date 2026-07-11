@@ -96,6 +96,7 @@ package skua.module
 			registerModule(new FastDoorEnter());
 			registerModule(new SkillOnKeyDown());
 			registerModule(new InstantCancelTarget());
+			registerModule(new PartyTargetModifier());
 			registerModule(new ScoreboardSkin());
 			registerModule(new PortalFlash());
 			registerModule(new RespawnEffect());
@@ -117,6 +118,10 @@ package skua.module
 
 			// Always on — no manual toggle, Esc should always deselect.
 			enable("InstantCancelTarget");
+
+			// Always on — no manual toggle, defaults to Shift (matching the
+			// native behavior exactly) until rebound via PVP Keybinds.
+			enable("PartyTargetModifier");
 
 			// FastTarget wires its click listener up inside onToggle(), which only
 			// runs on a real enabled-state transition — registerModule() alone

@@ -210,7 +210,10 @@ package skua.module
 				{name:"ScoreboardOverlay", label:"Scoreboard"},
 				{name:"DebugPanel", label:"Debug Panel"},
 				{name:"SkuaSettingsButton", label:"Ingame Button"},
-				{name:"FastDoorEnter", label:"Fast Door Enter"}
+				{name:"FastDoorEnter", label:"Fast Door Enter"},
+				{name:"MapSkin", label:"Bludrutbrawl Skin"},
+				{name:"YulgarSkin", label:"Yulgar Skin (Max Quality)"},
+				{name:"MapDebug", label:"Map Debug"}
 			]);
 
 			addToggleTab("Effects", [

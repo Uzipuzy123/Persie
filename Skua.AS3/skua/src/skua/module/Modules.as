@@ -78,6 +78,9 @@ package skua.module
 			registerModule(new DebugPanel());
 			registerModule(new SkuaSettingsButton());
 			registerModule(new OptimizeMap());
+			registerModule(new MapSkin());
+			registerModule(new YulgarSkin());
+			registerModule(new MapDebug());
 			registerModule(new DeathDetector());
 			registerModule(new PlayerHPBars());
 			registerModule(new KillStreakAnnouncer());
@@ -91,6 +94,8 @@ package skua.module
 			registerModule(new AutoQuality());
 			registerModule(new FastTarget());
 			registerModule(new FastDoorEnter());
+			registerModule(new SkillOnKeyDown());
+			registerModule(new InstantCancelTarget());
 			registerModule(new ScoreboardSkin());
 			registerModule(new PortalFlash());
 			registerModule(new RespawnEffect());
@@ -106,6 +111,12 @@ package skua.module
 			registerModule(new PingSpoof());
 			// Always on at the default -10ms offset — no manual toggle needed.
 			enable("PingSpoof");
+
+			// Always on — no manual toggle, skills should just fire on press.
+			enable("SkillOnKeyDown");
+
+			// Always on — no manual toggle, Esc should always deselect.
+			enable("InstantCancelTarget");
 
 			// FastTarget wires its click listener up inside onToggle(), which only
 			// runs on a real enabled-state transition — registerModule() alone

@@ -9,6 +9,7 @@ package skua.module
 	import flash.text.TextField;
 	import flash.text.TextFormat;
 	import flash.ui.Keyboard;
+	import flash.utils.getQualifiedClassName;
 
 	// Calibration-only aid for skin-module picture placement. Reaches into
 	// whichever ISkinModule (MapSkin, YulgarSkin, ...) currently has a room
@@ -28,6 +29,12 @@ package skua.module
 	//                           Flash's own vector geometry, not a screenshot
 	//                           guess) for whatever room/label is showing
 	//                           right now, and copy it to the clipboard
+	//   L                     — list every direct child of the real map
+	//                           (name/class/visible/alpha), copied to the
+	//                           clipboard — use this to check whether
+	//                           something (e.g. a town NPC) lives nested
+	//                           inside the map (gets hidden along with the
+	//                           background) or as a sibling (stays visible)
 	//   (only once a skin module has a picture up for the current room)
 	//   Hold ALT + drag       — move the picture (release Alt to click the
 	//                           real map/doors/character movement normally —
@@ -236,6 +243,12 @@ package skua.module
 				return;
 			}
 
+			if (e.keyCode == Keyboard.L)
+			{
+				listMapChildren();
+				return;
+			}
+
 			var skin:ISkinModule = findActiveSkin();
 			var c:Sprite = (skin != null) ? skin.getContainer() : null;
 			if (c == null) return;
@@ -291,6 +304,32 @@ package skua.module
 				try { System.setClipboard(msg); } catch (e2:Error) {}
 				try { ExternalInterface.call("debug", "[MapDebug] REAL ROOM BOUNDS -> " + msg); } catch (e3:Error) {}
 				updateReadout(null);
+			}
+			catch (e:Error) {}
+		}
+
+		// Dumps every DIRECT child of the real map MovieClip (name, class,
+		// visible, alpha) — this is how we find out whether something like a
+		// town NPC is a sibling of map's background layers (safe to leave
+		// alone) or nested inside them (would get hidden along with the
+		// background when a skin module sets map.alpha=0). Works in any
+		// room, picture or not, same as B.
+		private function listMapChildren():void
+		{
+			try
+			{
+				var map:* = _game.world.map;
+				var n:int = map.numChildren;
+				var lines:Array = ["[MapDebug] map=\"" + _lastMapName + "\" label=\"" + _lastLabel + "\" has " + n + " direct children:"];
+				for (var i:int = 0; i < n; i++)
+				{
+					var child:* = map.getChildAt(i);
+					lines.push("  [" + i + "] name=\"" + child.name + "\" class=" + getQualifiedClassName(child) +
+						" visible=" + child.visible + " alpha=" + child.alpha);
+				}
+				var full:String = lines.join("\n");
+				try { System.setClipboard(full); } catch (e2:Error) {}
+				try { ExternalInterface.call("debug", full); } catch (e3:Error) {}
 			}
 			catch (e:Error) {}
 		}

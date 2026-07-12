@@ -34,9 +34,18 @@ internal static class Program
         {
             CachePath = System.IO.Path.Combine(AppContext.BaseDirectory, "cef_cache"),
         };
-        // Bigger disk cache so game assets (art, sound, maps) are actually kept
-        // between launches instead of getting evicted and re-fetched over network.
-        settings.CefCommandLineArgs["disk-cache-size"] = (512 * 1024 * 1024).ToString();
+        // HTTP disk cache disabled entirely — suspected cause of a bug where
+        // entering a new map (e.g. a player's house) updates game state
+        // (world.strMapName, avatar registered in the new room) but the
+        // Flash Loader ends up displaying stale/wrong map content. This
+        // never happened before this app hosted the game inside a full
+        // Chromium/CefSharp browser instead of a standalone client — the
+        // disk cache is the one entirely new layer that move introduced,
+        // and the symptom (state says "arrived", visuals say "old room")
+        // matches a stale cached response for the map request exactly.
+        // Trading away asset re-fetch performance for correctness here;
+        // revisit only if this doesn't actually fix it.
+        settings.CefCommandLineArgs["disable-http-cache"] = "1";
 
         settings.CefCommandLineArgs["ppapi-flash-path"] = PepperFlashPath;
         settings.CefCommandLineArgs["ppapi-flash-version"] = PepperFlashVersion;

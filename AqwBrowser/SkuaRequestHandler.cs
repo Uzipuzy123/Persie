@@ -65,5 +65,33 @@ public class SkuaRequestHandler : RequestHandler
             }
             return null; // anything else — let it hit the real game.aq.com servers normally.
         }
+
+        // Purely observational — logs request/response info for map-looking
+        // loads without touching how anything is actually served (still
+        // returns/passes through exactly what the base class would). Added
+        // to get real evidence on the house-load bug (game state says
+        // "arrived", visuals show the old map) instead of guessing again.
+        private static bool LooksLikeMapLoad(string url)
+        {
+            string u = url.ToLowerInvariant();
+            return u.Contains("map") || u.Contains("house") || u.EndsWith(".swf");
+        }
+
+        protected override CefReturnValue OnBeforeResourceLoad(IWebBrowser chromiumWebBrowser, IBrowser browser, IFrame frame, IRequest request, IRequestCallback callback)
+        {
+            if (LooksLikeMapLoad(request.Url))
+                Console.WriteLine($"[netlog] REQUEST {request.Url}");
+            return base.OnBeforeResourceLoad(chromiumWebBrowser, browser, frame, request, callback);
+        }
+
+        protected override void OnResourceLoadComplete(IWebBrowser chromiumWebBrowser, IBrowser browser, IFrame frame, IRequest request, IResponse response, UrlRequestStatus status, long receivedContentLength)
+        {
+            if (LooksLikeMapLoad(request.Url))
+            {
+                Console.WriteLine($"[netlog] RESPONSE {request.Url} status={status} httpStatus={response?.StatusCode} " +
+                    $"mime={response?.MimeType} bytes={receivedContentLength}");
+            }
+            base.OnResourceLoadComplete(chromiumWebBrowser, browser, frame, request, response, status, receivedContentLength);
+        }
     }
 }

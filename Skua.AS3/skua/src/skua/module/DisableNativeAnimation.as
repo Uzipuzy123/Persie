@@ -9,27 +9,36 @@ package skua.module
 	 * body tree — weapon, weaponOff, weaponFist, weaponFistOff, cape, robe,
 	 * backrobe, backhair, pvpFlag, plus every body segment (head/chest/hip/
 	 * shoulders/thighs/shins/hands/feet) — same full-tree scope as
-	 * DisableNativeGlow. Also sweeps game.world.map's children (torches,
-	 * banners, water, door/portal effects, etc.) — first pass only covered
-	 * avatars, missed the map's own decorative animation entirely.
+	 * DisableNativeGlow.
 	 *
-	 * Deliberately does NOT call stop() on mcChar or game.world.map
-	 * themselves: mcChar's own timeline drives the character's Walk/Idle/
-	 * Attack pose via gotoAndPlay() (confirmed via decompiled AvatarMC.as),
-	 * and the map's own timeline drives room-state switching via
-	 * gotoAndPlay(strFrame) (confirmed via decompiled BludRutBrawl
-	 * MainTimeline) — stopping either would break movement or room
-	 * transitions/spawns entirely. Only their CHILDREN are swept. Calling
+	 * Deliberately does NOT touch game.world.map or any of its children.
+	 * An earlier version also swept map's children to freeze decorative loops
+	 * (torches, banners, gems) — bludrutbrawl (and likely other multi-room
+	 * maps) turned out to drive room placement through nested child clips on
+	 * unlabeled frame numbers, not just the top-level map timeline. Freezing
+	 * one of those mid-transition parked it on whatever frame it froze at,
+	 * which the game then treated as "arrived" — landing the player in the
+	 * wrong room on join. A frame-label check (skip clips with named labels)
+	 * was tried and still didn't stop it, meaning the room logic isn't even
+	 * label-driven on every map. Given map structure isn't reliably
+	 * distinguishable between "decoration" and "room state" from the outside,
+	 * this only touches avatars now — safe because avatar body parts are
+	 * never involved in room/map transition logic.
+	 *
+	 * Deliberately does NOT call stop() on mcChar itself: its own timeline
+	 * drives the character's Walk/Idle/Attack pose via gotoAndPlay()
+	 * (confirmed via decompiled AvatarMC.as) — stopping it would break
+	 * movement animation entirely. Only its CHILDREN are swept. Calling
 	 * stop() on a child is safe even if AQW's own logic repositions/regotos
 	 * that child every frame — stop() only halts a clip's own autonomous
 	 * frame-advancement, it doesn't block external gotoAndStop(n) calls from
 	 * the parent controller. It only actually removes decorative loops that
 	 * play on their own with no external control (rotating gems, pulsing
-	 * sparks, idle sway, flickering torches, waving banners).
+	 * sparks, idle sway, flickering torches, waving banners, cape/robe cloth
+	 * sway).
 	 *
 	 * Runs every frame rather than once-and-cache, same reasoning as
-	 * DisableNativeGlow: equipped parts (and the loaded map) can change at
-	 * any time.
+	 * DisableNativeGlow: equipped parts can change at any time.
 	 */
 	public class DisableNativeAnimation extends Module
 	{
@@ -53,17 +62,6 @@ package skua.module
 					if (!mcChar) continue;
 					for (var i:int = 0; i < mcChar.numChildren; i++)
 						freeze(mcChar.getChildAt(i));
-				}
-			}
-			catch (e:Error) {}
-
-			try
-			{
-				var map:DisplayObjectContainer = game.world.map as DisplayObjectContainer;
-				if (map)
-				{
-					for (var mi:int = 0; mi < map.numChildren; mi++)
-						freeze(map.getChildAt(mi));
 				}
 			}
 			catch (e:Error) {}
@@ -96,17 +94,6 @@ package skua.module
 					if (!mcChar) continue;
 					for (var i:int = 0; i < mcChar.numChildren; i++)
 						unfreeze(mcChar.getChildAt(i));
-				}
-			}
-			catch (e:Error) {}
-
-			try
-			{
-				var map:DisplayObjectContainer = game.world.map as DisplayObjectContainer;
-				if (map)
-				{
-					for (var mi:int = 0; mi < map.numChildren; mi++)
-						unfreeze(map.getChildAt(mi));
 				}
 			}
 			catch (e:Error) {}

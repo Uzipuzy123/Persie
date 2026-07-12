@@ -70,6 +70,10 @@ package skua.module
 			registerModule(new MuteGame());
 			registerModule(new DisableShadows());
 			registerModule(new HighlightEnemies());
+			registerModule(new HideAllHelms());
+			registerModule(new HideAllWeapons());
+			registerModule(new HideAllCapesLocal());
+			registerModule(new HideAllRobes());
 			registerModule(new HideRoomNumber());
 			registerModule(new EnemyHPOverlay());
 			registerModule(new MiniMap());
@@ -93,7 +97,6 @@ package skua.module
 			registerModule(new EnemyOutline());
 			registerModule(new AutoQuality());
 			registerModule(new FastTarget());
-			registerModule(new FastDoorEnter());
 			registerModule(new SkillOnKeyDown());
 			registerModule(new InstantCancelTarget());
 			registerModule(new PartyTargetModifier());
@@ -102,6 +105,7 @@ package skua.module
 			registerModule(new RespawnEffect());
 			registerModule(new DisableNativeGlow());
 			registerModule(new DisableNativeAnimation());
+			registerModule(new AntiCamp());
 			registerModule(new NameplateFont());
 			registerModule(new TeamFlagReskin());
 			registerModule(new SelfHud());

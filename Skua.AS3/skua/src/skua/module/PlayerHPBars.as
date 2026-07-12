@@ -42,9 +42,6 @@ package skua.module
 
 		private function apply(game:*):void
 		{
-			var myTeam:* = null;
-			try { myTeam = game.world.myAvatar.objData.strTeam; } catch (e:Error) {}
-
 			for (var aid:* in game.world.avatars)
 			{
 				var av:* = game.world.avatars[aid];
@@ -74,7 +71,7 @@ package skua.module
 					if (maxMP == 0) maxMP = int(av.dataLeaf.nMaxMP);
 					if (maxMP < 0)  maxMP = 0;
 
-					var isEnemy:Boolean = resolveEnemy(av, myTeam);
+					var isEnemy:Boolean = resolveEnemy(game, av);
 					var bw:int = Math.max(20, Math.round(BAR_W * _scale));
 					var hh:int = Math.max(3,  Math.round(HP_H  * _scale));
 					var mh:int = Math.max(2,  Math.round(MP_H  * _scale));
@@ -568,15 +565,34 @@ package skua.module
 		private function hideHP(bar:Sprite):void { tf(bar, "_hp", 7, 0xCCCCCC, false).visible = false; }
 		private function hideMP(bar:Sprite):void { tf(bar, "_mp", 6, 0x88CCFF, false).visible = false; }
 
-		private function resolveEnemy(av:*, myTeam:*):Boolean
+		private function resolveEnemy(game:*, av:*):Boolean
 		{
 			if (av.isMyAvatar) return false;
+
+			// Authoritative: same pvpTeam int World.as itself uses to drive the
+			// native flag icon (see TeamFlagReskin) — 0=blue, 1=red, gated by
+			// bPvP. objData.strTeam (the old approach here) proved unreliable
+			// for avatars other than yourself, which is why TeammateRoster
+			// exists as a fallback below.
 			try
 			{
-				var t:* = av.objData.strTeam;
-				if (myTeam != null && t != null) return (myTeam != t);
+				if (Boolean(game.world.bPvP))
+				{
+					var myTeam:* = game.world.myAvatar.dataLeaf.pvpTeam;
+					var theirTeam:* = av.dataLeaf.pvpTeam;
+					if (myTeam != null && myTeam > -1 && theirTeam != null && theirTeam > -1)
+						return int(myTeam) != int(theirTeam);
+				}
 			}
 			catch (e:Error) {}
+
+			try
+			{
+				var aName:String = String(av.objData.strUsername).toLowerCase();
+				if (TeammateRoster.isTeammate(aName)) return false;
+			}
+			catch (e2:Error) {}
+
 			return true;
 		}
 

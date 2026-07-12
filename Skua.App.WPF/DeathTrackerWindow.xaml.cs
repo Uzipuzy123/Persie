@@ -83,7 +83,6 @@ public partial class StatTrackerWindow : Window, INotifyPropertyChanged
     public long DamageDealt { get => _damageDealt; private set { _damageDealt = value; OnPropertyChanged(); OnPropertyChanged(nameof(DamageDealtDisplay)); } }
     public string DamageDealtDisplay => _damageDealt.ToString("N0");
 
-
     private int _crits;
     public int Crits { get => _crits; private set { _crits = value; OnPropertyChanged(); } }
 
@@ -115,6 +114,7 @@ public partial class StatTrackerWindow : Window, INotifyPropertyChanged
     public ICommand InjectDamageDealtCommand { get; }
     public ICommand InjectCritCommand { get; }
     public ICommand InjectDodgeCommand { get; }
+    public ICommand TestSoloQueueCommand { get; }
 
     public StatTrackerWindow()
     {
@@ -147,6 +147,7 @@ public partial class StatTrackerWindow : Window, INotifyPropertyChanged
         InjectDamageDealtCommand  = new RelayCommand(() => { DamageDealt += 1000;  LogEvent("[TEST] +1,000 dmg dealt"); });
         InjectCritCommand         = new RelayCommand(() => { Crits++;           LogEvent("[TEST] +1 crit"); });
         InjectDodgeCommand        = new RelayCommand(() => { Dodges++;          LogEvent("[TEST] +1 dodge"); });
+        TestSoloQueueCommand      = new RelayCommand(() => _ = TestSoloQueueAsync());
 
         StrongReferenceMessenger.Default.Register<StatTrackerWindow, PlayerDeathMessage, int>(
             this, (int)MessageChannels.GameEvents, (r, m) => r.Dispatcher.Invoke(() => { r.Deaths++; r.LogEvent("💀 +1 death"); }));
@@ -228,6 +229,26 @@ public partial class StatTrackerWindow : Window, INotifyPropertyChanged
             _scriptOption.HideRoomNumber = false;
             _ = PushStatsAsync(matchEnd: true);
         }
+    }
+
+    private async Task TestSoloQueueAsync()
+    {
+        if (string.IsNullOrEmpty(SERVER_URL)) return;
+        var username = _player.Username ?? string.Empty;
+        if (string.IsNullOrEmpty(username)) { LogEvent("[TEST] No username set"); return; }
+        try
+        {
+            // Add a bot to the queue first so we match instantly, same as the website's
+            // "Test Solo" button — but done here so PollForMatchAsync's already-working
+            // join+mask flow (identical pattern to BBJoinWindow) picks it up directly,
+            // instead of depending on the browser page rendering the match result.
+            await _http.PostAsync(SERVER_URL + "/queue/test", new StringContent("{}", Encoding.UTF8, "application/json"));
+            var payload = JsonSerializer.Serialize(new { username });
+            var content = new StringContent(payload, Encoding.UTF8, "application/json");
+            await _http.PostAsync(SERVER_URL + "/queue", content);
+            LogEvent("🧪 Solo test queued — waiting for auto-join");
+        }
+        catch { LogEvent("[TEST] Could not reach server"); }
     }
 
     private async Task PollForMatchAsync()

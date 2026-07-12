@@ -27,6 +27,11 @@ public class RoomMaskInterceptor : IInterceptor
         // Only mask inbound packets — server needs the real name for routing.
         if (outbound) return;
 
+        // Never touch the actual map-transfer packet — the game engine and Skua's
+        // own map-change detection (ScriptInterface "moveToArea" -> strMapName) need
+        // the real room name here, or _inBrawl never engages and nothing works.
+        if (message.Content.Contains("strMapFileName")) return;
+
         if (_namePattern.IsMatch(message.Content))
             message.Content = _namePattern.Replace(message.Content, "GunliveTest");
 

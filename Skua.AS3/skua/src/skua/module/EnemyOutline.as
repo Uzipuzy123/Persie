@@ -4,7 +4,7 @@ package skua.module
 
 	public class EnemyOutline extends Module
 	{
-		private var _color:int       = 1;
+		private var _color:int       = 0;
 		private var _lastPMCs:Object = {};
 
 		// 0=none, 1=Red, 2=Orange, 3=White, 4=Gold, 5=Purple, 6=Magenta, 7=Green, 8=Cyan

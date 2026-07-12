@@ -7,7 +7,7 @@ package skua.module
 	public class Vignette extends Module
 	{
 		private var _shape:Sprite     = null;
-		private var _style:int        = 1;
+		private var _style:int        = 0;
 		private var _animated:Boolean = false;
 		private var _phase:Number     = 0;
 		private var _pulseFreq:Number = 0;

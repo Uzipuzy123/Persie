@@ -64,6 +64,9 @@ internal static class Program
         settings.CefCommandLineArgs["enable-gpu-rasterization"] = "1";
         // Skips an extra texture copy in the GPU compositing pipeline.
         settings.CefCommandLineArgs["enable-zero-copy"] = "1";
+        // Uncaps Chromium's own compositor from vsync — lowers input-to-screen
+        // latency at the cost of possible tearing.
+        settings.CefCommandLineArgs["disable-gpu-vsync"] = "1";
 
         // Trim unrelated Chromium subsystems this app has no use for — Google
         // safe-browsing pings, component auto-update checks, telemetry — pure
@@ -71,6 +74,32 @@ internal static class Program
         settings.CefCommandLineArgs["disable-background-networking"] = "1";
         settings.CefCommandLineArgs["disable-component-update"] = "1";
         settings.CefCommandLineArgs["disable-domain-reliability"] = "1";
+        // More of the same: extensions/sync/default-apps/translate/first-run
+        // are all browser-shell features this single hardcoded-page kiosk
+        // window never uses.
+        settings.CefCommandLineArgs["disable-extensions"] = "1";
+        settings.CefCommandLineArgs["disable-sync"] = "1";
+        settings.CefCommandLineArgs["disable-default-apps"] = "1";
+        settings.CefCommandLineArgs["disable-translate"] = "1";
+        settings.CefCommandLineArgs["no-first-run"] = "1";
+
+        // Chromium tracks whether other windows are covering this one, purely
+        // to feed the backgrounding/throttling decisions already disabled
+        // above — with that consumer turned off, the tracking itself is
+        // pointless work. (Feature name, not a raw command-line switch —
+        // goes through --disable-features=.)
+        settings.CefCommandLineArgs["disable-features"] = "CalculateNativeWinOcclusion";
+
+        // Only one page is ever loaded here, so Chromium's per-site process
+        // isolation (meant for tabs from different, mutually-untrusted
+        // origins) buys nothing — just extra IPC and memory for a process
+        // that will only ever host this one origin.
+        settings.CefCommandLineArgs["renderer-process-limit"] = "1";
+
+        // Fail loudly instead of silently degrading to slow CPU rendering if
+        // the forced GPU path above ever breaks on a given machine — a
+        // regression should be obvious, not a mysterious slowdown.
+        settings.CefCommandLineArgs["disable-software-rasterizer"] = "1";
 
         Cef.Initialize(settings);
 
@@ -94,6 +123,14 @@ internal static class Program
 
         Application.EnableVisualStyles();
         Application.SetCompatibleTextRenderingDefault(false);
+
+        // ReplayWindow (deathcam) is a WPF Window shown from this WinForms host.
+        // A System.Windows.Application instance isn't strictly required to show
+        // a self-contained Window (ReplayWindow.xaml has no external resource
+        // dependencies), but WPF's Dispatcher/resource machinery expects
+        // Application.Current to exist. OnExplicitShutdown so closing the
+        // replay window doesn't tear down the whole process.
+        _ = new System.Windows.Application { ShutdownMode = System.Windows.ShutdownMode.OnExplicitShutdown };
 
         // Navigating to a genuine https://game.aq.com/... URL (rather than
         // localhost) means Flash's crossdomain.xml check sees a real, allowed

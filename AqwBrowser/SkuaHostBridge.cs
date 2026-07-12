@@ -66,6 +66,35 @@ public class SkuaHostBridge
         _browser = browser;
         _matchPollTimer = new Timer(async _ => await PollForMatchAsync(), null, 2000, 2000);
         _statsPushTimer = new Timer(async _ => { if (_inBrawl) await PushStatsAsync(); }, null, 1000, 1000);
+
+        // Deathcam capture — background thread only, doesn't touch the game's
+        // own render/input path. No separate Flash ActiveX control here like
+        // the old WPF client had, so we hand it the CEF browser control's own
+        // window handle as the closest equivalent.
+        //
+        // Control.Handle's getter checks InvokeRequired *unconditionally*
+        // before anything else and throws if called off the owning thread —
+        // IsHandleCreated doesn't guard against that (it's checked to decide
+        // whether it also needs to CreateHandle(), a step later). So the
+        // capture thread can never call _browser.Handle directly. Instead,
+        // cache it once via HandleCreated, which fires on the thread that
+        // owns the control (i.e. this UI thread) — reading .Handle from
+        // inside that handler is safe, and the capture thread only ever
+        // reads the resulting plain IntPtr field.
+        _browser.HandleCreated += (s, e) => _cachedBrowserHandle = _browser.Handle;
+        DeathReplayBuffer.Instance.Start(() => _cachedBrowserHandle);
+    }
+
+    private IntPtr _cachedBrowserHandle = IntPtr.Zero;
+
+    // Wired to the toolbar's Deathcam toggle button. Returns the new state so
+    // the button can update its own label without a separate query round-trip.
+    public bool ToggleDeathcam()
+    {
+        bool newState = !DeathReplayBuffer.Instance.Enabled;
+        DeathReplayBuffer.Instance.SetEnabled(newState);
+        System.Console.WriteLine($"[skuaHost] Deathcam {(newState ? "enabled" : "disabled")}");
+        return newState;
     }
 
     public void OnFlashCall(string name, string argsJson)
@@ -94,6 +123,46 @@ public class SkuaHostBridge
         {
             _ = HandlePextAsync(argsJson);
         }
+        else if (name == "skuaOnDeath")
+        {
+            HandleDeath(argsJson);
+        }
+    }
+
+    // Mirrors DeathTrackerWindow.xaml.cs's OnFlashCall("skuaOnDeath", ...) from
+    // the old WPF client: freeze the ring buffer, wait long enough for the
+    // ~0.7s post-death drain to finish, then show the replay.
+    private void HandleDeath(string argsJson)
+    {
+        string killer = "";
+        try
+        {
+            using var doc = JsonDocument.Parse(argsJson);
+            var el = doc.RootElement;
+            if (el.ValueKind == JsonValueKind.Array && el.GetArrayLength() > 0)
+                killer = el[0].GetString() ?? "";
+        }
+        catch { }
+
+        DeathReplayBuffer.Instance.Freeze(killer);
+
+        _browser.BeginInvoke(new Action(() =>
+        {
+            var timer = new System.Windows.Threading.DispatcherTimer(
+                System.Windows.Threading.DispatcherPriority.Normal,
+                System.Windows.Threading.Dispatcher.CurrentDispatcher)
+            {
+                Interval = TimeSpan.FromMilliseconds(1200)
+            };
+            timer.Tick += (s, e) =>
+            {
+                timer.Stop();
+                var frames = DeathReplayBuffer.Instance.GetSnapshot();
+                if (frames.Length == 0) return;
+                new ReplayWindow(frames, DeathReplayBuffer.Instance.LastKiller).Show();
+            };
+            timer.Start();
+        }));
     }
 
     // Wired to the "Test Solo Queue" toolbar button. Always forces a brand
@@ -365,6 +434,9 @@ public class SkuaHostBridge
         }
 
         dynamic? selfEntry = data.p?[usernameLc];
+        if (selfEntry != null)
+            DeathReplayBuffer.Instance.UpdateHp((int)(selfEntry.intHP ?? 0));
+
         if (selfEntry != null && selfEntry.intHP == 0 && pvpAttack)
         {
             _deaths++;

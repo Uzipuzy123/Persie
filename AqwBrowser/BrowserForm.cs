@@ -196,12 +196,29 @@ public class BrowserForm : Form
             dlg.ShowDialog(this);
         };
 
+        var deathcamBtn = new Button
+        {
+            Text = "📼 Deathcam: OFF",
+            AutoSize = false,
+            Width = 130,
+            Height = 26,
+            Font = new Font("Segoe UI", 8.5f, FontStyle.Bold),
+            Location = new Point(0, 7),
+            Anchor = AnchorStyles.Top | AnchorStyles.Right,
+        };
+        deathcamBtn.Click += (s, e) =>
+        {
+            bool on = _hostBridge?.ToggleDeathcam() ?? true;
+            deathcamBtn.Text = on ? "📼 Deathcam: ON" : "📼 Deathcam: OFF";
+        };
+
         toolbar.Resize += (s, e) =>
         {
-            addressBar.Width = Math.Max(0, toolbar.Width - addressBar.Left - testSoloBtn.Width - rejoinBtn.Width - keybindsBtn.Width - 36);
+            addressBar.Width = Math.Max(0, toolbar.Width - addressBar.Left - testSoloBtn.Width - rejoinBtn.Width - keybindsBtn.Width - deathcamBtn.Width - 44);
             rejoinBtn.Left = toolbar.Width - rejoinBtn.Width - 8;
             testSoloBtn.Left = rejoinBtn.Left - testSoloBtn.Width - 8;
             keybindsBtn.Left = testSoloBtn.Left - keybindsBtn.Width - 8;
+            deathcamBtn.Left = keybindsBtn.Left - deathcamBtn.Width - 8;
         };
 
         toolbar.Controls.Add(nav);
@@ -209,6 +226,7 @@ public class BrowserForm : Form
         toolbar.Controls.Add(testSoloBtn);
         toolbar.Controls.Add(rejoinBtn);
         toolbar.Controls.Add(keybindsBtn);
+        toolbar.Controls.Add(deathcamBtn);
         return toolbar;
     }
 }

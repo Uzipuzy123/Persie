@@ -1,0 +1,222 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Rig Calibration</title>
+<script>
+  // Must be set before ruffle.js loads (same config index.html uses) —
+  // without autoplay:'on', Ruffle defaults to not autoplaying and shows a
+  // "click to play" splash that blocks the movie from ever starting, which
+  // is indistinguishable from a permanently-stuck blank white canvas.
+  window.RufflePlayer = window.RufflePlayer || {};
+  window.RufflePlayer.config = { autoplay: 'on', unmuteOverlay: 'hidden', warnOnUnsupportedContent: false, splashScreen: false };
+</script>
+<script src="/ruffle/ruffle.js"></script>
+<style>
+  body { background:#111; color:#eee; font:13px monospace; padding:16px; }
+  .part { display:flex; gap:12px; align-items:flex-start; margin-bottom:10px; border-bottom:1px solid #333; padding-bottom:10px; }
+  .part img { border:1px solid #444; background:#222; image-rendering:pixelated; }
+  pre { background:#000; padding:12px; white-space:pre-wrap; word-break:break-all; }
+  #status { color:#8f8; margin-bottom:12px; }
+</style>
+</head>
+<body>
+<h2>Rig joint/crop calibration</h2>
+<div id="status">Starting...</div>
+<div id="results"></div>
+<h3>Output (copy this back)</h3>
+<pre id="output">(running...)</pre>
+
+<script>
+// One-time calibration tool, NOT part of the production site. Isolates each
+// named rig part one at a time (via the isolatePart/calibrate flashvars
+// added in FFDec/new_Game.as), captures it, and measures both its alpha
+// bounding box (-> crop rectangle for slicing a real player's full-body
+// capture) and its marker-dot centroid (-> true rotation pivot), instead of
+// guessing either from how things look mid-animation.
+const RIG_PARTS = ["head","chest","hip","frontshoulder","backshoulder",
+  "fronthand","backhand","frontthigh","backthigh","frontshin","backshin",
+  "idlefoot","backfoot"];
+
+const STAGE_W = 960, STAGE_H = 550;
+const MARKER_COLOR = [255, 0, 255]; // magenta, matches 0xFF00FF in markJoint()
+const MARKER_MATCH_DIST = 40; // color-distance threshold to count a pixel as "the marker"
+const BEACON_COLOR = [0, 255, 0]; // matches the 0x00FF00 readyBeacon in new_Game.as
+const BEACON_RECT = { x: 0, y: 0, w: 24, h: 24 }; // must match readyBeacon's drawRect(0,0,24,24)
+
+function colorDist(r,g,b, cr,cg,cb) {
+  return Math.sqrt((r-cr)**2 + (g-cg)**2 + (b-cb)**2);
+}
+
+async function fetchGear(username) {
+  const res = await fetch('/api/avatar?username=' + encodeURIComponent(username) + '&result=win');
+  const data = await res.json();
+  return data.flashvars;
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+function captureIsolated(baseFlashvars, partName) {
+  return new Promise(async (resolve) => {
+    const t0 = Date.now();
+    const stage = document.createElement('div');
+    stage.style.cssText = `position:absolute;left:-9999px;top:0;width:${STAGE_W}px;height:${STAGE_H}px`;
+    document.body.appendChild(stage);
+    const ruffle = window.RufflePlayer.newest();
+    const player = ruffle.createPlayer();
+    player.style.width = STAGE_W + 'px';
+    player.style.height = STAGE_H + 'px';
+    stage.appendChild(player);
+    player.load({
+      url: '/api/avatarrigswf',
+      parameters: { ...baseFlashvars, isolatePart: partName, calibrate: 'true' },
+      allowScriptAccess: 'always',
+      backgroundColor: null,
+      quality: 'best',
+    });
+
+    // Ruffle's internal <canvas> doesn't exist until WASM init completes,
+    // and gear itself is a real network fetch from the live game's CDN
+    // (the same WAF-flaky path documented in server.js) — no fixed delay
+    // can be trusted for either. Poll the captured pixels for the green
+    // readyBeacon (new_Game.as sets it visible only once armor has
+    // actually finished loading) instead of guessing a wait time.
+    const canvas = document.createElement('canvas');
+    canvas.width = STAGE_W;
+    canvas.height = STAGE_H;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+    let ready = false;
+    const deadline = Date.now() + 25000;
+    while (!ready && Date.now() < deadline) {
+      const src = player.shadowRoot?.querySelector('canvas') || player.querySelector('canvas');
+      if (src) {
+        try {
+          ctx.clearRect(0, 0, STAGE_W, STAGE_H);
+          ctx.drawImage(src, 0, 0, STAGE_W, STAGE_H);
+          const px = ctx.getImageData(BEACON_RECT.x + BEACON_RECT.w / 2, BEACON_RECT.y + BEACON_RECT.h / 2, 1, 1).data;
+          ready = colorDist(px[0], px[1], px[2], ...BEACON_COLOR) < 40;
+        } catch (e) { /* canvas exists but not paintable yet — keep polling */ }
+      }
+      if (!ready) await sleep(150);
+    }
+    const elapsed = Date.now() - t0;
+    if (!ready) console.error('beacon never appeared for', partName, `after ${elapsed}ms — gear load likely timed out`);
+
+    try { player.remove(); } catch {}
+    document.body.removeChild(stage);
+    resolve({ canvas, ready, elapsed });
+  });
+}
+
+// baseline = ImageData captured with every part hidden (isolatePart set to
+// a name that matches nothing) — this stage turned out to have real scenic
+// background art, not a flat fill (same issue this project already hit and
+// fixed once for the live chroma-key render), so a 4-corner color guess
+// isn't reliable here. Diffing against an actual "nothing visible" capture,
+// pixel by pixel, works regardless of how textured the backdrop is.
+function analyze(canvas, baseline) {
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  const { width: w, height: h } = canvas;
+  const img = ctx.getImageData(0, 0, w, h);
+  const d = img.data;
+  const bd = baseline.data;
+
+  let minX=w, minY=h, maxX=0, maxY=0, foundArt=false;
+  let mx=0, my=0, mCount=0;
+
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      // Skip the readyBeacon's own corner outright — it's not part of the
+      // character and sits far from every rig part, but no reason to trust
+      // color-matching alone when a hard exclusion zone is just as easy.
+      if (x >= BEACON_RECT.x && x < BEACON_RECT.x + BEACON_RECT.w &&
+          y >= BEACON_RECT.y && y < BEACON_RECT.y + BEACON_RECT.h) continue;
+      const i = (y*w+x)*4;
+      const r=d[i], g=d[i+1], b=d[i+2];
+      const isMarker = colorDist(r,g,b, ...MARKER_COLOR) < MARKER_MATCH_DIST;
+      if (isMarker) { mx += x; my += y; mCount++; continue; }
+      const isSameAsBaseline = colorDist(r,g,b, bd[i],bd[i+1],bd[i+2]) < 20;
+      if (!isSameAsBaseline) {
+        foundArt = true;
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
+      }
+    }
+  }
+
+  return {
+    crop: foundArt ? { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 } : null,
+    pivot: mCount > 0 ? { x: Math.round(mx / mCount), y: Math.round(my / mCount) } : null,
+  };
+}
+
+async function run() {
+  const status = document.getElementById('status');
+  const results = document.getElementById('results');
+  const output = document.getElementById('output');
+  const gear = await fetchGear('artix');
+  if (!gear || !gear.strGender) {
+    status.textContent = 'ERROR: /api/avatar?username=artix&result=win returned no usable gear data — check server.js/avatarCache. Aborting.';
+    output.textContent = JSON.stringify(gear);
+    return;
+  }
+
+  // ?single=1 — diagnostic mode: ONE isolated capture only (no warm-up, no
+  // baseline, no loop), to test whether a single fresh player creation in a
+  // single fresh page load works reliably at all, isolating "is this a
+  // per-capture problem" from "does resource exhaustion build up across
+  // many sequential player creations in one page session."
+  if (new URLSearchParams(location.search).get('single')) {
+    status.textContent = 'Single-capture diagnostic: isolating head only...';
+    const { canvas, ready, elapsed } = await captureIsolated(gear, 'head');
+    results.innerHTML = `<img src="${canvas.toDataURL()}" width="320" height="${Math.round(320*STAGE_H/STAGE_W)}" style="border:1px solid #444">`;
+    status.textContent = `ready=${ready}, elapsed=${elapsed}ms`;
+    output.textContent = `single-part test only — ready=${ready}, elapsed=${elapsed}ms`;
+    return;
+  }
+
+  // Throwaway pass, result discarded — its only job is to force Ruffle's
+  // WASM module to finish initializing once. The very first player creation
+  // in a fresh page load is consistently much slower than every subsequent
+  // one; without this, the first several real parts below were timing out
+  // waiting for the beacon while the module was still cold-starting.
+  status.textContent = 'Warming up Ruffle/WASM (throwaway pass, ignored)...';
+  const warm = await captureIsolated(gear, '__none__');
+  status.textContent = `Warm-up ${warm.ready ? 'ready' : 'TIMED OUT'} after ${warm.elapsed}ms.`;
+
+  status.textContent = 'Capturing background baseline (everything hidden)...';
+  const { canvas: baselineCanvas, ready: baseReady, elapsed: baseMs } = await captureIsolated(gear, '__none__');
+  const baseline = baselineCanvas.getContext('2d').getImageData(0, 0, STAGE_W, STAGE_H);
+  results.appendChild(Object.assign(document.createElement('div'), {
+    innerHTML: `<b>baseline</b> (ready=${baseReady}, ${baseMs}ms)<br><img src="${baselineCanvas.toDataURL()}" width="160" height="${Math.round(160*STAGE_H/STAGE_W)}" style="border:1px solid #444">`,
+    style: 'margin-bottom:10px',
+  }));
+
+  status.textContent = `Gear OK (strGender=${gear.strGender}). Starting isolation passes...`;
+  const summary = {};
+
+  for (const part of RIG_PARTS) {
+    status.textContent = `Isolating ${part}...`;
+    const { canvas, ready, elapsed } = await captureIsolated(gear, part);
+    const { crop, pivot } = analyze(canvas, baseline);
+    summary[part] = { crop, pivot, ready, elapsed };
+
+    const row = document.createElement('div');
+    row.className = 'part';
+    const thumb = canvas.toDataURL();
+    row.innerHTML = `<img src="${thumb}" width="160" height="${Math.round(160*STAGE_H/STAGE_W)}">
+      <div><b>${part}</b> (ready=${ready}, ${elapsed}ms)<br>crop: ${JSON.stringify(crop)}<br>pivot: ${JSON.stringify(pivot)}</div>`;
+    results.appendChild(row);
+    output.textContent = JSON.stringify(summary, null, 2);
+  }
+
+  status.textContent = 'Done.';
+}
+
+run();
+</script>
+</body>
+</html>

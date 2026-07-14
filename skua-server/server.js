@@ -275,6 +275,12 @@ app.post('/queue/test', (req, res) => {
 // the explicit /api/avatar/refresh endpoint, for when a player changes gear.
 const avatarCache      = {}; // username(lower) -> { flashvars, ts }
 const PATCHED_SWF_PATH = path.join(__dirname, 'assets', 'characterB_patched.swf');
+// Custom-modified full game-engine build (new_Game.as) with a guaranteed
+// solid cyan backdrop + green ready-beacon, purpose-built for rigAvatar.js's
+// per-part slicing and calibrate.html's crop/joint measurement — both of
+// them already expected this at /api/avatarrigswf, but the route serving it
+// was never actually added, so every capture attempt 404'd.
+const RIG_SWF_PATH = path.join(__dirname, 'assets', 'avatarRig.swf');
 const GAMEFILES_FALLBACK_DIR = path.join(__dirname, 'assets', 'gamefiles_fallback');
 
 // Railway mounts a persistent volume at /data (survives deploys, unlike the
@@ -418,6 +424,11 @@ app.post('/api/avatar/refresh', async (req, res) => {
 app.get('/api/charswf', (req, res) => {
     res.set('Content-Type', 'application/x-shockwave-flash');
     res.sendFile(PATCHED_SWF_PATH);
+});
+
+app.get('/api/avatarrigswf', (req, res) => {
+    res.set('Content-Type', 'application/x-shockwave-flash');
+    res.sendFile(RIG_SWF_PATH);
 });
 
 // characterB.swf figures out its own asset base URL from wherever it was

@@ -1,0 +1,82 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Rig DOM Reconstruction Test</title>
+<script>
+  window.RufflePlayer = window.RufflePlayer || {};
+  window.RufflePlayer.config = { autoplay: 'on', unmuteOverlay: 'hidden', warnOnUnsupportedContent: false, splashScreen: false };
+</script>
+<script src="/ruffle/ruffle.js"></script>
+<script src="/rigAvatar.js"></script>
+<style>
+  body { background:#111; color:#eee; font:13px monospace; padding:16px; }
+  .row { display:flex; gap:40px; align-items:flex-start; }
+  .box { border:1px solid #444; background:#222; }
+  h3 { color:#8cf; }
+  #status { color:#8f8; margin-bottom:12px; }
+</style>
+</head>
+<body>
+<h2>Rig DOM reconstruction — Phase 2/3/4 verification</h2>
+<div id="status">Starting...</div>
+<div style="margin-bottom:12px">
+  <button id="btnWin">Play Win emote</button>
+  <button id="btnLose">Play Lose emote</button>
+  <button id="btnStop">Stop</button>
+</div>
+<div class="row">
+  <div>
+    <h3>Original full-body capture (source of truth)</h3>
+    <canvas id="original" class="box" width="320" height="320" style="width:320px;height:320px"></canvas>
+  </div>
+  <div>
+    <h3>Reconstructed DOM hierarchy (animatable)</h3>
+    <div style="width:320px;height:320px;overflow:hidden;position:relative" class="box">
+      <div id="rig-container" style="position:relative"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+async function run() {
+  const status = document.getElementById('status');
+  const res = await fetch('/api/avatar?username=artix&result=win');
+  const { flashvars: gear } = await res.json();
+
+  status.textContent = 'Capturing full-body reference...';
+  const { canvas: fullCanvas, ready } = await RigAvatar.captureFullBody(gear);
+  status.textContent = ready ? 'Captured OK. Slicing + building DOM...' : 'WARNING: capture may be incomplete (beacon timeout).';
+
+  // Show the same region around the character (roughly where the calibrated
+  // crops fall) from the original, at the SAME scale used for the
+  // reconstructed DOM panel below, for a fair side-by-side comparison.
+  const SCALE = 2.133; // min(320/120, 320/150) — fits a 120x150 source region into the 320x320 box
+  const origCtx = document.getElementById('original').getContext('2d');
+  origCtx.drawImage(fullCanvas, 100, 170, 120, 150, 0, 0, 120 * SCALE, 150 * SCALE);
+
+  const slices = RigAvatar.sliceParts(fullCanvas);
+  const container = document.getElementById('rig-container');
+  const { root, elements } = RigAvatar.buildRigDom(container, slices);
+
+  // Shift the whole reconstructed rig the same way, so both panels line up
+  // (container itself represents the full 960x550 stage at 1x; we just
+  // scale+offset it via a wrapper transform to frame the same region as the
+  // original panel above). CSS composes right-to-left, so translate (move
+  // the crop's top-left to the origin) must come after scale in the
+  // property so it's applied first, in un-scaled pixels.
+  container.style.transform = `scale(${SCALE}) translate(-100px, -170px)`;
+  container.style.transformOrigin = '0 0';
+
+  status.textContent = 'Done — compare the two boxes, or play an emote below.';
+
+  let active = null;
+  function stopActive() { active?.stop(); active = null; container.style.filter = 'none'; }
+  document.getElementById('btnWin').onclick = () => { stopActive(); active = RigAvatar.playWinEmote(container, elements); };
+  document.getElementById('btnLose').onclick = () => { stopActive(); active = RigAvatar.playLoseEmote(container, elements); };
+  document.getElementById('btnStop').onclick = stopActive;
+}
+run();
+</script>
+</body>
+</html>

@@ -1,0 +1,277 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Bot static render harness</title>
+<script>
+  window.RufflePlayer = window.RufflePlayer || {};
+  window.RufflePlayer.config = { autoplay: 'on', unmuteOverlay: 'hidden', warnOnUnsupportedContent: false, splashScreen: false };
+</script>
+<script src="/ruffle/ruffle.js"></script>
+<script src="/rigAvatar.js"></script>
+</head>
+<body style="margin:0">
+<script>
+// No DOM-slicing/joint-animation layer here on purpose — that per-part
+// recomposition is what was making the character look "off" (odd
+// head/hair crop, joints not quite lining up). captureFullBody's own
+// output is already clean (correct gear, correct proportions, background
+// already alpha-punched-out) — this just auto-crops it to the character's
+// actual bounding box and hands back a single static image.
+window.__renderReady = false;
+window.__renderError = null;
+window.__renderDataUrl = null;
+
+async function run() {
+  try {
+    const params = new URLSearchParams(location.search);
+    const username = params.get('username');
+    if (!username) throw new Error('no username in query string');
+
+    const res = await fetch('/api/avatar?username=' + encodeURIComponent(username));
+    if (!res.ok) throw new Error('avatar API ' + res.status);
+    const { flashvars: gear } = await res.json();
+
+    const { canvas: fullCanvas } = await RigAvatar.captureFullBodyDualKey(gear);
+
+    // Blank out the top-left ready-beacon (24x24 native units * RENDER_SCALE
+    // 3x = 72x72px, padded to 100x100 for safety) before scanning for the
+    // bounding box below — otherwise that lone green square drags the crop
+    // all the way from the corner to the character.
+    const beaconCtx = fullCanvas.getContext('2d');
+    beaconCtx.clearRect(0, 0, 100, 100);
+
+    // Find the tight bounding box of non-transparent pixels (background is
+    // already punched to alpha=0 by captureFullBody) so the output isn't
+    // mostly empty space.
+    const ctx = fullCanvas.getContext('2d', { willReadFrequently: true });
+    const { width: w, height: h } = fullCanvas;
+    const { data } = ctx.getImageData(0, 0, w, h);
+    let minX = w, minY = h, maxX = 0, maxY = 0;
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        if (data[(y * w + x) * 4 + 3] > 10) {
+          if (x < minX) minX = x;
+          if (x > maxX) maxX = x;
+          if (y < minY) minY = y;
+          if (y > maxY) maxY = y;
+        }
+      }
+    }
+    if (maxX <= minX || maxY <= minY) throw new Error('capture appears blank (no non-background pixels found)');
+
+    const PAD = 40; // was 12 — reference comparison showed our crop noticeably tighter/more cramped than intended
+    minX = Math.max(0, minX - PAD); minY = Math.max(0, minY - PAD);
+    maxX = Math.min(w, maxX + PAD); maxY = Math.min(h, maxY + PAD);
+    const cropW = maxX - minX, cropH = maxY - minY;
+
+    // A wide weapon (axe, staff, bow held out to the side) drags maxX/minX
+    // far past the character's own silhouette, so centering the header text
+    // over the FULL crop width (cropW/2) pulls the name away from the head —
+    // confirmed on "Artix" wielding Blinding Light of Destiny III, whose axe
+    // reach shifted the name well right of the actual head. Instead, scan
+    // only the top slice of the crop (where the head/helm lives, not the
+    // weapon which is held low/mid-body) and center on THAT slice's own
+    // horizontal midpoint.
+    //
+    // That alone broke again once a pet was involved: the pet sits well to
+    // one side of the character (opposite the weapon hand) at roughly
+    // chest height, which overlaps the same top slice — its own head/top
+    // silhouette pulled headCenterX toward the pet instead of the actual
+    // character. The rig's stage x-position is a fixed constant (unlike a
+    // pet or weapon's reach, which vary by gear), so restricting the scan
+    // to a window around that known anchor excludes the pet/wide-weapon
+    // reach while still adapting to the character's own hair/helm width.
+    // headSliceMaxY used to be "30% of the TOTAL crop height" — broke once
+    // the character/pet ground shadows were added, since those extend the
+    // crop's overall height downward and shift where that 30% cutoff
+    // lands, slicing through the (circular) halo ring off-center instead
+    // of capturing it symmetrically. Anchoring the slice to the
+    // character's own topmost content instead of a fraction of unrelated
+    // total height (which a shadow, long weapon, or anything else below
+    // the head can inflate) makes this immune to whatever else is in frame.
+    const HEAD_WINDOW_MARGIN = 110 * RigAvatar.RENDER_SCALE;
+    const rigCenterXAbs = RigAvatar.RIG_CENTER_X * RigAvatar.RENDER_SCALE;
+    const headScanMinX = Math.max(minX, rigCenterXAbs - HEAD_WINDOW_MARGIN);
+    const headScanMaxX = Math.min(maxX, rigCenterXAbs + HEAD_WINDOW_MARGIN);
+    let charTopY = maxY;
+    for (let y = minY; y < maxY; y++) {
+      let foundInRow = false;
+      for (let x = headScanMinX; x < headScanMaxX; x++) {
+        if (data[(y * w + x) * 4 + 3] > 10) { foundInRow = true; break; }
+      }
+      if (foundInRow) { charTopY = y; break; }
+    }
+    const HEAD_SLICE_HEIGHT = 130 * RigAvatar.RENDER_SCALE;
+    const headSliceMaxY = Math.min(maxY, charTopY + HEAD_SLICE_HEIGHT);
+    let headMinX = w, headMaxX = 0;
+    for (let y = minY; y < headSliceMaxY; y++) {
+      for (let x = headScanMinX; x < headScanMaxX; x++) {
+        if (data[(y * w + x) * 4 + 3] > 10) {
+          if (x < headMinX) headMinX = x;
+          if (x > headMaxX) headMaxX = x;
+        }
+      }
+    }
+    // Fall back to the full-crop midpoint if the head slice somehow found
+    // nothing (shouldn't happen given the outer bbox already passed above).
+    const headCenterX = headMaxX > headMinX ? (headMinX + headMaxX) / 2 - minX : cropW / 2;
+
+    // Pet repositioning: new_Game.as places the pet at a fixed guess offset
+    // (baseX-65, baseY-50) that has no relation to the pet's own art bounds,
+    // so different pets end up at wildly different, usually-wrong apparent
+    // distances/heights from the character (confirmed floating well above
+    // the ground on "Prime", far off to the side on "jase"). A simple
+    // x-threshold split (anything left of the character's head-scan window
+    // is "the pet") was tried first but broke: a downsized pet's body
+    // routinely extends INTO that window rather than staying outside it, so
+    // the split only caught a tiny sliver of the pet's edge. Flood-filling
+    // the real alpha mask has no such assumption — it separates the pet
+    // from the character as two genuinely disconnected blobs (they're
+    // separate display objects, never touching pixel-for-pixel), regardless
+    // of exactly how close together they sit. The blob whose x-range
+    // contains the rig's known, fixed center anchor is the character
+    // (guaranteed, since the character is always positioned there); the
+    // largest other blob, if any, is the pet.
+    // Two separate thresholds are needed here. The LOOSE one (>10, same as
+    // the outer crop) finds the pet's full visible footprint — spikes,
+    // glow halo, everything a viewer actually perceives as "the pet" — so
+    // nothing gets clipped when that chunk is cut out and moved below. A
+    // STRICT one (>180) is used ONLY to find the character's real
+    // perceptible left edge: a weapon's glow/motion-trail fades to near-zero
+    // alpha over a long visual tail our eyes read as "nothing there," but
+    // was still >10 and connected the character's loose blob all the way
+    // across the canvas — past the pet's own bounding box — corrupting
+    // charLeftX into a meaningless value far from the character's actual
+    // silhouette. Confirmed visually via a blob-bbox debug overlay.
+    function pickCharBlob(blobList) {
+      let cb = null;
+      for (const b of blobList) {
+        if (b.minX <= rigCenterXAbs && rigCenterXAbs <= b.maxX) {
+          if (!cb || b.count > cb.count) cb = b;
+        }
+      }
+      if (!cb) { for (const b of blobList) { if (!cb || b.count > cb.count) cb = b; } }
+      return cb;
+    }
+    let looseBlobs = RigAvatar.findAlphaBlobs((x, y) => data[(y * w + x) * 4 + 3] > 10, w, h, minX, minY, maxX, maxY);
+    let charBlobLoose = pickCharBlob(looseBlobs);
+    let petBlob = null;
+    for (const b of looseBlobs) {
+      if (b === charBlobLoose || b.count < 200) continue;
+      if (!petBlob || b.count > petBlob.count) petBlob = b;
+    }
+    // The API's own gear data tells us for certain whether a pet is
+    // equipped, independent of pixel detection. A translucent/ghostly pet
+    // can visually blend into the character (confirmed on "jase" — its
+    // misty pet merged into one single connected blob with the character
+    // at the >10 threshold, so no separate petBlob was ever found). When
+    // that happens but a pet IS equipped, progressively raise the alpha
+    // cutoff — this only needs to burn away the faint low-alpha bridge
+    // connecting the two, not the pet's own solid body — until they split
+    // into two blobs.
+    const petExpected = !!(gear.strPetFile && gear.strPetFile !== 'none' && String(gear.strPetFile).trim() !== '');
+    if (!petBlob && petExpected) {
+      for (const th of [30, 60, 100, 150, 200]) {
+        const tryBlobs = RigAvatar.findAlphaBlobs((x, y) => data[(y * w + x) * 4 + 3] > th, w, h, minX, minY, maxX, maxY);
+        const tryChar = pickCharBlob(tryBlobs);
+        let tryPet = null;
+        for (const b of tryBlobs) {
+          if (b === tryChar || b.count < 200) continue;
+          if (!tryPet || b.count > tryPet.count) tryPet = b;
+        }
+        if (tryPet) { looseBlobs = tryBlobs; charBlobLoose = tryChar; petBlob = tryPet; break; }
+      }
+    }
+    const charBottomY = charBlobLoose.maxY;
+
+    const strictBlobs = RigAvatar.findAlphaBlobs((x, y) => data[(y * w + x) * 4 + 3] > 180, w, h, minX, minY, maxX, maxY);
+    const charBlobStrict = pickCharBlob(strictBlobs);
+    const charLeftX = charBlobStrict.minX;
+
+    const hasPet = petBlob !== null;
+    let petCanvas = null, petDrawXBase = 0, petDrawYBase = 0;
+    if (hasPet) {
+      const petMinX = petBlob.minX, petMinY = petBlob.minY, petMaxX = petBlob.maxX, petMaxY = petBlob.maxY;
+      const petW = petMaxX - petMinX + 1, petH = petMaxY - petMinY + 1;
+      petCanvas = document.createElement('canvas');
+      petCanvas.width = petW; petCanvas.height = petH;
+      petCanvas.getContext('2d').putImageData(ctx.getImageData(petMinX, petMinY, petW, petH), 0, 0);
+      ctx.clearRect(petMinX, petMinY, petW, petH);
+
+      const PET_OVERLAP = 10 * RigAvatar.RENDER_SCALE;
+      const petDX = (charLeftX + PET_OVERLAP) - petMaxX;
+      const petDY = charBottomY - petMaxY;
+      // headerH isn't known yet at this point (computed below with the
+      // name/guild text) — store the pre-header offsets and add headerH
+      // in once it's available, right before the final draw.
+      petDrawXBase = (petMinX + petDX) - minX;
+      petDrawYBase = (petMinY + petDY) - minY;
+    }
+
+    // Name/guild text is drawn here in Canvas 2D, not as Flash TextFields —
+    // that was tried first (in new_Game.as) but positioning it against the
+    // rig's own getBounds() never lined up with the actual visible head
+    // (some large hidden placeholder skewed the measurement), leaving a big
+    // empty gap. Here the character's real pixel bounds are already known
+    // exactly (that's what minX/minY/maxX/maxY above are), so text can be
+    // placed against them directly with zero guesswork.
+    const name = String(gear.strName || '').trim();
+    const guildName = String(gear.guild || '').trim();
+    const NAME_SIZE = 22, GUILD_SIZE = 16, TEXT_GAP = 6, TOP_MARGIN = 10;
+    const headerH = (name ? NAME_SIZE + TEXT_GAP : 0) + (guildName ? GUILD_SIZE + TEXT_GAP : 0) + (name || guildName ? TOP_MARGIN : 0);
+
+    const out = document.createElement('canvas');
+    out.width = cropW;
+    out.height = cropH + headerH;
+    const octx = out.getContext('2d');
+
+    function drawLabel(text, y, size, color) {
+      octx.font = `bold ${size}px sans-serif`;
+      octx.textAlign = 'center';
+      octx.textBaseline = 'top';
+      octx.lineWidth = Math.max(2, size / 8);
+      octx.strokeStyle = 'rgba(0,0,0,0.85)';
+      octx.strokeText(text, headCenterX, y);
+      octx.fillStyle = color;
+      octx.fillText(text, headCenterX, y);
+    }
+
+    let textY = TOP_MARGIN;
+    if (name)      { drawLabel(name, textY, NAME_SIZE, '#ffffff'); textY += NAME_SIZE + TEXT_GAP; }
+    if (guildName) { drawLabel('[' + guildName + ']', textY, GUILD_SIZE, '#ffd966'); }
+
+    // Character's own ground shadow — same reasoning as the pet's shadow
+    // in new_Game.as (the real game draws this via a separate generic
+    // engine system, never baked into gear assets), but drawn here in
+    // Canvas 2D instead of AS3 since this is exactly the "getBounds() on
+    // the rig is unreliable" problem that killed the AS3 nameplate
+    // attempt — charBottomY above is real pixel data, not a guess. Drawn
+    // BEFORE the character image so the character/cape naturally overlaps
+    // it, matching how a real ground-contact shadow would be occluded.
+    const charShadowX = rigCenterXAbs - minX;
+    const charShadowY = (charBottomY - minY) + headerH - 8 * RigAvatar.RENDER_SCALE;
+    octx.save();
+    octx.globalAlpha = 0.35;
+    octx.fillStyle = '#000000';
+    octx.beginPath();
+    octx.ellipse(charShadowX, charShadowY, 55 * RigAvatar.RENDER_SCALE, 16 * RigAvatar.RENDER_SCALE, 0, 0, Math.PI * 2);
+    octx.fill();
+    octx.restore();
+
+    octx.drawImage(fullCanvas, minX, minY, cropW, cropH, 0, headerH, cropW, cropH);
+
+    if (hasPet) {
+      octx.drawImage(petCanvas, petDrawXBase, petDrawYBase + headerH);
+    }
+
+    window.__renderDataUrl = out.toDataURL('image/png');
+    window.__renderReady = true;
+  } catch (err) {
+    window.__renderError = String(err && err.message || err);
+  }
+}
+run();
+</script>
+</body>
+</html>

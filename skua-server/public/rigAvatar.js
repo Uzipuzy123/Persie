@@ -99,20 +99,38 @@ const Z_INDEX = {
   head: 4,
 };
 
-const RIG_STAGE_W = 960, RIG_STAGE_H = 550;
+// 1.5x the original 960x550 — must stay in sync with new_Game.as's backdrop
+// drawRect. Oversized cosmetics (huge wings, weapons, pets) were getting
+// hard-clipped at the old stage edge; the extra room is free for normal
+// characters since every crop below is alpha-bounding-box driven, not
+// stage-size driven.
+const RIG_STAGE_W = 1440, RIG_STAGE_H = 825;
 // A `head` crop is only 27x25 *pixels* at native 1x — anti-aliasing fringe
 // at the chroma-key edge is proportionally huge at that resolution. The
 // production renderer (index.html) supersamples 4-7x before scaling down
 // for exactly this reason; this was rendering at flat 1x, which is the
 // real cause of the persistent blue outline no amount of threshold/erosion
 // tuning fully fixed.
-const RENDER_SCALE = 3;
-// Must match new_Game.as's hardcoded `this.rig.x = 160` — the character
-// rig's stage position is a fixed constant, not something we can query
-// back from the SWF, so it's mirrored here for the render pages to use
-// when they need to find the character specifically (e.g. centering the
-// name over the head without a pet, positioned elsewhere, throwing it off).
-const RIG_CENTER_X = 160;
+// Was 3 — dropped to 2 after the 1.5x stage-size increase above made the
+// animated (48-frame, dual-key) capture path unusably slow on detailed
+// characters: 2.25x more pixels per frame (1.5 squared) pushed a render
+// that took 13.8s at the old stage size to still not finish after 3+
+// minutes at the new one, almost certainly GC/memory pressure from the
+// per-frame ImageData allocations, not just proportionally-more work. 2x
+// keeps the same absolute pixel count as the OLD 3x-at-960x550 setup
+// (1440*2 = 2880, same as 960*3), so this should restore the old
+// performance envelope while keeping the extra stage headroom. Slightly
+// softer anti-aliasing on small crops (like the head-only closeups
+// mentioned above) is the tradeoff.
+const RENDER_SCALE = 2;
+// Must match new_Game.as's hardcoded `this.rig.x` — the character rig's
+// stage position is a fixed constant, not something we can query back from
+// the SWF, so it's mirrored here for the render pages to use when they need
+// to find the character specifically (e.g. centering the name over the head
+// without a pet, positioned elsewhere, throwing it off). Was 240; bumped to
+// 400 for real left-side headroom after a wide cape (Ryuu's "Shadow of the
+// Dragon") got hard-clipped by the stage's own left edge at 240.
+const RIG_CENTER_X = 400;
 const BEACON_RECT = { x: 0, y: 0, w: 24, h: 24 }; // native stage units — scaled by RENDER_SCALE where used below
 // Was green (0,255,0) — moved to orange since green is now also a valid
 // backdrop color (bgColorOverride, for dual-key matting); must match
@@ -124,8 +142,55 @@ function colorDist(r,g,b, cr,cg,cb) {
 }
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
-function createOffscreenPlayer() {
-  const w = RIG_STAGE_W * RENDER_SCALE, h = RIG_STAGE_H * RENDER_SCALE;
+// Earlier approach (kept only in history/memory, not code): a distinct-
+// colored marker Shape drawn ON the character at the head's true position.
+// Abandoned — dual-key capture composites whatever's actually topmost at
+// each pixel, so an opaque marker occludes whatever real content would
+// otherwise be there; that content is never actually captured, so clearing
+// the marker afterward can't recover it, leaving a genuine hole (confirmed
+// on Ryuu: the marker overlapped his cape's own solid shape, and clearing
+// it punched a visible hole through the cape's silhouette no matter how
+// precisely the marker's color was matched).
+//
+// Current approach: new_Game.as's positionHeadInfoBeacons() encodes the
+// head's true X/Y (from the rig's own object hierarchy, immune to a tall
+// cosmetic like a cape or glowing helm — see the AS3 comment for why
+// pixel-alpha scanning alone can't tell those apart from the head) as plain
+// RGB values in two small swatches living in the SAME reserved corner the
+// ready beacon already occupies — space that's always blank and already
+// gets wiped before any bounding-box scan, so nothing is ever drawn on the
+// character at all. R = high byte, G = low byte, giving 16-bit precision
+// per axis (the stage doesn't come close to needing that much). Values are
+// in NATIVE stage units, matching AS3 Rectangle coordinates — scale by
+// RENDER_SCALE to land on the supersampled capture canvas.
+// Positions here MUST match new_Game.as's positionHeadInfoBeacons() exactly.
+const HEAD_X_BEACON_CENTER = { x: 26 + 5, y: 0 + 5 };
+const HEAD_Y_BEACON_CENTER = { x: 38 + 5, y: 0 + 5 };
+function readHeadInfoBeacons(data, w, h) {
+  function sample(nativeCx, nativeCy) {
+    const cx = Math.round(nativeCx * RENDER_SCALE);
+    const cy = Math.round(nativeCy * RENDER_SCALE);
+    if (cx < 0 || cy < 0 || cx >= w || cy >= h) return null;
+    const i = (cy * w + cx) * 4;
+    if (data[i + 3] < 200) return null;
+    return (data[i] << 8) | data[i + 1];
+  }
+  const xNative = sample(HEAD_X_BEACON_CENTER.x, HEAD_X_BEACON_CENTER.y);
+  const yNative = sample(HEAD_Y_BEACON_CENTER.x, HEAD_Y_BEACON_CENTER.y);
+  if (xNative == null || yNative == null) return null;
+  return { x: xNative * RENDER_SCALE, y: yNative * RENDER_SCALE };
+}
+
+// `scale` (default 1) sizes the player element to `scale`x the normal
+// RENDER_SCALE resolution — see CAPTURE_SUPERSAMPLE below for why. Ruffle
+// renders to fill whatever CSS box its player element occupies, so a
+// bigger element genuinely gets Ruffle to rasterize with more real
+// anti-aliased detail (not synthetic upsampling of already-captured
+// pixels) — same principle the RENDER_SCALE comment above already
+// describes for head-crop supersampling, just made reusable/parametric
+// instead of baked into the one fixed RENDER_SCALE value.
+function createOffscreenPlayer(scale = 1) {
+  const w = RIG_STAGE_W * RENDER_SCALE * scale, h = RIG_STAGE_H * RENDER_SCALE * scale;
   const stage = document.createElement('div');
   stage.style.cssText = `position:absolute;left:-9999px;top:0;width:${w}px;height:${h}px`;
   document.body.appendChild(stage);
@@ -272,7 +337,10 @@ function snapshotPlayer(player, w, h) {
 // that keying on cyan silently ate into that pet's own art. Magenta is
 // far rarer in actual character/effect color palettes. Must match
 // new_Game.as's backdrop fill exactly (now 0xFF00FF).
-const CHROMA_KEY = [255, 0, 255];
+// NOTE: For the dual-key path, we use neutral gray backdrops instead of
+// chromatic ones to avoid the weapon-glow corruption issue (see CHROMA_KEY_A/B).
+// The single-key chroma key below is only used by the static render path.
+const CHROMA_KEY = [100, 100, 100]; // dark gray — matches default backdrop in new_Game.as (used by single-key static render path)
 const CHROMA_THRESHOLD = 100; // 60 still left a visible fringe, especially around the small head crop — pushed looser
 
 // Exact same per-pixel math that was validated against the "quality is
@@ -305,15 +373,16 @@ const CHROMA_THRESHOLD = 100; // 60 still left a visible fringe, especially arou
 function applyChromaKeyMask(img) {
   const d = img.data;
   const [bgR, bgG, bgB] = CHROMA_KEY;
-  // Pure magenta's excess is exactly 255 (255,0,255) — that's the true
-  // 0%-foreground endpoint, so the ramp should span the full range to
-  // that point rather than an arbitrarily compressed cutoff. A lower
-  // value was clamping genuinely ~30%-opaque thin-hair-strand pixels
-  // straight to fully transparent instead of leaving them faintly visible.
-  const EXCESS_MAX = 255;
+  // For gray backdrops, measure Euclidean distance from the backdrop color.
+  // Pixels identical to gray (including pure black and white) have distance
+  // equal to their offset from the backdrop — this gives a perceptually
+  // uniform ramp that works for any gray value. Pure backdrop pixels have
+  // distance 0 (alpha 0 = transparent); pixels far from gray have high
+  // distance (alpha ~1 = opaque).
+  const EXCESS_MAX = 255 * Math.sqrt(3); // distance from (100,100,100) to (255,255,255) ≈ 268.7, sqrt(3)*255 is the theoretical max
   for (let p = 0; p < d.length / 4; p++) {
     const i = p * 4;
-    const excess = Math.min(d[i], d[i+2]) - d[i+1]; // ~255 for pure magenta, <=0 for typical opaque colors
+    const excess = Math.sqrt((d[i]   - bgR) ** 2 + (d[i+1] - bgG) ** 2 + (d[i+2] - bgB) ** 2);
     const alpha = 1 - Math.max(0, Math.min(1, excess / EXCESS_MAX));
 
     // De-spill: a partially-transparent edge pixel's rendered color is
@@ -400,19 +469,30 @@ async function captureAnimatedFrames(flashvars, { frameCount = 20, intervalMs = 
 // => pixelA - pixelB = (1-alpha) * (bgA - bgB)
 // => alpha = 1 - (pixelA - pixelB) / (bgA - bgB)   [per channel, then combined]
 //
-// Magenta (255,0,255) and green (0,255,0) were picked so bgA-bgB is ±255 in
-// EVERY channel (255,-255,255) — maximizes numeric conditioning, so all
+// Using two NEUTRAL gray shades (100,100,100 and 155,155,155) instead of
+// chromatic colors (magenta/green). This avoids the weapon-glow corruption
+// that plagued the dual-key path: a glow is bright foreground content, and
+// when it overlaps the character the difference between two chromatic backdrops
+// (e.g. green vs magenta) is large enough that the glow pixel — which is
+// identical in both passes — gets misidentified as background, producing
+// garbage alpha (the flicker seen on Jaide's armor). With neutral grays,
+// the glow pixel (bright R+G+B) is far from both backdrop values, so alpha
+// correctly stays at ~1.0 and the recovered color is just the glow itself —
+// which is correct. The character body pixels (which are not gray) also
+// recover correctly because their color is far from the backdrop gray.
+//
+// The difference vector is (55, 55, 55) — same in all channels, so all
 // three channels' independent alpha estimates are equally reliable and can
 // just be averaged rather than needing to pick "the best" channel per pixel.
-const CHROMA_KEY_A = [255, 0, 255]; // magenta — bgColorOverride 'FF00FF'
-const CHROMA_KEY_B = [0, 255, 0];   // green — bgColorOverride '00FF00'
+const CHROMA_KEY_A = [100, 100, 100]; // dark gray — bgColorOverride '646464'
+const CHROMA_KEY_B = [155, 155, 155]; // light gray — bgColorOverride '9B9B9B'
 
 function applyDualKeyMatte(imgA, imgB) {
   const dA = imgA.data, dB = imgB.data;
   const out = new Uint8ClampedArray(dA.length);
   const [aR, aG, aB] = CHROMA_KEY_A;
   const [bR, bG, bB] = CHROMA_KEY_B;
-  const diffR = aR - bR, diffG = aG - bG, diffB = aB - bB; // (255, -255, 255)
+  const diffR = aR - bR, diffG = aG - bG, diffB = aB - bB; // (55, 55, 55)
 
   for (let p = 0; p < dA.length / 4; p++) {
     const i = p * 4;
@@ -455,9 +535,27 @@ async function captureFullBodyDualKey(flashvars) {
   try {
     const w = RIG_STAGE_W * RENDER_SCALE, h = RIG_STAGE_H * RENDER_SCALE;
     const [readyA, readyB] = await Promise.all([
-      waitUntilReady(passA.player, flashvars, { bgColorOverride: 'FF00FF' }),
-      waitUntilReady(passB.player, flashvars, { bgColorOverride: '00FF00' }),
+      waitUntilReady(passA.player, flashvars, { bgColorOverride: '646464' }),
+      waitUntilReady(passB.player, flashvars, { bgColorOverride: '9B9B9B' }),
     ]);
+    // The ready beacon only confirms the RIG's own base structure has
+    // loaded — each colorable part (hair, cape, etc.) calls mcSetColor
+    // itself, independently, once ITS OWN network fetch finishes, which is
+    // not gated by the beacon at all. Snapshotting the instant ready fires
+    // can catch a part mid-transition (still its native/undyed color) —
+    // confirmed by dumping raw frames and comparing: e.g. jase's hair
+    // sampled purple at the earliest capture, correct blonde a couple
+    // frames later on the animated path (see the analogous settle-delay
+    // fix there). Was 500 — raised to 1500 after continued reports of the
+    // same race on a DIFFERENT asset (Jaide's "Hollowborn Eternal Dark
+    // Fire" cape cosmetic, purple-flashing to green) that 500ms evidently
+    // wasn't always enough margin for — a genuinely intermittent race
+    // (didn't reproduce in every render attempted), not deterministic at
+    // 500ms despite the original comment's assumption. Some cosmetics
+    // likely have more involved color-application logic (a "flame" effect
+    // may layer more than one simple mcSetColor call) or slower asset
+    // fetch than the hair asset this delay was originally tuned against.
+    await sleep(1500);
     const canvasA = snapshotPlayer(passA.player, w, h);
     if (!readyA || !readyB) return { canvas: canvasA, ready: false };
     const canvasB = snapshotPlayer(passB.player, w, h);
@@ -482,16 +580,67 @@ async function captureFullBodyDualKey(flashvars) {
 // how the INITIAL frame got captured, and every subsequent frame inherits
 // whatever phase relationship was locked in at that first synchronized
 // snapshot, so fixing the first one fixes all of them).
+//
+// CAPTURE_SUPERSAMPLE: the GIF's mandatory binary alpha (no partial
+// transparency at all) makes broad/soft gradients — a wide coarse-banded
+// cape edge, a soft drop shadow — dither into visible speckle no amount of
+// tuning the dither algorithm itself can fully hide (confirmed across two
+// failed attempts: an ordered Bayer dither introduced its own visible
+// repeating line pattern; synthetically blurring the already-captured
+// low-res alpha channel fixed the broad regions but incorrectly widened
+// every crisp edge too, since blur can't add real detail, only spread
+// existing coarse data). The only way to genuinely close the gap toward
+// the static PNG's true smooth 8-bit alpha is real additional RENDERED
+// detail — Ruffle actually rasterizing at a higher resolution, not a
+// software approximation applied after the fact.
+//
+// This renders each offscreen player at CAPTURE_SUPERSAMPLE x the normal
+// output resolution (createOffscreenPlayer's `scale` param), then draws
+// that bigger live canvas down into the SAME output-resolution sample
+// canvas as before via `drawImage` — the browser's own canvas 2D API does
+// real box/bilinear downsampling here (`imageSmoothingQuality: 'high'`),
+// no custom blur code needed. Every pixel handed to applyDualKeyMatte,
+// and everything downstream of THIS function (all of renderBotAnimated.
+// html's masking/pet-extraction/compositing, all of renderCharacter.js's
+// dithering) runs at EXACTLY the same resolution as before this change —
+// completely untouched, zero risk to that fragile, multi-round-debugged
+// logic — they just receive smoother, genuinely-antialiased source pixels
+// instead of the coarser native-resolution capture.
+//
+// Deliberately NOT a RENDER_SCALE bump: RENDER_SCALE is baked into the
+// output resolution used by every downstream pixel-masking/flood-fill
+// algorithm, and a past bump to that exact combination (this same
+// 1440x825 stage) is directly documented above as catastrophic — 13.8s to
+// still-not-finished after 3+ minutes, from GC/memory pressure in that
+// masking logic specifically, not naive proportional slowdown. This path
+// avoids that landmine entirely: the masking logic never sees the bigger
+// resolution, only Ruffle's own rendering and the dual-key unmix (simple
+// per-pixel arithmetic, not flood-fill/connected-component search) run at
+// the higher size.
+const CAPTURE_SUPERSAMPLE = 2;
 async function captureAnimatedFramesDualKey(flashvars, { frameCount = 48, intervalMs = 42 } = {}) {
-  const passA = createOffscreenPlayer();
-  const passB = createOffscreenPlayer();
+  const passA = createOffscreenPlayer(CAPTURE_SUPERSAMPLE);
+  const passB = createOffscreenPlayer(CAPTURE_SUPERSAMPLE);
   try {
     const w = RIG_STAGE_W * RENDER_SCALE, h = RIG_STAGE_H * RENDER_SCALE;
     const [readyA, readyB] = await Promise.all([
-      waitUntilReady(passA.player, flashvars, { bgColorOverride: 'FF00FF' }),
-      waitUntilReady(passB.player, flashvars, { bgColorOverride: '00FF00' }),
+      waitUntilReady(passA.player, flashvars, { bgColorOverride: '646464' }),
+      waitUntilReady(passB.player, flashvars, { bgColorOverride: '9B9B9B' }),
     ]);
     if (!readyA || !readyB) return { frames: [], ready: false };
+    // Same race as captureFullBodyDualKey above — the ready beacon doesn't
+    // gate on every colorable part's own independent mcSetColor call, so
+    // frame 0 (and possibly the next couple, at 42ms apart) can be sampled
+    // before a part's dye color has actually been applied, then "swap" to
+    // the correct color a few frames in. Since a GIF loops back to frame 0
+    // every cycle, this reads as a periodic color flicker at the start of
+    // every loop (confirmed: jase's hair sampled purple at frame 0, correct
+    // blonde by frame 2 without this delay). Settle before sampling starts
+    // so every captured frame — including frame 0 — already has the right
+    // color, rather than trying to detect/skip bad early frames after the
+    // fact. Was 500 — raised to 1500, see captureFullBodyDualKey's comment
+    // above for the real-world report (Jaide's cape) that motivated this.
+    await sleep(1500);
 
     const srcA = passA.player.shadowRoot?.querySelector('canvas') || passA.player.querySelector('canvas');
     const srcB = passB.player.shadowRoot?.querySelector('canvas') || passB.player.querySelector('canvas');
@@ -500,10 +649,14 @@ async function captureAnimatedFramesDualKey(flashvars, { frameCount = 48, interv
     const sampleB = document.createElement('canvas').getContext('2d', { willReadFrequently: true });
     sampleA.canvas.width = sampleB.canvas.width = w;
     sampleA.canvas.height = sampleB.canvas.height = h;
+    sampleA.imageSmoothingEnabled = sampleB.imageSmoothingEnabled = true;
+    sampleA.imageSmoothingQuality = sampleB.imageSmoothingQuality = 'high';
 
     for (let f = 0; f < frameCount; f++) {
       sampleA.clearRect(0, 0, w, h);
       sampleB.clearRect(0, 0, w, h);
+      // srcA/srcB are CAPTURE_SUPERSAMPLE x bigger than w,h here — this
+      // draw call is the actual downsample step (see comment above).
       sampleA.drawImage(srcA, 0, 0, w, h);
       sampleB.drawImage(srcB, 0, 0, w, h);
       const imgA = sampleA.getImageData(0, 0, w, h);
@@ -772,7 +925,48 @@ function findAlphaBlobs(alphaAt, w, h, x0, y0, x1, y1) {
   return blobs;
 }
 
+// Name/guild header presets, shared by both render harnesses. Two
+// independent `style` (font) and `color` (theme) query params pick these,
+// so any font can be combined with any color theme. `classic` is the
+// default for both and renders identically to the original hardcoded
+// look before either option existed (white name, white guild — matching
+// each other, per explicit user request — plain sans-serif, black stroke).
+const TEXT_STYLES = {
+  classic:     { font: 'sans-serif' },
+  comic:       { font: '"Comic Sans MS", cursive' },
+  impact:      { font: 'Impact, sans-serif' },
+  papyrus:     { font: 'Gabriola, fantasy' },
+  typewriter:  { font: '"Courier New", monospace' },
+  elegant:     { font: 'Georgia, serif' },
+  handwritten: { font: '"Segoe Script", cursive' },
+  gothic:      { font: '"MV Boli", cursive' },
+  bold:        { font: '"Arial Black", sans-serif' },
+  tech:        { font: '"Cascadia Mono", monospace' },
+};
+function getTextStyle(key) {
+  return TEXT_STYLES[key] || TEXT_STYLES.classic;
+}
+
+const CLASSIC_STROKE = 'rgba(0,0,0,0.85)';
+function colorTheme(color) {
+  return { color, stroke: CLASSIC_STROKE };
+}
+const COLOR_THEMES = {
+  classic: colorTheme('#ffffff'),
+  gold:    colorTheme('#ffd966'),
+  crimson: colorTheme('#ff4d4d'),
+  azure:   colorTheme('#4da6ff'),
+  emerald: colorTheme('#4dff88'),
+  violet:  colorTheme('#b366ff'),
+  inferno: colorTheme('#ff8c1a'),
+  silver:  colorTheme('#d9d9d9'),
+};
+function getColorTheme(key) {
+  return COLOR_THEMES[key] || COLOR_THEMES.classic;
+}
+
 window.RigAvatar = { RIG_PART_CROPS, RIG_JOINTS, PARENT_OF, RIG_STAGE_W, RIG_STAGE_H, RENDER_SCALE, RIG_CENTER_X,
   captureFullBody, captureAnimatedFrames, captureFullBodyDualKey, captureAnimatedFramesDualKey,
-  sliceParts, buildRigDom, playWinEmote, playLoseEmote, findAlphaBlobs };
+  sliceParts, buildRigDom, playWinEmote, playLoseEmote, findAlphaBlobs, readHeadInfoBeacons,
+  TEXT_STYLES, getTextStyle, COLOR_THEMES, getColorTheme };
 })();

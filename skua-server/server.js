@@ -2,6 +2,7 @@ const express = require('express');
 const cors    = require('cors');
 const path    = require('path');
 const fs      = require('fs');
+const { patchSwfFrameRectToMax } = require('./swfRectPatch');
 const app     = express();
 
 app.use(cors());
@@ -450,8 +451,9 @@ app.get('/game/gamefiles/*', async (req, res) => {
             if (serveGamefileFallback(subPath, res)) return;
             return res.status(upstream.status).end();
         }
-        const buf = Buffer.from(await upstream.arrayBuffer());
+        let buf = Buffer.from(await upstream.arrayBuffer());
         const contentType = upstream.headers.get('content-type') || 'application/octet-stream';
+        if (subPath.endsWith('.swf')) buf = patchSwfFrameRectToMax(buf);
         gameAssetCache[subPath] = { buf, contentType };
         res.set('Content-Type', contentType);
         res.send(buf);

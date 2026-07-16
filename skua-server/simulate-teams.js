@@ -7,19 +7,31 @@
 // teammates crossing the line near-simultaneously), and that every
 // player's final stats land in the snapshot.
 //
+// Uses real AQW usernames (not fake generated ones) so the match-detail
+// popup's avatar fetch (account.aq.com/CharPage) has real characters to
+// render, instead of blank silhouettes — useful for actually eyeballing
+// the team-grouped stat cards with real portraits. Only 6 real names on
+// hand, so 4v4 cycles back through the pool (some duplicate avatars).
+//
 // Usage: node simulate-teams.js [teamSize=1] [server]
 //   node simulate-teams.js 1   -> 1v1,  win at 10 team kills
 //   node simulate-teams.js 2   -> 2v2,  win at 20 team kills
 //   node simulate-teams.js 3   -> 3v3,  win at 30 team kills
-//   node simulate-teams.js 4   -> 4v4,  win at 40 team kills
+//   node simulate-teams.js 4   -> 4v4,  win at 40 team kills (repeats names, only 6 available)
+const REAL_NAMES = ['gunlive', 'nik0', 'tease', 'zayt', 'uzair', 'chaffo'];
+
 const teamSize = Math.max(1, parseInt(process.argv[2], 10) || 1);
 const server   = process.argv[3] || 'https://gunlive.up.railway.app';
-const runId    = Date.now().toString(36); // unique per run so retesting never collides with a previous run's leftover state
+const runId    = Date.now().toString(36);
 const map      = `bludrutbrawl-sim${runId}`;
 const threshold = teamSize * 10;
 
-const teamA = Array.from({ length: teamSize }, (_, i) => `SimA${runId}_${i}`);
-const teamB = Array.from({ length: teamSize }, (_, i) => `SimB${runId}_${i}`);
+if (teamSize * 2 > REAL_NAMES.length) {
+    console.log(`Note: only ${REAL_NAMES.length} real names available — teamSize ${teamSize} needs ${teamSize*2}, so some will repeat.\n`);
+}
+const nameAt = i => REAL_NAMES[i % REAL_NAMES.length];
+const teamA = Array.from({ length: teamSize }, (_, i) => nameAt(i));
+const teamB = Array.from({ length: teamSize }, (_, i) => nameAt(teamSize + i));
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 

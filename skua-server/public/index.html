@@ -94,6 +94,27 @@ main { flex:1; padding:28px 32px; overflow-y:auto; }
 .stat-card .sc-val.up   { color:var(--green); }
 .stat-card .sc-val.gold { color:var(--gold); }
 
+/* ── PER-PLAYER MATCH STAT CARD (mirrors the in-game results panel) ── */
+.pstat-card {
+  display:flex; gap:24px; align-items:flex-start;
+  background:var(--card); border:1px solid var(--border);
+  border-radius:10px; padding:20px; margin-bottom:12px;
+}
+.pstat-name  { font-size:1.25rem; font-weight:800; color:#fff; }
+.pstat-crown { font-size:1.1rem; margin-bottom:2px; }
+.pstat-cols  { display:grid; grid-template-columns:1fr 1fr; gap:0 32px; margin-top:16px; }
+.pstat-row   { display:flex; justify-content:space-between; padding:7px 0; font-size:0.82rem; }
+.pstat-row .plabel { position:relative; color:var(--muted); cursor:help; }
+.pstat-row .pval    { font-weight:700; color:#fff; }
+.pstat-row .plabel:hover::after {
+  content:attr(data-tip);
+  position:absolute; left:0; top:130%; z-index:20;
+  width:190px; white-space:normal; line-height:1.4;
+  background:#000; color:#fff; font-size:0.68rem;
+  padding:7px 10px; border-radius:6px; box-shadow:0 4px 14px rgba(0,0,0,0.5);
+}
+.pstat-divider { border-top:1px solid var(--border); margin:14px 0; }
+
 /* ── SECTION BOX ── */
 .box {
   background:var(--card); border:1px solid var(--border);
@@ -1051,16 +1072,33 @@ async function openMatchDetail(id) {
       </div>
     </div>`;
 
-  document.getElementById('mm-players').innerHTML = sorted.map(p => `
-    <div style="border:1px solid ${p===winner?'var(--gold)':'var(--border)'};border-radius:8px;padding:14px;margin-bottom:10px">
-      <div style="font-weight:700;margin-bottom:10px">${p===winner?'👑 ':''}${p.username}</div>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;text-align:center">
-        <div><div style="font-weight:800;color:#fff">${p.kills}</div><div style="font-size:0.65rem;color:var(--muted)">KILLS</div></div>
-        <div><div style="font-weight:800;color:#fff">${p.deaths}</div><div style="font-size:0.65rem;color:var(--muted)">DEATHS</div></div>
-        <div><div style="font-weight:800;color:#fff">${fmt(p.dmgDealt)}</div><div style="font-size:0.65rem;color:var(--muted)">DMG DEALT</div></div>
-        <div><div style="font-weight:800;color:#fff">${fmt(p.dmgTaken)}</div><div style="font-size:0.65rem;color:var(--muted)">DMG TAKEN</div></div>
-        <div><div style="font-weight:800;color:#fff">${p.crits??0}</div><div style="font-size:0.65rem;color:var(--muted)">CRITS</div></div>
-        <div><div style="font-weight:800;color:#fff">${p.dodges??0}</div><div style="font-size:0.65rem;color:var(--muted)">DODGES</div></div>
+  // Label/value row helper — data-tip drives the hover tooltip (see .pstat-row
+  // CSS), matching the in-game results panel's hover text.
+  const pstatRow = (label, tip, val) => `
+    <div class="pstat-row">
+      <span class="plabel" data-tip="${tip}">${label}</span>
+      <span class="pval">${val}</span>
+    </div>`;
+
+  document.getElementById('mm-players').innerHTML = sorted.map((p, i) => `
+    <div class="pstat-card">
+      <div id="mm-pstat-av-${i}" style="flex-shrink:0"></div>
+      <div style="flex:1">
+        <div style="text-align:center">
+          ${p===winner ? '<div class="pstat-crown">👑</div>' : ''}
+          <div class="pstat-name">${p.username}</div>
+        </div>
+        <div class="pstat-cols">
+          ${pstatRow('Kills', 'Number of enemy players you defeated.', p.kills)}
+          ${pstatRow('Dodges', 'Amount of attacks that missed on the player.', p.dodges??0)}
+          ${pstatRow('Deaths', 'Number of times you were defeated.', p.deaths)}
+          ${pstatRow('Crits', 'Number of critical hits landed.', p.crits??0)}
+        </div>
+        <div class="pstat-divider"></div>
+        <div class="pstat-cols">
+          ${pstatRow('Damage to players', 'Total damage dealt to enemy players.', fmt(p.dmgDealt))}
+          ${pstatRow('Damage Taken', 'Total damage received from enemy players.', fmt(p.dmgTaken))}
+        </div>
       </div>
     </div>`).join('');
 
@@ -1069,9 +1107,15 @@ async function openMatchDetail(id) {
   // Timed to land just as the slide-in entrance finishes.
   setTimeout(() => spawnSparkles(document.getElementById(p1IsWinner ? 'mm-av1' : 'mm-av2')), 400);
 
+  // Rendered once each, into the per-player stat cards below — the hero row
+  // above keeps its plain colored silhouette rather than also rendering a
+  // second live Ruffle instance of the same avatar, which would double the
+  // render-loop cost for no visual benefit.
   const [av1, av2] = await Promise.all([fetchAvatar(p1.username), p2 ? fetchAvatar(p2.username) : null]);
-  if (av1) renderAvatar('mm-av1', av1);
-  if (av2) renderAvatar('mm-av2', av2);
+  sorted.forEach((p, i) => {
+    const data = p.username === p1.username ? av1 : (p2 && p.username === p2.username ? av2 : null);
+    if (data) renderAvatar(`mm-pstat-av-${i}`, data);
+  });
 }
 
 function closeMatchDetail() {

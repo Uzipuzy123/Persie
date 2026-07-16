@@ -1086,8 +1086,12 @@ async function openMatchDetail(id) {
 
 function closeMatchDetail() {
   document.getElementById('match-modal-backdrop').style.display = 'none';
-  activeAvatarLoops['mm-av1']?.stop();
-  activeAvatarLoops['mm-av2']?.stop();
+  // Stop every live avatar loop, not just fixed keys — the actual Ruffle
+  // render targets are mm-pstat-av-0/1 (see openMatchDetail), and each one
+  // holds its own WebGL context that keeps rendering off-screen forever if
+  // not explicitly torn down. Leaving even one behind per modal open piles
+  // up contexts across a session until the GPU driver crashes.
+  Object.keys(activeAvatarLoops).forEach(id => activeAvatarLoops[id]?.stop());
 }
 
 async function renderHistory() {

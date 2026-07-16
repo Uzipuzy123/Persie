@@ -598,6 +598,14 @@ function toggleMatchStats(room) {
 function renderLiveRows(players) {
   if (!players.length) { document.getElementById('live-rows').innerHTML = ''; return; }
 
+  // p.isSelf is set server-side by whichever client pushed that row's stats
+  // — every client always reports itself as isSelf:true, so in a 1v1 BOTH
+  // players' rows legitimately have isSelf:true. It answers "did this
+  // client report its own data" (always yes), not "is this the account the
+  // person viewing this page is playing as" — the YOU badge needs the
+  // latter, same comparison the victory banner already uses correctly.
+  const myUsername = (localStorage.getItem('skua_username') || '').toLowerCase();
+
   // One match = one room. A 1v1 is a single match with two players, not two
   // separate leaderboard rows — group by the room (map) they're both in.
   const byRoom = {};
@@ -607,7 +615,7 @@ function renderLiveRows(players) {
   const sortVal = p => liveSortField === 'kda' ? parseFloat(kda(p)) : (p[liveSortField] ?? 0);
   matchGroups.sort((a, b) => Math.max(...b.players.map(sortVal)) - Math.max(...a.players.map(sortVal)));
 
-  const me = players.find(p => p.isSelf);
+  const me = players.find(p => myUsername && p.username.toLowerCase() === myUsername) || players.find(p => p.isSelf);
   if (me) {
     document.getElementById('my-kda').textContent = kda(me);
     document.getElementById('player-count').textContent = players.length;
@@ -626,7 +634,7 @@ function renderLiveRows(players) {
         <div style="width:38px;height:38px;border-radius:8px;flex-shrink:0;background:${col}22;border:2px solid ${col};color:${col};
           display:flex;align-items:center;justify-content:center;font-weight:800;font-size:0.95rem">${p.username[0]}</div>
         <div>
-          <div style="font-weight:700;font-size:0.9rem;color:#fff">${p.username}${p.isSelf?' <span style="color:var(--accent);font-size:0.62rem">★ YOU</span>':''}</div>
+          <div style="font-weight:700;font-size:0.9rem;color:#fff">${p.username}${myUsername && p.username.toLowerCase()===myUsername?' <span style="color:var(--accent);font-size:0.62rem">★ YOU</span>':''}</div>
           <div style="font-size:0.7rem;color:var(--muted)">${p.kills}K / ${p.deaths}D</div>
         </div>
       </div>` : `

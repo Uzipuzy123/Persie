@@ -554,7 +554,7 @@ main { flex:1; padding:28px 32px; overflow-y:auto; }
      functions) — they used to share one implementation, which meant any
      live-match-only change also silently changed this one. Never again. -->
 <div id="match-modal-backdrop" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:999" onclick="closeMatchDetail()">
-  <div style="max-width:1100px;margin:30px auto;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;max-height:92vh;overflow-y:auto" onclick="event.stopPropagation()">
+  <div style="max-width:1200px;margin:30px auto;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;max-height:92vh;overflow-y:auto" onclick="event.stopPropagation()">
     <div style="display:flex;justify-content:flex-end">
       <button onclick="closeMatchDetail()" style="background:none;border:none;color:var(--muted);font-size:1.3rem;cursor:pointer;line-height:1">&times;</button>
     </div>
@@ -567,7 +567,7 @@ main { flex:1; padding:28px 32px; overflow-y:auto; }
 <!-- Live match detail modal (opened from Live Match overview) — separate
      markup/IDs/functions from the history one above on purpose. -->
 <div id="live-modal-backdrop" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:999" onclick="closeLiveMatchDetail()">
-  <div style="max-width:1100px;margin:30px auto;background:var(--surface);border:1px solid var(--red);border-radius:12px;padding:24px;max-height:92vh;overflow-y:auto;box-shadow:0 0 0 1px var(--red),0 8px 32px rgba(239,68,68,0.25)" onclick="event.stopPropagation()">
+  <div style="max-width:1200px;margin:30px auto;background:var(--surface);border:1px solid var(--red);border-radius:12px;padding:24px;max-height:92vh;overflow-y:auto;box-shadow:0 0 0 1px var(--red),0 8px 32px rgba(239,68,68,0.25)" onclick="event.stopPropagation()">
     <div style="display:flex;justify-content:flex-end">
       <button onclick="closeLiveMatchDetail()" style="background:none;border:none;color:var(--muted);font-size:1.3rem;cursor:pointer;line-height:1">&times;</button>
     </div>

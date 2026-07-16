@@ -554,7 +554,7 @@ main { flex:1; padding:28px 32px; overflow-y:auto; }
      functions) — they used to share one implementation, which meant any
      live-match-only change also silently changed this one. Never again. -->
 <div id="match-modal-backdrop" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:999" onclick="closeMatchDetail()">
-  <div style="max-width:900px;margin:30px auto;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;max-height:92vh;overflow-y:auto" onclick="event.stopPropagation()">
+  <div style="max-width:1100px;margin:30px auto;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;max-height:92vh;overflow-y:auto" onclick="event.stopPropagation()">
     <div style="display:flex;justify-content:flex-end">
       <button onclick="closeMatchDetail()" style="background:none;border:none;color:var(--muted);font-size:1.3rem;cursor:pointer;line-height:1">&times;</button>
     </div>
@@ -567,7 +567,7 @@ main { flex:1; padding:28px 32px; overflow-y:auto; }
 <!-- Live match detail modal (opened from Live Match overview) — separate
      markup/IDs/functions from the history one above on purpose. -->
 <div id="live-modal-backdrop" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:999" onclick="closeLiveMatchDetail()">
-  <div style="max-width:900px;margin:30px auto;background:var(--surface);border:1px solid var(--red);border-radius:12px;padding:24px;max-height:92vh;overflow-y:auto;box-shadow:0 0 0 1px var(--red),0 8px 32px rgba(239,68,68,0.25)" onclick="event.stopPropagation()">
+  <div style="max-width:1100px;margin:30px auto;background:var(--surface);border:1px solid var(--red);border-radius:12px;padding:24px;max-height:92vh;overflow-y:auto;box-shadow:0 0 0 1px var(--red),0 8px 32px rgba(239,68,68,0.25)" onclick="event.stopPropagation()">
     <div style="display:flex;justify-content:flex-end">
       <button onclick="closeLiveMatchDetail()" style="background:none;border:none;color:var(--muted);font-size:1.3rem;cursor:pointer;line-height:1">&times;</button>
     </div>
@@ -1040,15 +1040,15 @@ async function openMatchDetail(id) {
       <div style="font-family:Georgia,serif;font-style:italic;color:var(--gold);font-size:1.3rem;font-weight:700">PvP Game Results</div>
       <div style="font-family:Georgia,serif;font-style:italic;color:var(--gold);font-size:0.85rem;margin-top:2px">Hosted in ${mapName}</div>
       <div style="display:flex;align-items:center;justify-content:center;gap:40px;margin-top:22px">
-        <div id="mm-av1" class="avatar-fx" style="font-weight:800;font-size:1rem;color:#3b82f6;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${namesA}</div>
-        <div style="text-align:center">
+        <div id="mm-av1" class="avatar-fx" style="font-weight:800;font-size:1rem;color:#3b82f6;max-width:280px;word-wrap:break-word">${namesA}</div>
+        <div style="text-align:center;flex-shrink:0">
           <div style="font-size:0.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px">Score</div>
           <div style="font-size:1.7rem;font-weight:900;margin-top:2px">
             <span style="color:#3b82f6">${kA}</span> - <span style="color:#ef4444">${kB}</span>
           </div>
           <div style="font-size:0.65rem;color:var(--gold);margin-top:6px;letter-spacing:0.5px">&#9656; VIEW GAME</div>
         </div>
-        <div id="mm-av2" class="avatar-fx" style="font-weight:800;font-size:1rem;color:#ef4444;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${namesB}</div>
+        <div id="mm-av2" class="avatar-fx" style="font-weight:800;font-size:1rem;color:#ef4444;max-width:280px;word-wrap:break-word">${namesB}</div>
       </div>
     </div>`;
 
@@ -1150,14 +1150,14 @@ async function openLiveMatchDetail(room) {
       <div style="font-family:Georgia,serif;font-style:italic;color:var(--gold);font-size:1.3rem;font-weight:700">Live Match</div>
       <div style="font-family:Georgia,serif;font-style:italic;color:var(--gold);font-size:0.85rem;margin-top:2px">Hosted in ${mapName}</div>
       <div style="display:flex;align-items:center;justify-content:center;gap:40px;margin-top:22px">
-        <div style="font-weight:800;font-size:1rem;color:#3b82f6;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${namesA}</div>
-        <div style="text-align:center">
+        <div style="font-weight:800;font-size:1rem;color:#3b82f6;max-width:280px;word-wrap:break-word">${namesA}</div>
+        <div style="text-align:center;flex-shrink:0">
           <div style="font-size:0.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px">Score So Far</div>
           <div style="font-size:1.7rem;font-weight:900;margin-top:2px">
             <span style="color:#3b82f6">${kA}</span> - <span style="color:#ef4444">${kB}</span>
           </div>
         </div>
-        <div style="font-weight:800;font-size:1rem;color:#ef4444;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${namesB}</div>
+        <div style="font-weight:800;font-size:1rem;color:#ef4444;max-width:280px;word-wrap:break-word">${namesB}</div>
       </div>
     </div>`;
 

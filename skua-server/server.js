@@ -379,6 +379,23 @@ async function scrapeCharPage(username) {
     return flashvars;
 }
 
+// Weapon/pet/misc are each a separate sub-SWF the CharPage widget loads and
+// animates on top of the base rig — dropping them cuts asset loads and
+// per-frame compositing work in renderAvatar()'s render loop. 'none' is the
+// widget's own sentinel for "nothing equipped in this slot" (see the Artix
+// fallback's strPetFile above), so this reuses it rather than inventing a
+// new empty state. Applied at response time (not baked into the cache) so it
+// covers already-cached entries too without needing a re-scrape.
+function stripHeavyGear(flashvars) {
+    return {
+        ...flashvars,
+        strWeaponFile: 'none', strWeaponLink: '', strWeaponName: '',
+        strCustWeaponFile: 'none', strCustWeaponLink: '', strCustWeaponName: '',
+        strPetFile: 'none', strPetLink: '', strPetName: '',
+        strMiscFile: 'none', strMiscLink: '', strMiscName: '',
+    };
+}
+
 app.get('/api/avatar', async (req, res) => {
     const username = (req.query.username || '').trim();
     if (!username) return res.status(400).json({ error: 'missing username' });
@@ -388,7 +405,7 @@ app.get('/api/avatar', async (req, res) => {
     // re-scraped when explicitly requested via /api/avatar/refresh.
     const cached = avatarCache[key];
     if (cached) {
-        return res.json({ swf: '/api/charswf', flashvars: cached.flashvars });
+        return res.json({ swf: '/api/charswf', flashvars: stripHeavyGear(cached.flashvars) });
     }
 
     try {
@@ -397,7 +414,7 @@ app.get('/api/avatar', async (req, res) => {
 
         avatarCache[key] = { flashvars, ts: Date.now() };
         saveAvatarCache();
-        res.json({ swf: '/api/charswf', flashvars });
+        res.json({ swf: '/api/charswf', flashvars: stripHeavyGear(flashvars) });
     } catch {
         res.status(502).json({ error: 'could not reach account.aq.com' });
     }
@@ -416,7 +433,7 @@ app.post('/api/avatar/refresh', async (req, res) => {
 
         avatarCache[key] = { flashvars, ts: Date.now() };
         saveAvatarCache();
-        res.json({ swf: '/api/charswf', flashvars });
+        res.json({ swf: '/api/charswf', flashvars: stripHeavyGear(flashvars) });
     } catch {
         res.status(502).json({ error: 'could not reach account.aq.com' });
     }

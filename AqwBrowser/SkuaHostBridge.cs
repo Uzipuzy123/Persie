@@ -3,6 +3,7 @@ using CefSharp.WinForms;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
+using System.Collections.Generic;
 using System.Net.Http;
 using System.Text;
 using System.Threading;
@@ -60,12 +61,23 @@ public class SkuaHostBridge
     private string _lastBrawlRoom = "";
     private int? _myUserId;
     private readonly Timer _statsPushTimer;
+    // username(lower) -> pvpTeam, for telling teammates apart from opponents
+    // in 2v2+ (kill-counting can't just be "any other player who died" once
+    // there's more than one other player in the room). Refreshed on its own
+    // timer rather than resolved inline in HandleCt — team assignment never
+    // changes mid-match, so a couple seconds of staleness is harmless, and
+    // this keeps the kill-detection path a synchronous dictionary lookup
+    // with no await to accidentally delay the matchEnd race (see the
+    // GetMyUserIdAsync lesson in the death branch below).
+    private Dictionary<string, int> _teamMap = new();
+    private readonly Timer _teamMapRefreshTimer;
 
     public SkuaHostBridge(ChromiumWebBrowser browser)
     {
         _browser = browser;
         _matchPollTimer = new Timer(async _ => await PollForMatchAsync(), null, 2000, 2000);
         _statsPushTimer = new Timer(async _ => { if (_inBrawl) await PushStatsAsync(); }, null, 1000, 1000);
+        _teamMapRefreshTimer = new Timer(async _ => { if (_inBrawl) await RefreshTeamMapAsync(); }, null, 2000, 2000);
 
         // Deathcam capture — background thread only, doesn't touch the game's
         // own render/input path. No separate Flash ActiveX control here like
@@ -575,6 +587,21 @@ public class SkuaHostBridge
                 if (kvp.Value is JObject opData &&
                     opData.TryGetValue("intHP", out var hpTok) && hpTok.ToObject<int>() == 0)
                 {
+                    // Skip teammates — in a 2v2+, "any other player" isn't
+                    // necessarily an opponent. Only skips when both teams
+                    // are actually known; if the team map hasn't loaded yet
+                    // (e.g. right at match start), this falls back to
+                    // counting it exactly like 1v1 always has, rather than
+                    // risking silently missing a real kill — the refresh
+                    // timer keeps _teamMap populated within a couple
+                    // seconds regardless.
+                    if (_teamMap.TryGetValue(usernameLc, out var myTeam) &&
+                        _teamMap.TryGetValue(kvp.Key, out var theirTeam) &&
+                        myTeam == theirTeam)
+                    {
+                        continue;
+                    }
+
                     _kills++;
                     System.Console.WriteLine($"[skuaHost] +1 kill (total {_kills})");
                     if (_inBrawl && _kills >= 10)
@@ -675,6 +702,7 @@ public class SkuaHostBridge
     {
         _kills = 0; _deaths = 0; _crits = 0; _dodges = 0;
         _damageDealt = 0; _damageTaken = 0;
+        _teamMap = new Dictionary<string, int>();
     }
 
     private async Task PushStatsAsync(bool matchEnd = false)
@@ -731,6 +759,28 @@ public class SkuaHostBridge
         // callers with the 0 sentinel; the next call gets a fresh attempt.
         System.Console.WriteLine($"[skuaHost] GetMyUserIdAsync failed: Success={r.Success} Result={r.Result}");
         return 0;
+    }
+
+    // Wired to _teamMapRefreshTimer — see _teamMap's declaration for why
+    // this stays off the hot HandleCt path entirely.
+    private async Task RefreshTeamMapAsync()
+    {
+        try
+        {
+            var r = await _browser.EvaluateScriptAsync("document.getElementById('game').TeamMap()");
+            if (!r.Success || r.Result == null) return;
+            using var doc = JsonDocument.Parse(r.Result.ToString()!);
+            var map = new Dictionary<string, int>();
+            foreach (var prop in doc.RootElement.EnumerateObject())
+            {
+                if (prop.Value.TryGetInt32(out var team)) map[prop.Name] = team;
+            }
+            if (map.Count > 0) _teamMap = map;
+        }
+        catch (Exception e)
+        {
+            System.Console.WriteLine($"[skuaHost] RefreshTeamMapAsync failed: {e}");
+        }
     }
 
     private static string? UnwrapToInnerString(string json)

@@ -1222,6 +1222,32 @@ package skua
 		{
 			return instance.game.world.myAvatar.uid;
 		}
+
+		// {username(lowercase): pvpTeam} for every avatar currently in the
+		// room, including yourself — lets the host tell teammates apart from
+		// opponents in a 2v2+ without re-deriving it packet-by-packet (team
+		// assignment doesn't change mid-match, so one snapshot at match
+		// start is enough). Same field PlayerHPBars.as already reads for HP
+		// bar coloring (av.dataLeaf.pvpTeam).
+		public static function TeamMap():String
+		{
+			var result:Object = {};
+			try
+			{
+				var world:* = instance.game.world;
+				var myAvatar:* = world.myAvatar;
+				if (myAvatar != null && myAvatar.objData != null && myAvatar.dataLeaf != null)
+					result[String(myAvatar.objData.strUsername).toLowerCase()] = int(myAvatar.dataLeaf.pvpTeam);
+				for (var aid:* in world.avatars)
+				{
+					var av:* = world.avatars[aid];
+					if (av == null || av.objData == null || av.dataLeaf == null) continue;
+					result[String(av.objData.strUsername).toLowerCase()] = int(av.dataLeaf.pvpTeam);
+				}
+			}
+			catch (e:Error) {}
+			return JSON.stringify(result);
+		}
 		
 		public static function Gender():String
 		{

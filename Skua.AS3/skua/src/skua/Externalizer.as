@@ -76,6 +76,7 @@ package skua
 			
 			this.addCallback("UserID", Main.UserID);
 			this.addCallback("gender", Main.Gender);
+			this.addCallback("TeamMap", Main.TeamMap);
 			
 			this.addCallback("lnkCreate", RemoteRegistry.ext_create);
 			this.addCallback("lnkDestroy", RemoteRegistry.ext_destroy);

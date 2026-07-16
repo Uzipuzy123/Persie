@@ -250,8 +250,11 @@ package skua.module
 			addSlider("HP Bar Size", "PlayerHPBars", "setScale", 10, 100, 60, 5, "%", true,
 				"Scales the size of the custom HP bars.");
 
+
 			addSection("Toggles");
 
+			addToggle("ClickOnMouseDown", "Click on Mouse Down", "Registers in-game clicks (targeting, buttons) on mouse-down instead of waiting for release.");
+			addToggle("FlickDiag", "Flick Diagnostic (debug)", "Logs mouse clicks and stage.quality changes to the console — no visual effect, for tracking down the screen-tear bug.");
 			addToggle("ClearFilters", "Clear Filters", "Strips visual filters (blur/glow) from the scene for performance.");
 			addToggle("StopAnimations", "Freeze BG", "Freezes background animations to save CPU.");
 			addToggle("KillParticles", "Kill Particles", "Disables particle effects entirely.");
@@ -285,6 +288,8 @@ package skua.module
 			addToggle("RespawnEffect", "Respawn Effect", "Visual effect played on respawn.");
 			addToggle("DisableNativeGlow", "Disable All Glow", "Disables the game's native glow filter effects.");
 			addToggle("DisableNativeAnimation", "Disable All Animation", "Disables the game's native animated effects.");
+			addToggle("CinematicGrade", "Cinematic Grade", "Applies a full-screen color grade to the game world for a more cinematic look.");
+			addToggle("DynamicCamera", "Dynamic Camera", "Zooms the camera in slightly while you have a target selected.");
 			addToggle("LowHPFlash", "Low HP Flash", "Flashes the screen red at low HP.");
 			addToggle("RevengeKill", "Revenge Kill", "Highlights when you kill someone who killed you.");
 			addToggle("KillStreakAnnouncer", "Kill Streak Announcer", "Announces kill streaks on screen.");

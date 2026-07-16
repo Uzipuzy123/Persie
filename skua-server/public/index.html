@@ -755,7 +755,26 @@ async function fetchLive() {
 
     // Win condition — first to 10 kills
     const winner = players.find(p => p.kills >= 10);
-    if (winner) showVictory(winner, players);
+    if (winner && !victoryShown && !victoryPending) {
+      victoryPending = true;
+      // The loser's final death (and this poll's own final damage-taken)
+      // can land on the server a moment after the winner's kill crosses
+      // 10 — this poll can easily be the one that catches the match
+      // mid-flight, before those last updates arrive. Give it a beat and
+      // re-fetch once more before freezing the banner on stale numbers,
+      // rather than trusting whatever this exact 1s tick happened to see.
+      setTimeout(async () => {
+        try {
+          const res2  = await fetch(url, { cache:'no-store' });
+          const data2 = await res2.json();
+          const freshPlayers = data2.players ?? [data2];
+          const freshWinner  = freshPlayers.find(p => p.kills >= 10) || winner;
+          showVictory(freshWinner, freshPlayers);
+        } catch {
+          showVictory(winner, players);
+        }
+      }, 700);
+    }
   } catch {
     document.getElementById('cdot').className     = 'cdot';
     document.getElementById('cstatus').textContent = 'Not connected';
@@ -1174,7 +1193,8 @@ function renderLeaderboard(tier) {
 }
 
 // ── VICTORY ──────────────────────────────────────────────────────────
-let victoryShown = false;
+let victoryShown   = false;
+let victoryPending = false; // a delayed re-check (see fetchLive) is in flight
 function showVictory(winner, players) {
   if (victoryShown) return;
   victoryShown = true;
@@ -1214,7 +1234,8 @@ function showVictory(winner, players) {
 
 // Reset victory banner when a new match starts
 function resetVictory() {
-  victoryShown = false;
+  victoryShown   = false;
+  victoryPending = false;
   document.getElementById('victory-banner').style.display = 'none';
   firstBloodDone = false;
 }

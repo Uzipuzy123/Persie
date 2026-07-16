@@ -1,6 +1,7 @@
 using CefSharp;
 using CefSharp.WinForms;
 using System;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
 
@@ -25,14 +26,64 @@ internal static class Program
     [DllImport("kernel32.dll")]
     private static extern bool AllocConsole();
 
+    // Keeps the lock file open for the process's entire lifetime — releasing
+    // it (even implicitly via GC) would let a third launch reuse a profile
+    // slot that's still actually running.
+    private static FileStream? _profileLock;
+
+    // CEF's cache/cookie/login-session directory is exclusively locked by
+    // whichever process opens it first — launching AqwBrowser.exe a second
+    // time with the same CachePath doesn't give you a second independent
+    // session, it silently fights the first instance over the same profile
+    // (needed for solo-testing 1v1s: two accounts logged in side by side).
+    // Claim numbered profile folders instead, first-come-first-served, via
+    // an exclusive lock file per candidate — the first launch gets
+    // cef_cache_1, a second concurrent launch gets cef_cache_2, etc. Once a
+    // process exits, the OS releases its lock and that slot frees up again.
+    private static (int Profile, string CachePath) AcquireProfileSlot()
+    {
+        // One-time migration: pre-existing installs already have a logged-in
+        // session sitting in the old single shared "cef_cache" — claiming
+        // fresh "cef_cache_1" instead would silently force a re-login on the
+        // very first launch after this change. Fold it into slot 1 so that
+        // session carries over exactly once.
+        var legacyDir = System.IO.Path.Combine(AppContext.BaseDirectory, "cef_cache");
+        var slot1Dir  = System.IO.Path.Combine(AppContext.BaseDirectory, "cef_cache_1");
+        if (System.IO.Directory.Exists(legacyDir) && !System.IO.Directory.Exists(slot1Dir))
+            System.IO.Directory.Move(legacyDir, slot1Dir);
+
+        for (int i = 1; i <= 20; i++)
+        {
+            var dir = System.IO.Path.Combine(AppContext.BaseDirectory, $"cef_cache_{i}");
+            System.IO.Directory.CreateDirectory(dir);
+            var lockPath = System.IO.Path.Combine(dir, "instance.lock");
+            try
+            {
+                // FileShare.None is what actually enforces exclusivity — a
+                // second process hitting the same path throws IOException
+                // immediately rather than silently sharing the handle.
+                _profileLock = new FileStream(lockPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+                return (i, dir);
+            }
+            catch (IOException)
+            {
+                // Slot already held by another running instance — try the next one.
+            }
+        }
+        throw new InvalidOperationException("No free AqwBrowser profile slot (20 already running?).");
+    }
+
     [STAThread]
     static void Main()
     {
         AllocConsole();
 
+        var (profile, cachePath) = AcquireProfileSlot();
+        System.Console.WriteLine($"[skuaHost] using profile {profile} ({cachePath})");
+
         var settings = new CefSettings
         {
-            CachePath = System.IO.Path.Combine(AppContext.BaseDirectory, "cef_cache"),
+            CachePath = cachePath,
         };
         // HTTP disk cache disabled entirely — suspected cause of a bug where
         // entering a new map (e.g. a player's house) updates game state
@@ -140,8 +191,13 @@ internal static class Program
         // untouched to the real servers.
         string bootHtmlPath = System.IO.Path.Combine(AppContext.BaseDirectory, "embed.html");
         string bootSwfPath = System.IO.Path.Combine(AppContext.BaseDirectory, "skua.swf");
+        // Live test of the amplified-swing patch (see FFDec/amplify_attack.js) —
+        // only affects what this client renders locally, since combat visuals
+        // are client-side rendering over server-authoritative hit resolution,
+        // same reasoning as HP bars/outlines being purely local already.
+        string gameEnginePath = System.IO.Path.Combine(AppContext.BaseDirectory, "Game3097_patched.swf");
 
         Application.ApplicationExit += (s, e) => Cef.Shutdown();
-        Application.Run(new BrowserForm(SkuaRequestHandler.BootHtmlUrl, bootHtmlPath, bootSwfPath));
+        Application.Run(new BrowserForm(SkuaRequestHandler.BootHtmlUrl, bootHtmlPath, bootSwfPath, gameEnginePath, profile));
     }
 }

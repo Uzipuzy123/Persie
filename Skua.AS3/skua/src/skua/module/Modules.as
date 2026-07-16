@@ -91,6 +91,8 @@ package skua.module
 			registerModule(new LowHPFlash());
 			registerModule(new HitFlash());
 			registerModule(new Vignette());
+			registerModule(new CinematicGrade());
+			registerModule(new DynamicCamera());
 			registerModule(new SelfOutline());
 			registerModule(new KillFlash());
 			registerModule(new RevengeKill());
@@ -114,6 +116,8 @@ package skua.module
 			registerModule(new IngameMenu());
 			registerModule(new FpsControl());
 			registerModule(new PingSpoof());
+			registerModule(new ClickOnMouseDown());
+			registerModule(new FlickDiag());
 			// Always on at the default -10ms offset — no manual toggle needed.
 			enable("PingSpoof");
 
@@ -171,6 +175,7 @@ package skua.module
 			// Same story — FpsControl's rate is driven by setFps(), not a bool
 			// enable/disable, and must keep re-applying every frame.
 			enable("FpsControl");
+
 		}
 	}
 }

@@ -16,12 +16,34 @@ public class BrowserForm : Form
     private SkuaHostBridge? _hostBridge;
     private readonly PvpKeybindSettings _keybindSettings = PvpKeybindSettings.Load();
 
-    public BrowserForm(string startUrl, string bootHtmlPath, string bootSwfPath)
+    public BrowserForm(string startUrl, string bootHtmlPath, string bootSwfPath, string? gameEnginePath = null, int profile = 1)
     {
-        Text = "AQW";
-        Width = 1024;
-        Height = 768;
-        WindowState = FormWindowState.Maximized;
+        // Each profile is a fully separate CEF cache/cookie dir (see
+        // Program.cs AcquireProfileSlot), so two windows can be logged into
+        // two different accounts at once — for solo-testing 1v1s against
+        // yourself. Label the title so you can tell them apart when placed
+        // side by side, since they're otherwise visually identical.
+        Text = profile == 1 ? "AQW" : $"AQW — Profile {profile}";
+        if (profile == 1)
+        {
+            Width = 1024;
+            Height = 768;
+            WindowState = FormWindowState.Maximized;
+        }
+        else
+        {
+            // The whole point of running a second profile is watching both
+            // accounts fight at once — maximizing it would just stack it
+            // exactly on top of the first window. Snap each extra profile to
+            // the left/right half of the work area instead, alternating
+            // sides, so a second and third window are both immediately
+            // visible side by side with no manual resizing needed.
+            var area = Screen.PrimaryScreen!.WorkingArea;
+            int half = area.Width / 2;
+            bool rightSide = profile % 2 == 0;
+            StartPosition = FormStartPosition.Manual;
+            Bounds = new Rectangle(area.X + (rightSide ? half : 0), area.Y, half, area.Height);
+        }
 
         var toolbar = BuildFakeToolbar(startUrl);
 
@@ -41,7 +63,9 @@ public class BrowserForm : Form
         };
         // Intercepts the two fake game.aq.com paths and serves them from local
         // disk — see SkuaRequestHandler for why this is done at all.
-        _browser.RequestHandler = new SkuaRequestHandler(bootHtmlPath, bootSwfPath);
+        // gameEnginePath additionally intercepts the real game engine SWF
+        // (Game3097.swf) with a locally-patched copy, when supplied.
+        _browser.RequestHandler = new SkuaRequestHandler(bootHtmlPath, bootSwfPath, gameEnginePath);
         // Must register before the browser navigates/initializes. This is the
         // Flash -> host direction: embed.html's JS shims relay skua.swf's
         // ExternalInterface.call(name, ...) calls into SkuaHostBridge.
@@ -121,6 +145,19 @@ public class BrowserForm : Form
 
     // Purely cosmetic — makes the window read as "a browser tab" rather than a
     // bare kiosk window. Not wired to any real navigation.
+    // (Name, toolbar bg, button bg, button text, nav-arrow text, address-bar bg, address-bar text).
+    // Every control's colors are set explicitly per theme rather than left on
+    // Windows' default button chrome, which ignores BackColor and stays
+    // light-gray-with-black-text regardless — that mismatch is why text was
+    // unreadable against a dark toolbar before.
+    private static readonly (string Name, Color ToolbarBg, Color ButtonBg, Color ButtonFg, Color NavFg, Color AddressBg, Color AddressFg)[] Themes =
+    {
+        ("Light",     Color.FromArgb(240, 240, 240), Color.FromArgb(225, 225, 225), Color.Black,     Color.DimGray,               Color.White,                  Color.Black),
+        ("Dark",      Color.FromArgb(32, 32, 32),     Color.FromArgb(60, 60, 60),    Color.WhiteSmoke, Color.LightGray,            Color.FromArgb(50, 50, 50),   Color.WhiteSmoke),
+        ("Blue",      Color.FromArgb(25, 70, 130),    Color.FromArgb(35, 95, 165),   Color.White,      Color.FromArgb(220, 232, 250), Color.White,                Color.Black),
+        ("Dark Blue", Color.FromArgb(8, 18, 38),      Color.FromArgb(22, 42, 74),    Color.WhiteSmoke, Color.FromArgb(150, 180, 220), Color.FromArgb(18, 28, 48), Color.WhiteSmoke),
+    };
+
     private Panel BuildFakeToolbar(string url)
     {
         var toolbar = new Panel
@@ -212,13 +249,75 @@ public class BrowserForm : Form
             deathcamBtn.Text = on ? "📼 Deathcam: ON" : "📼 Deathcam: OFF";
         };
 
+        var animPatchBtn = new Button
+        {
+            Text = "🎬 Custom Anims: OFF",
+            AutoSize = false,
+            Width = 150,
+            Height = 26,
+            Font = new Font("Segoe UI", 8.5f, FontStyle.Bold),
+            Location = new Point(0, 7),
+            Anchor = AnchorStyles.Top | AnchorStyles.Right,
+        };
+        animPatchBtn.Click += (s, e) =>
+        {
+            SkuaRequestHandler.AnimationPatchEnabled = !SkuaRequestHandler.AnimationPatchEnabled;
+            animPatchBtn.Text = SkuaRequestHandler.AnimationPatchEnabled ? "🎬 Custom Anims: ON" : "🎬 Custom Anims: OFF";
+            // Flash only fetches Game3097.swf once per navigation, so the
+            // toggle needs a full reload to actually take effect.
+            _browser.Reload(ignoreCache: true);
+        };
+
+        var themeCombo = new ComboBox
+        {
+            DropDownStyle = ComboBoxStyle.DropDownList,
+            Width = 110,
+            Height = 26,
+            Font = new Font("Segoe UI", 8.5f, FontStyle.Bold),
+            Location = new Point(0, 7),
+            Anchor = AnchorStyles.Top | AnchorStyles.Right,
+        };
+        foreach (var t in Themes) themeCombo.Items.Add(t.Name);
+        themeCombo.SelectedIndex = 0;
+
+        var themedButtons = new[] { testSoloBtn, rejoinBtn, keybindsBtn, deathcamBtn, animPatchBtn };
+        foreach (var b in themedButtons)
+        {
+            // Windows' default button chrome ignores BackColor entirely — Flat
+            // is required for a custom color to actually show up and stay
+            // legible against a non-default toolbar background.
+            b.FlatStyle = FlatStyle.Flat;
+            b.FlatAppearance.BorderSize = 1;
+        }
+
+        void ApplyTheme(int index)
+        {
+            var t = Themes[index];
+            toolbar.BackColor = t.ToolbarBg;
+            nav.ForeColor = t.NavFg;
+            addressBar.BackColor = t.AddressBg;
+            addressBar.ForeColor = t.AddressFg;
+            themeCombo.BackColor = t.ButtonBg;
+            themeCombo.ForeColor = t.ButtonFg;
+            foreach (var b in themedButtons)
+            {
+                b.BackColor = t.ButtonBg;
+                b.ForeColor = t.ButtonFg;
+                b.FlatAppearance.BorderColor = t.NavFg;
+            }
+        }
+        themeCombo.SelectedIndexChanged += (s, e) => ApplyTheme(themeCombo.SelectedIndex);
+        ApplyTheme(0);
+
         toolbar.Resize += (s, e) =>
         {
-            addressBar.Width = Math.Max(0, toolbar.Width - addressBar.Left - testSoloBtn.Width - rejoinBtn.Width - keybindsBtn.Width - deathcamBtn.Width - 44);
+            addressBar.Width = Math.Max(0, toolbar.Width - addressBar.Left - testSoloBtn.Width - rejoinBtn.Width - keybindsBtn.Width - deathcamBtn.Width - animPatchBtn.Width - themeCombo.Width - 52);
             rejoinBtn.Left = toolbar.Width - rejoinBtn.Width - 8;
             testSoloBtn.Left = rejoinBtn.Left - testSoloBtn.Width - 8;
             keybindsBtn.Left = testSoloBtn.Left - keybindsBtn.Width - 8;
             deathcamBtn.Left = keybindsBtn.Left - deathcamBtn.Width - 8;
+            animPatchBtn.Left = deathcamBtn.Left - animPatchBtn.Width - 8;
+            themeCombo.Left = animPatchBtn.Left - themeCombo.Width - 8;
         };
 
         toolbar.Controls.Add(nav);
@@ -227,6 +326,8 @@ public class BrowserForm : Form
         toolbar.Controls.Add(rejoinBtn);
         toolbar.Controls.Add(keybindsBtn);
         toolbar.Controls.Add(deathcamBtn);
+        toolbar.Controls.Add(animPatchBtn);
+        toolbar.Controls.Add(themeCombo);
         return toolbar;
     }
 }

@@ -439,8 +439,64 @@ public class SkuaHostBridge
 
         if (selfEntry != null && selfEntry.intHP == 0 && pvpAttack)
         {
+            // The general "Damage taken" block below never sees this packet
+            // (it returns before reaching it, and is also gated on ctHp > 0,
+            // which a lethal hit fails by definition) — so the killing
+            // blow's damage was never counted. Sum it here instead, but
+            // unlike that general block, explicitly restrict to actions
+            // whose tInf actually targets US (same check the dodge-detection
+            // loop below already uses). That matters specifically here: this
+            // is the one packet where our own hit on the enemy (if this was
+            // a mutual/simultaneous exchange) could otherwise get summed in
+            // right alongside the hit that killed us.
+            try
+            {
+                if (data.sarsa != null)
+                {
+                    var myId = await GetMyUserIdAsync();
+                    string selfTarget = "p:" + myId;
+                    int lethalDmg = 0;
+                    foreach (var sv in data.sarsa)
+                    {
+                        if (sv == null) continue;
+                        string? svCInf = (string?)sv.cInf;
+                        if (svCInf?.StartsWith("p:") != true) continue;
+                        if (sv.a == null) continue;
+                        foreach (var act in sv.a)
+                        {
+                            if (act == null) continue;
+                            string? aType = (string?)act.type;
+                            string? tInf = (string?)act.tInf;
+                            if ((aType == "hit" || aType == "crit") && tInf == selfTarget)
+                            {
+                                int actHp = (int)(act.hp ?? 0);
+                                if (actHp > 0) lethalDmg += actHp;
+                            }
+                        }
+                    }
+                    if (lethalDmg > 0)
+                    {
+                        _damageTaken += lethalDmg;
+                        System.Console.WriteLine($"[skuaHost] +{lethalDmg} dmg taken (lethal hit, total {_damageTaken})");
+                    }
+                }
+            }
+            catch { }
+
             _deaths++;
             System.Console.WriteLine($"[skuaHost] +1 death (total {_deaths})");
+            if (_deaths >= 10)
+            {
+                // This is very likely the losing blow (1v1s end at 10). The
+                // winner's own client processes this exact same "ct" packet
+                // and fires its own synchronous matchEnd push immediately
+                // (see the _kills >= 10 branch below) — without a matching
+                // synchronous push here, our final death only reaches the
+                // server on the next 1s timer tick, which can easily land
+                // after the winner's matchEnd snapshot already fired,
+                // permanently recording one death short in match history.
+                _ = PushStatsAsync();
+            }
             return;
         }
 
@@ -499,6 +555,7 @@ public class SkuaHostBridge
                         // fresh match, not a continuation.
                         _lastBrawlRoom = "";
                         _ = PushStatsAsync(matchEnd: true);
+                        _ = JoinRoomAsync("battleon", username);
                     }
                     break;
                 }
@@ -621,6 +678,7 @@ public class SkuaHostBridge
             {
                 System.Console.WriteLine("[skuaHost] server reports match already ended (opponent won) — stopping stat tracking");
                 _inBrawl = false;
+                _ = JoinRoomAsync("battleon", username);
             }
         }
         catch (Exception e)

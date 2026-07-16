@@ -709,41 +709,61 @@ function renderLiveRows(players) {
     document.getElementById('leader-name').textContent = leader.username;
   }
 
+  // Split a room's players into two sides. Prefer the actual team field
+  // (pushed by the client from AQW's own pvpTeam, added alongside the 2v2
+  // queue work) so 2v2+ rooms group real teammates together instead of just
+  // grabbing the first 2 players — a room with 4 players used to silently
+  // drop the other 2 entirely. Falls back to alternating position only if
+  // team data isn't present yet (e.g. an older client, or right as a match
+  // starts before the team map has loaded).
+  const splitTeams = ps => {
+    const teamVals = [...new Set(ps.map(p => p.team))].filter(t => t === 0 || t === 1 || typeof t === 'number');
+    if (teamVals.length === 2) {
+      const sorted = teamVals.slice().sort((a, b) => a - b);
+      return [ps.filter(p => p.team === sorted[0]), ps.filter(p => p.team === sorted[1])];
+    }
+    return [ps.filter((_, i) => i % 2 === 0), ps.filter((_, i) => i % 2 === 1)];
+  };
+
   document.getElementById('live-rows').innerHTML = matchGroups.map(g => {
-    const [p1, p2] = g.players;
-    const col1 = COLORS[p1.username] || '#f97316';
-    const col2 = p2 ? (COLORS[p2.username] || '#ef4444') : '#555';
+    const [teamA, teamB] = splitTeams(g.players);
+    const col1 = COLORS[teamA[0]?.username] || '#f97316';
+    const col2 = COLORS[teamB[0]?.username] || '#ef4444';
     const expanded = expandedMatches.has(g.room);
 
-    const side = (p, col, alignRight) => p ? `
-      <div style="display:flex;align-items:center;gap:10px;${alignRight?'flex-direction:row-reverse;text-align:right':''}">
-        <div style="width:38px;height:38px;border-radius:8px;flex-shrink:0;background:${col}22;border:2px solid ${col};color:${col};
-          display:flex;align-items:center;justify-content:center;font-weight:800;font-size:0.95rem">${p.username[0]}</div>
+    const playerRow = (p, col, alignRight) => `
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;${alignRight?'flex-direction:row-reverse;text-align:right':''}">
+        <div style="width:32px;height:32px;border-radius:7px;flex-shrink:0;background:${col}22;border:2px solid ${col};color:${col};
+          display:flex;align-items:center;justify-content:center;font-weight:800;font-size:0.85rem">${p.username[0]}</div>
         <div>
-          <div style="font-weight:700;font-size:0.9rem;color:#fff">${p.username}${myUsername && p.username.toLowerCase()===myUsername?' <span style="color:var(--accent);font-size:0.62rem">★ YOU</span>':''}</div>
-          <div style="font-size:0.7rem;color:var(--muted)">${p.kills}K / ${p.deaths}D</div>
+          <div style="font-weight:700;font-size:0.85rem;color:#fff">${p.username}${myUsername && p.username.toLowerCase()===myUsername?' <span style="color:var(--accent);font-size:0.6rem">★ YOU</span>':''}</div>
+          <div style="font-size:0.65rem;color:var(--muted)">${p.kills}K / ${p.deaths}D</div>
         </div>
-      </div>` : `
-      <div style="display:flex;align-items:center;gap:10px;color:var(--muted);${alignRight?'flex-direction:row-reverse;text-align:right':''}">
-        <div style="width:38px;height:38px;border-radius:8px;border:2px dashed #444;flex-shrink:0"></div>
-        <div style="font-size:0.75rem">waiting for opponent...</div>
       </div>`;
 
+    const side = (team, col, alignRight) => team.length
+      ? team.map(p => playerRow(p, col, alignRight)).join('')
+      : `<div style="display:flex;align-items:center;gap:10px;color:var(--muted);${alignRight?'flex-direction:row-reverse;text-align:right':''}">
+          <div style="width:32px;height:32px;border-radius:7px;border:2px dashed #444;flex-shrink:0"></div>
+          <div style="font-size:0.75rem">waiting...</div>
+        </div>`;
+
+    const sum = (team, field) => team.reduce((acc, p) => acc + (p[field] ?? 0), 0);
     const compareRow = (label, v1, v2, isDmg) => {
       const fmtV = isDmg ? fmt : (x => x);
-      const p2Better = p2 && v2 > v1;
+      const bBetter = teamB.length && v2 > v1;
       return `<div style="display:grid;grid-template-columns:1fr 90px 1fr;align-items:center;gap:8px;padding:5px 0">
-        <div style="text-align:right;font-weight:800;font-size:0.9rem;color:${!p2Better && (v1>0||!p2)?'var(--accent)':'#fff'}">${fmtV(v1)}</div>
+        <div style="text-align:right;font-weight:800;font-size:0.9rem;color:${!bBetter && (v1>0||!teamB.length)?'var(--accent)':'#fff'}">${fmtV(v1)}</div>
         <div style="font-size:0.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;text-align:center">${label}</div>
-        <div style="text-align:left;font-weight:800;font-size:0.9rem;color:${p2Better?'var(--accent)':'#fff'}">${p2?fmtV(v2):'—'}</div>
+        <div style="text-align:left;font-weight:800;font-size:0.9rem;color:${bBetter?'var(--accent)':'#fff'}">${teamB.length?fmtV(v2):'—'}</div>
       </div>`;
     };
 
     return `<div style="background:var(--card);border-radius:8px;margin-bottom:8px;overflow:hidden">
       <div style="display:flex;align-items:center;gap:16px;padding:14px 16px">
-        <div style="flex:1">${side(p1, col1, false)}</div>
+        <div style="flex:1">${side(teamA, col1, false)}</div>
         <div style="font-weight:900;color:var(--muted);font-size:0.75rem;flex-shrink:0">VS</div>
-        <div style="flex:1">${side(p2, col2, true)}</div>
+        <div style="flex:1">${side(teamB, col2, true)}</div>
         <button onclick="toggleMatchStats('${g.room}')" style="background:${expanded?'var(--accent)':'var(--surface)'};
           color:${expanded?'#fff':'var(--text)'};border:1px solid var(--border);border-radius:6px;padding:8px 14px;
           font-size:0.66rem;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0">
@@ -751,11 +771,12 @@ function renderLiveRows(players) {
         </button>
       </div>
       ${expanded ? `<div style="padding:2px 16px 16px;border-top:1px solid var(--border)">
-        ${compareRow('Dmg Dealt', p1.dmgDealt??0, p2?p2.dmgDealt??0:0, true)}
-        ${compareRow('Dmg Taken', p1.dmgTaken??0, p2?p2.dmgTaken??0:0, true)}
-        ${compareRow('Crits', p1.crits??0, p2?p2.crits??0:0, false)}
-        ${compareRow('Dodges', p1.dodges??0, p2?p2.dodges??0:0, false)}
-        ${compareRow('KDA', parseFloat(kda(p1)), p2?parseFloat(kda(p2)):0, false)}
+        ${g.players.length > 2 ? `<div style="text-align:center;font-size:0.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Team Totals</div>` : ''}
+        ${compareRow('Dmg Dealt', sum(teamA,'dmgDealt'), sum(teamB,'dmgDealt'), true)}
+        ${compareRow('Dmg Taken', sum(teamA,'dmgTaken'), sum(teamB,'dmgTaken'), true)}
+        ${compareRow('Crits', sum(teamA,'crits'), sum(teamB,'crits'), false)}
+        ${compareRow('Dodges', sum(teamA,'dodges'), sum(teamB,'dodges'), false)}
+        ${compareRow('Kills', sum(teamA,'kills'), sum(teamB,'kills'), false)}
       </div>` : ''}
     </div>`;
   }).join('');

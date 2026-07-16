@@ -790,6 +790,11 @@ public class SkuaHostBridge
         {
             var username = await GetUsernameAsync();
             if (string.IsNullOrEmpty(username)) return;
+            // AQW's own pvpTeam (0/1) — same value TeamMap()/_teamMap already
+            // use for kill-counting. Never previously sent to the server at
+            // all, so the live-stats page had no way to tell teammates from
+            // opponents in a room with more than 2 players (2v2+).
+            int? team = _teamMap.TryGetValue(username.ToLowerInvariant(), out var t) ? t : null;
             var payload = JsonSerializer.Serialize(new
             {
                 username,
@@ -800,6 +805,7 @@ public class SkuaHostBridge
                 crits = _crits,
                 dodges = _dodges,
                 map = _currentMap,
+                team,
                 matchEnd,
                 isSelf = true
             });

@@ -549,15 +549,31 @@ main { flex:1; padding:28px 32px; overflow-y:auto; }
 </main>
 
 <!-- Match detail modal (opened from History) — outside .page containers
-     since those are display:none when inactive, which would hide this too -->
+     since those are display:none when inactive, which would hide this too.
+     Fully independent from the live match modal below (own IDs, own
+     functions) — they used to share one implementation, which meant any
+     live-match-only change also silently changed this one. Never again. -->
 <div id="match-modal-backdrop" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:999" onclick="closeMatchDetail()">
-  <div id="mm-modal-box" style="max-width:820px;margin:50px auto;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;max-height:85vh;overflow-y:auto;transition:border-color 0.15s,box-shadow 0.15s" onclick="event.stopPropagation()">
+  <div style="max-width:680px;margin:50px auto;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;max-height:85vh;overflow-y:auto" onclick="event.stopPropagation()">
     <div style="display:flex;justify-content:flex-end">
       <button onclick="closeMatchDetail()" style="background:none;border:none;color:var(--muted);font-size:1.3rem;cursor:pointer;line-height:1">&times;</button>
     </div>
     <div id="mm-hero"></div>
     <div style="border-top:1px solid var(--border);margin:4px 0 16px"></div>
     <div id="mm-players"></div>
+  </div>
+</div>
+
+<!-- Live match detail modal (opened from Live Match overview) — separate
+     markup/IDs/functions from the history one above on purpose. -->
+<div id="live-modal-backdrop" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:999" onclick="closeLiveMatchDetail()">
+  <div style="max-width:820px;margin:50px auto;background:var(--surface);border:1px solid var(--red);border-radius:12px;padding:24px;max-height:85vh;overflow-y:auto;box-shadow:0 0 0 1px var(--red),0 8px 32px rgba(239,68,68,0.25)" onclick="event.stopPropagation()">
+    <div style="display:flex;justify-content:flex-end">
+      <button onclick="closeLiveMatchDetail()" style="background:none;border:none;color:var(--muted);font-size:1.3rem;cursor:pointer;line-height:1">&times;</button>
+    </div>
+    <div id="lmm-hero"></div>
+    <div style="border-top:1px solid var(--border);margin:4px 0 16px"></div>
+    <div id="lmm-players"></div>
   </div>
 </div>
 
@@ -997,43 +1013,16 @@ function spawnSparkles(container) {
 async function openMatchDetail(id) {
   const m = lastHistoryMatches.find(x => String(x.id) === String(id));
   if (!m) return;
-  await renderMatchDetailModal(m, { isLive: false });
-}
 
-// Wired to a Live Match overview row — shows the same detail modal history
-// uses, fed from the live players{} snapshot for that room instead of a
-// finished match record. A one-time snapshot at click time, not a
-// continuously-refreshing view — good enough to "pick the match to see",
-// and avoids re-fetching/re-rendering the avatar Ruffle instances on every
-// 1s poll tick while it's open (which would flicker).
-async function openLiveMatchDetail(room) {
-  const roomPlayers = liveData.filter(p => (p.map || 'unknown') === room);
-  if (!roomPlayers.length) return;
-  await renderMatchDetailModal({ map: room, players: roomPlayers }, { isLive: true });
-}
-
-// Shared by both the history and live detail views — takes anything shaped
-// like { map, players }. isLive controls the visual treatment (accent
-// border/glow + a LIVE badge) so the two are distinguishable at a glance
-// even though they're the same layout underneath.
-async function renderMatchDetailModal(m, { isLive = false } = {}) {
   const [teamA, teamB] = splitTeams(m.players);
   const kA = teamA.reduce((s, p) => s + (p.kills ?? 0), 0);
   const kB = teamB.reduce((s, p) => s + (p.kills ?? 0), 0);
   const namesA = teamA.map(p => p.username).join(' & ') || '???';
   const namesB = teamB.length ? teamB.map(p => p.username).join(' & ') : '???';
-  // Sorted within each team (not globally) so the two columns below line up
-  // by team instead of interleaving by kill count.
-  const teamASorted = [...teamA].sort((a,b) => b.kills - a.kills);
-  const teamBSorted = [...teamB].sort((a,b) => b.kills - a.kills);
-  const orderedPlayers = [...teamASorted, ...teamBSorted];
-  const winner = [...m.players].sort((a,b) => b.kills - a.kills)[0];
+  const sorted = [...m.players].sort((a,b) => b.kills - a.kills);
+  const winner = sorted[0];
   const mapName = (m.map || 'bludrutbrawl').replace(/^bludrutbrawl-?\d*/i, 'GunliveTest');
   const p1IsWinner = !teamB.length || kA >= kB;
-
-  const modalBox = document.getElementById('mm-modal-box');
-  modalBox.style.borderColor = isLive ? 'var(--red)' : 'var(--border)';
-  modalBox.style.boxShadow   = isLive ? '0 0 0 1px var(--red), 0 8px 32px rgba(239,68,68,0.25)' : 'none';
 
   // The hero row shows usernames directly (no avatar render here — real
   // character renders, via Ruffle + the CharPage proxy, only show up below
@@ -1043,24 +1032,18 @@ async function renderMatchDetailModal(m, { isLive = false } = {}) {
   // full card (with their own avatar) further down.
   document.getElementById('mm-hero').innerHTML = `
     <div style="text-align:center;padding:4px 0 20px">
-      ${isLive ? `
-        <div style="display:inline-flex;align-items:center;gap:6px;background:#ef444422;border:1px solid var(--red);
-          border-radius:20px;padding:4px 14px;font-size:0.68rem;font-weight:800;color:var(--red);letter-spacing:1px;margin-bottom:10px">
-          <span style="width:7px;height:7px;border-radius:50%;background:var(--red);display:inline-block;animation:pulse-live 1.4s ease-in-out infinite"></span>
-          LIVE — IN PROGRESS
-        </div><br>` : ''}
-      <div style="font-family:Georgia,serif;font-style:italic;color:var(--gold);font-size:1.3rem;font-weight:700">${isLive ? 'Live Match' : 'PvP Game Results'}</div>
+      <div style="font-family:Georgia,serif;font-style:italic;color:var(--gold);font-size:1.3rem;font-weight:700">PvP Game Results</div>
       <div style="font-family:Georgia,serif;font-style:italic;color:var(--gold);font-size:0.85rem;margin-top:2px">Hosted in ${mapName}</div>
       <div style="display:flex;align-items:center;justify-content:center;gap:40px;margin-top:22px">
-        <div id="mm-av1" class="avatar-fx" style="font-weight:800;font-size:1rem;color:#3b82f6;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${namesA}</div>
+        <div id="mm-av1" class="avatar-fx" style="font-weight:800;font-size:1rem;color:#3b82f6;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${namesA}</div>
         <div style="text-align:center">
-          <div style="font-size:0.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px">${isLive ? 'Score So Far' : 'Score'}</div>
+          <div style="font-size:0.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px">Score</div>
           <div style="font-size:1.7rem;font-weight:900;margin-top:2px">
             <span style="color:#3b82f6">${kA}</span> - <span style="color:#ef4444">${kB}</span>
           </div>
-          ${!isLive ? `<div style="font-size:0.65rem;color:var(--gold);margin-top:6px;letter-spacing:0.5px">&#9656; VIEW GAME</div>` : ''}
+          <div style="font-size:0.65rem;color:var(--gold);margin-top:6px;letter-spacing:0.5px">&#9656; VIEW GAME</div>
         </div>
-        <div id="mm-av2" class="avatar-fx" style="font-weight:800;font-size:1rem;color:#ef4444;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${namesB}</div>
+        <div id="mm-av2" class="avatar-fx" style="font-weight:800;font-size:1rem;color:#ef4444;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${namesB}</div>
       </div>
     </div>`;
 
@@ -1072,14 +1055,102 @@ async function renderMatchDetailModal(m, { isLive = false } = {}) {
       <span class="pval">${val}</span>
     </div>`;
 
-  const pstatCard = p => {
-    const i = orderedPlayers.indexOf(p);
-    return `
+  document.getElementById('mm-players').innerHTML = sorted.map((p, i) => `
     <div class="pstat-card">
       <div id="mm-pstat-av-${i}" style="flex-shrink:0"></div>
       <div style="flex:1">
         <div style="text-align:center">
-          ${!isLive && p===winner ? '<div class="pstat-crown">👑</div>' : ''}
+          ${p===winner ? '<div class="pstat-crown">👑</div>' : ''}
+          <div class="pstat-name">${p.username}</div>
+        </div>
+        <div class="pstat-cols">
+          ${pstatRow('Kills', 'Number of enemy players you defeated.', p.kills)}
+          ${pstatRow('Dodges', 'Amount of attacks that missed on the player.', p.dodges??0)}
+          ${pstatRow('Deaths', 'Number of times you were defeated.', p.deaths)}
+          ${pstatRow('Crits', 'Number of critical hits landed.', p.crits??0)}
+        </div>
+        <div class="pstat-divider"></div>
+        <div class="pstat-cols">
+          ${pstatRow('Damage to players', 'Total damage dealt to enemy players.', fmt(p.dmgDealt))}
+          ${pstatRow('Damage Taken', 'Total damage received from enemy players.', fmt(p.dmgTaken))}
+        </div>
+      </div>
+    </div>`).join('');
+
+  document.getElementById('match-modal-backdrop').style.display = '';
+
+  // Timed to land just as the slide-in entrance finishes.
+  setTimeout(() => spawnSparkles(document.getElementById(p1IsWinner ? 'mm-av1' : 'mm-av2')), 400);
+
+  // Rendered once each, into the per-player stat cards below — the hero row
+  // above keeps its plain team-name text rather than also rendering live
+  // Ruffle instances there, which would double the render-loop cost for no
+  // visual benefit. Fetches for every player in the match, not just 2 —
+  // previously only p1/p2 ever got a real avatar, leaving every other
+  // player's card stuck on the blank silhouette in anything bigger than 1v1.
+  const avatarData = await Promise.all(sorted.map(p => fetchAvatar(p.username)));
+  sorted.forEach((p, i) => {
+    if (avatarData[i]) renderAvatar(`mm-pstat-av-${i}`, avatarData[i]);
+  });
+}
+
+// Wired to a Live Match overview row. Entirely separate implementation from
+// openMatchDetail above (own modal, own element IDs, own function) —
+// deliberately not sharing code, so a live-match-only change can never leak
+// into the history detail view again. A one-time snapshot at click time,
+// not continuously refreshing — good enough to "pick the match to see",
+// and avoids re-rendering the avatar Ruffle instances on every 1s poll tick
+// while it's open (which would flicker).
+async function openLiveMatchDetail(room) {
+  const roomPlayers = liveData.filter(p => (p.map || 'unknown') === room);
+  if (!roomPlayers.length) return;
+
+  const [teamA, teamB] = splitTeams(roomPlayers);
+  const kA = teamA.reduce((s, p) => s + (p.kills ?? 0), 0);
+  const kB = teamB.reduce((s, p) => s + (p.kills ?? 0), 0);
+  const namesA = teamA.map(p => p.username).join(' & ') || '???';
+  const namesB = teamB.length ? teamB.map(p => p.username).join(' & ') : '???';
+  // Sorted within each team (not globally) so the two columns below line up
+  // by team instead of interleaving by kill count.
+  const teamASorted = [...teamA].sort((a,b) => b.kills - a.kills);
+  const teamBSorted = [...teamB].sort((a,b) => b.kills - a.kills);
+  const orderedPlayers = [...teamASorted, ...teamBSorted];
+  const mapName = (room || 'bludrutbrawl').replace(/^bludrutbrawl-?\d*/i, 'GunliveTest');
+
+  document.getElementById('lmm-hero').innerHTML = `
+    <div style="text-align:center;padding:4px 0 20px">
+      <div style="display:inline-flex;align-items:center;gap:6px;background:#ef444422;border:1px solid var(--red);
+        border-radius:20px;padding:4px 14px;font-size:0.68rem;font-weight:800;color:var(--red);letter-spacing:1px;margin-bottom:10px">
+        <span style="width:7px;height:7px;border-radius:50%;background:var(--red);display:inline-block;animation:pulse-live 1.4s ease-in-out infinite"></span>
+        LIVE — IN PROGRESS
+      </div><br>
+      <div style="font-family:Georgia,serif;font-style:italic;color:var(--gold);font-size:1.3rem;font-weight:700">Live Match</div>
+      <div style="font-family:Georgia,serif;font-style:italic;color:var(--gold);font-size:0.85rem;margin-top:2px">Hosted in ${mapName}</div>
+      <div style="display:flex;align-items:center;justify-content:center;gap:40px;margin-top:22px">
+        <div style="font-weight:800;font-size:1rem;color:#3b82f6;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${namesA}</div>
+        <div style="text-align:center">
+          <div style="font-size:0.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px">Score So Far</div>
+          <div style="font-size:1.7rem;font-weight:900;margin-top:2px">
+            <span style="color:#3b82f6">${kA}</span> - <span style="color:#ef4444">${kB}</span>
+          </div>
+        </div>
+        <div style="font-weight:800;font-size:1rem;color:#ef4444;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${namesB}</div>
+      </div>
+    </div>`;
+
+  const pstatRow = (label, tip, val) => `
+    <div class="pstat-row">
+      <span class="plabel" data-tip="${tip}">${label}</span>
+      <span class="pval">${val}</span>
+    </div>`;
+
+  const pstatCard = p => {
+    const i = orderedPlayers.indexOf(p);
+    return `
+    <div class="pstat-card">
+      <div id="lmm-pstat-av-${i}" style="flex-shrink:0"></div>
+      <div style="flex:1">
+        <div style="text-align:center">
           <div class="pstat-name">${p.username}</div>
         </div>
         <div class="pstat-cols">
@@ -1097,10 +1168,7 @@ async function renderMatchDetailModal(m, { isLive = false } = {}) {
     </div>`;
   };
 
-  // Two columns, one per team, instead of one flat list sorted by kills —
-  // previously a 2v2+ match just interleaved all 4+ players by kill count
-  // with no indication of who was actually on whose side.
-  document.getElementById('mm-players').innerHTML = `
+  document.getElementById('lmm-players').innerHTML = `
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
       <div>
         <div style="text-align:center;font-size:0.68rem;font-weight:800;color:#3b82f6;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">Team A</div>
@@ -1112,21 +1180,17 @@ async function renderMatchDetailModal(m, { isLive = false } = {}) {
       </div>
     </div>`;
 
-  document.getElementById('match-modal-backdrop').style.display = '';
+  document.getElementById('live-modal-backdrop').style.display = '';
 
-  // Timed to land just as the slide-in entrance finishes.
-  setTimeout(() => spawnSparkles(document.getElementById(p1IsWinner ? 'mm-av1' : 'mm-av2')), 400);
-
-  // Rendered once each, into the per-player stat cards below — the hero row
-  // above keeps its plain team-name text rather than also rendering live
-  // Ruffle instances there, which would double the render-loop cost for no
-  // visual benefit. Fetches for every player in the match, not just 2 —
-  // previously only p1/p2 ever got a real avatar, leaving every other
-  // player's card stuck on the blank silhouette in anything bigger than 1v1.
   const avatarData = await Promise.all(orderedPlayers.map(p => fetchAvatar(p.username)));
   orderedPlayers.forEach((p, i) => {
-    if (avatarData[i]) renderAvatar(`mm-pstat-av-${i}`, avatarData[i]);
+    if (avatarData[i]) renderAvatar(`lmm-pstat-av-${i}`, avatarData[i]);
   });
+}
+
+function closeLiveMatchDetail() {
+  document.getElementById('live-modal-backdrop').style.display = 'none';
+  Object.keys(activeAvatarLoops).forEach(id => activeAvatarLoops[id]?.stop());
 }
 
 function closeMatchDetail() {

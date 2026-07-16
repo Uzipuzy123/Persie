@@ -18,7 +18,7 @@
 //   node simulate-teams.js 2   -> 2v2,  win at 20 team kills
 //   node simulate-teams.js 3   -> 3v3,  win at 30 team kills
 //   node simulate-teams.js 4   -> 4v4,  win at 40 team kills (repeats names, only 6 available)
-const REAL_NAMES = ['gunlive', 'nik0', 'tease', 'zayt', 'uzair', 'chaffo'];
+const REAL_NAMES = ['goonilve', 'nik0', 'tease', 'zayt', 'uzair', 'chaffo'];
 
 const teamSize = Math.max(1, parseInt(process.argv[2], 10) || 1);
 const server   = process.argv[3] || 'https://gunlive.up.railway.app';

@@ -1225,6 +1225,13 @@ function showVictory(winner, players) {
   document.getElementById('vb-sub').textContent   = `${winner.username} reached 10 kills`;
   document.getElementById('vb-sub').style.color   = 'var(--muted)';
 
+  // Stats breakdown only on a win — a defeat is just "DEFEAT", no numbers.
+  if (!isMe) {
+    document.getElementById('vb-stats').innerHTML = '';
+    showToast(`💀 ${winner.username} wins!`);
+    return;
+  }
+
   const myStats = players.find(p => p.username.toLowerCase() === myName.toLowerCase()) || winner;
   document.getElementById('vb-stats').innerHTML = [
     ['Kills',    myStats.kills],
@@ -1237,7 +1244,7 @@ function showVictory(winner, players) {
       <div style="font-size:0.65rem;color:var(--muted);text-transform:uppercase;margin-top:3px">${l}</div>
     </div>`).join('');
 
-  showToast(isMe ? '🏆 You won! GG!' : `💀 ${winner.username} wins!`);
+  showToast('🏆 You won! GG!');
 }
 
 // Reset victory banner when a new match starts

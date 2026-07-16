@@ -554,7 +554,7 @@ main { flex:1; padding:28px 32px; overflow-y:auto; }
      functions) — they used to share one implementation, which meant any
      live-match-only change also silently changed this one. Never again. -->
 <div id="match-modal-backdrop" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:999" onclick="closeMatchDetail()">
-  <div style="max-width:680px;margin:50px auto;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;max-height:85vh;overflow-y:auto" onclick="event.stopPropagation()">
+  <div style="max-width:900px;margin:30px auto;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;max-height:92vh;overflow-y:auto" onclick="event.stopPropagation()">
     <div style="display:flex;justify-content:flex-end">
       <button onclick="closeMatchDetail()" style="background:none;border:none;color:var(--muted);font-size:1.3rem;cursor:pointer;line-height:1">&times;</button>
     </div>
@@ -567,7 +567,7 @@ main { flex:1; padding:28px 32px; overflow-y:auto; }
 <!-- Live match detail modal (opened from Live Match overview) — separate
      markup/IDs/functions from the history one above on purpose. -->
 <div id="live-modal-backdrop" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:999" onclick="closeLiveMatchDetail()">
-  <div style="max-width:820px;margin:50px auto;background:var(--surface);border:1px solid var(--red);border-radius:12px;padding:24px;max-height:85vh;overflow-y:auto;box-shadow:0 0 0 1px var(--red),0 8px 32px rgba(239,68,68,0.25)" onclick="event.stopPropagation()">
+  <div style="max-width:900px;margin:30px auto;background:var(--surface);border:1px solid var(--red);border-radius:12px;padding:24px;max-height:92vh;overflow-y:auto;box-shadow:0 0 0 1px var(--red),0 8px 32px rgba(239,68,68,0.25)" onclick="event.stopPropagation()">
     <div style="display:flex;justify-content:flex-end">
       <button onclick="closeLiveMatchDetail()" style="background:none;border:none;color:var(--muted);font-size:1.3rem;cursor:pointer;line-height:1">&times;</button>
     </div>
@@ -1023,6 +1023,11 @@ async function openMatchDetail(id) {
   const winner = sorted[0];
   const mapName = (m.map || 'bludrutbrawl').replace(/^bludrutbrawl-?\d*/i, 'GunliveTest');
   const p1IsWinner = !teamB.length || kA >= kB;
+  // Sorted within each team (not globally) so the two columns below line up
+  // by team instead of interleaving by kill count.
+  const teamASorted = [...teamA].sort((a,b) => b.kills - a.kills);
+  const teamBSorted = [...teamB].sort((a,b) => b.kills - a.kills);
+  const orderedPlayers = [...teamASorted, ...teamBSorted];
 
   // The hero row shows usernames directly (no avatar render here — real
   // character renders, via Ruffle + the CharPage proxy, only show up below
@@ -1055,7 +1060,9 @@ async function openMatchDetail(id) {
       <span class="pval">${val}</span>
     </div>`;
 
-  document.getElementById('mm-players').innerHTML = sorted.map((p, i) => `
+  const pstatCard = p => {
+    const i = orderedPlayers.indexOf(p);
+    return `
     <div class="pstat-card">
       <div id="mm-pstat-av-${i}" style="flex-shrink:0"></div>
       <div style="flex:1">
@@ -1075,7 +1082,23 @@ async function openMatchDetail(id) {
           ${pstatRow('Damage Taken', 'Total damage received from enemy players.', fmt(p.dmgTaken))}
         </div>
       </div>
-    </div>`).join('');
+    </div>`;
+  };
+
+  // Two columns, one per team, instead of one flat list sorted by kills —
+  // a 2v2+ match previously interleaved all 4+ players with no indication
+  // of who was actually on whose side.
+  document.getElementById('mm-players').innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div>
+        <div style="text-align:center;font-size:0.68rem;font-weight:800;color:#3b82f6;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">Team A</div>
+        ${teamASorted.map(pstatCard).join('')}
+      </div>
+      <div>
+        <div style="text-align:center;font-size:0.68rem;font-weight:800;color:#ef4444;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">Team B</div>
+        ${teamBSorted.length ? teamBSorted.map(pstatCard).join('') : `<div style="text-align:center;color:var(--muted);font-size:0.85rem;padding:12px 0">—</div>`}
+      </div>
+    </div>`;
 
   document.getElementById('match-modal-backdrop').style.display = '';
 
@@ -1088,8 +1111,8 @@ async function openMatchDetail(id) {
   // visual benefit. Fetches for every player in the match, not just 2 —
   // previously only p1/p2 ever got a real avatar, leaving every other
   // player's card stuck on the blank silhouette in anything bigger than 1v1.
-  const avatarData = await Promise.all(sorted.map(p => fetchAvatar(p.username)));
-  sorted.forEach((p, i) => {
+  const avatarData = await Promise.all(orderedPlayers.map(p => fetchAvatar(p.username)));
+  orderedPlayers.forEach((p, i) => {
     if (avatarData[i]) renderAvatar(`mm-pstat-av-${i}`, avatarData[i]);
   });
 }

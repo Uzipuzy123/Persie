@@ -215,9 +215,10 @@ public class BrowserForm : Form
             Location = new Point(0, 7),
             Anchor = AnchorStyles.Top | AnchorStyles.Right,
         };
-        // Team is purely queue-order-based (1st&3rd = team A, 2nd&4th =
-        // team B — see Queue2v2's own comment) — to team up two specific
-        // windows, click this button on them 1st and 3rd (or 2nd and 4th).
+        // Team assignment is randomized server-side once 4 players queue —
+        // console will show which team/teammate/opponents each window got
+        // (see Queue2v2's own comment for how that maps onto AQW's actual
+        // join-order-based team assignment).
         queue2v2Btn.Click += (s, e) => _hostBridge?.Queue2v2();
 
         var rejoinBtn = new Button

@@ -314,11 +314,12 @@ public class SkuaHostBridge
     // Wired to the "Queue 2v2" toolbar button. Team assignment in
     // bludrutbrawl is decided entirely by AQW's own server based on the
     // order players physically join the room (1st=A, 2nd=B, 3rd=A, 4th=B —
-    // confirmed empirically, no way to control it otherwise), so queuing
-    // order directly determines pairing: to team up with a specific ally
-    // across your windows, queue 1st-and-3rd (or 2nd-and-4th). The server
-    // schedules each player's actual room-join (see HandleMatched2v2Async)
-    // to land in that same order rather than racing.
+    // confirmed empirically, no way to control it otherwise). The server
+    // randomizes who's on which team the moment 4 players are queued
+    // (independent of click order — real matchmaking can't rely on
+    // strangers coordinating that), then schedules each player's actual
+    // room-join (see HandleMatched2v2Async) to land in the join-order
+    // sequence that produces its random result, instead of racing.
     public async void Queue2v2()
     {
         try

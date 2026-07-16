@@ -533,16 +533,14 @@ main { flex:1; padding:28px 32px; overflow-y:auto; }
         </div>
       </div>
 
-      <!-- Team-order explainer — AQW assigns teams purely by the order
-           players physically join the room (1st=A, 2nd=B, 3rd=A, 4th=B),
-           so queue order IS team assignment. Has to be spelled out since
-           it's not obvious from a normal "queue" button. -->
+      <!-- Explainer — just sets expectations that this is a real random
+           matchmaking queue (not something to coordinate click-order
+           around); the server randomizes teams once 4 players are in,
+           independent of who happened to queue first. -->
       <div class="box" style="margin-bottom:16px;border-color:var(--accent)">
         <div class="box-body" style="padding:14px 18px;font-size:0.78rem;color:var(--muted);line-height:1.5">
-          <b style="color:var(--accent)">Team order matters:</b> teams are assigned by queue order —
-          the <b style="color:#fff">1st and 3rd</b> players to click Queue become one team, the
-          <b style="color:#fff">2nd and 4th</b> become the other. Coordinate with your teammate on
-          when to click.
+          <b style="color:var(--accent)">Random teams:</b> once 4 players are queued, teams are
+          shuffled automatically — you'll see your team and teammate below the moment it's decided.
         </div>
       </div>
 

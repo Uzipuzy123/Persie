@@ -51,12 +51,13 @@ const activeRooms    = {};  // { username: { room, opponent } } — persists for
 // Team assignment in bludrutbrawl is decided by AQW's own live server based
 // purely on the order players physically join the room — 1st joiner = team
 // A, 2nd = team B, 3rd = A, 4th = B (confirmed empirically; there's no
-// client-side or server-side-of-ours control over it otherwise). So the
-// only way to land a specific 2v2 pairing is to control the ACTUAL join
-// order to match: queue position 1&3 become team A, 2&4 become team B, and
-// each client is told an absolute joinAtMs to wait until before sending its
+// client-side or server-side-of-ours control over it otherwise). Real
+// players in a queue can't coordinate click order with strangers, so once
+// 4 are queued they're randomly shuffled into two teams first — THEN that
+// random pairing is mapped onto the join-order pattern that produces it:
+// each client gets an absolute joinAtMs to wait until before sending its
 // own room-join packet, staggered JOIN_STEP_MS apart, so the real in-game
-// join order matches the intended pairing instead of racing.
+// join order lands the random result instead of racing.
 const queue2v2         = [];  // usernames waiting for a 2v2
 const queue2v2JoinedAt = {};
 const pending2v2Matches = {}; // { username: { room, team, teammates, opponents, joinAtMs } }
@@ -318,12 +319,21 @@ app.post('/queue2v2', (req, res) => {
 
     if (!queue2v2.includes(username)) { queue2v2.push(username); queue2v2JoinedAt[username] = Date.now(); }
 
-    // Four players ready — form two teams by strict queue order (1st&3rd =
-    // team A, 2nd&4th = team B), matching AQW's own join-order-based team
-    // assignment. Whoever queues in what order IS the intended pairing —
-    // e.g. to team up two friends, queue them 1st and 3rd.
+    // Four players ready — randomly shuffle them into two teams, THEN map
+    // that random pairing onto AQW's join-order-based team assignment
+    // (1st&3rd physical joiner = team A, 2nd&4th = team B). Real players in
+    // a queue can't coordinate click order with strangers, so team
+    // assignment can't depend on it — shuffling first and scheduling each
+    // player's actual room-join (joinAtMs) to match the random result
+    // keeps the "physical join order controls team" trick working while
+    // making who's on which team fair/random instead of queue-order-rigged.
     if (queue2v2.length >= 4) {
-        const [p1, p2, p3, p4] = queue2v2.splice(0, 4);
+        const four = queue2v2.splice(0, 4);
+        for (let i = four.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [four[i], four[j]] = [four[j], four[i]];
+        }
+        const [p1, p2, p3, p4] = four;
         [p1, p2, p3, p4].forEach(u => delete queue2v2JoinedAt[u]);
         const room = 'bludrutbrawl-' + (Math.floor(Math.random() * 9000) + 1000);
         const createdAt = Date.now();

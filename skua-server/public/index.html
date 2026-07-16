@@ -1219,32 +1219,15 @@ function showVictory(winner, players) {
   banner.style.background = isMe ? '#10b98122' : '#ef444422';
   banner.style.border     = isMe ? '1px solid var(--green)' : '1px solid var(--red)';
 
+  // Just the icon + result, nothing else — no subtitle, no stats breakdown,
+  // on either a win or a loss.
   document.getElementById('vb-icon').textContent  = isMe ? '🏆' : '💀';
   document.getElementById('vb-title').textContent = isMe ? 'VICTORY!' : 'DEFEAT';
   document.getElementById('vb-title').style.color = isMe ? 'var(--green)' : 'var(--red)';
-  document.getElementById('vb-sub').textContent   = `${winner.username} reached 10 kills`;
-  document.getElementById('vb-sub').style.color   = 'var(--muted)';
+  document.getElementById('vb-sub').textContent   = '';
+  document.getElementById('vb-stats').innerHTML   = '';
 
-  // Stats breakdown only on a win — a defeat is just "DEFEAT", no numbers.
-  if (!isMe) {
-    document.getElementById('vb-stats').innerHTML = '';
-    showToast(`💀 ${winner.username} wins!`);
-    return;
-  }
-
-  const myStats = players.find(p => p.username.toLowerCase() === myName.toLowerCase()) || winner;
-  document.getElementById('vb-stats').innerHTML = [
-    ['Kills',    myStats.kills],
-    ['Deaths',   myStats.deaths],
-    ['Dmg Dealt',fmt(myStats.dmgDealt)],
-    ['Dmg Taken',fmt(myStats.dmgTaken)],
-  ].map(([l,v]) => `
-    <div style="text-align:center">
-      <div style="font-size:1.3rem;font-weight:800;color:#fff">${v}</div>
-      <div style="font-size:0.65rem;color:var(--muted);text-transform:uppercase;margin-top:3px">${l}</div>
-    </div>`).join('');
-
-  showToast('🏆 You won! GG!');
+  showToast(isMe ? '🏆 You won! GG!' : `💀 ${winner.username} wins!`);
 }
 
 // Reset victory banner when a new match starts

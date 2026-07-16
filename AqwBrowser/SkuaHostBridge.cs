@@ -529,11 +529,12 @@ public class SkuaHostBridge
     // sarsa[].a[] entries, gated on cInf/tInf player-vs-monster prefixes.
     private async Task HandleCt(dynamic data)
     {
-        // Stop counting entirely once the match is over (10 kills reached,
-        // or you've left the brawl map) — otherwise combat packets arriving
-        // in the moment right after the winning kill (or a stray kill on a
-        // respawned bot while still standing in the room) keep incrementing
-        // _kills past 10 internally, even though nothing gets pushed anymore.
+        // Stop counting entirely once the match is over (server told us via
+        // PushStatsAsync's matchEnded response, or we left the brawl map) —
+        // otherwise combat packets arriving right after the match actually
+        // ends (or a stray kill on a respawned bot while still standing in
+        // the room) keep incrementing our own counters even though nothing
+        // gets pushed anymore.
         if (!_inBrawl) return;
 
         var username = await GetUsernameAsync();
@@ -556,34 +557,17 @@ public class SkuaHostBridge
 
         if (selfEntry != null && selfEntry.intHP == 0 && pvpAttack)
         {
-            // Deaths (and the synchronous match-end push below) come FIRST
-            // and stay await-free — this is racing the winner's own
-            // synchronous matchEnd push against the server's snapshot
-            // window, and every extra await here (even a normally-cheap
-            // one) narrows that window further. An earlier version resolved
-            // GetMyUserIdAsync() at this point and measurably lost more of
-            // that race than before.
+            // Push immediately on every death, no threshold check — win
+            // detection is server-side now (team kill totals vs. team-size
+            // * 10, scales for 2v2/3v3/etc., see server.js), so this client
+            // has no way to know when the match is actually over on its
+            // own. What it CAN do is make sure this exact death lands with
+            // minimal delay, since it's the one piece of data only this
+            // client has — staying await-free here (no GetMyUserIdAsync
+            // etc. before this push) is what keeps that delay minimal.
             _deaths++;
             System.Console.WriteLine($"[skuaHost] +1 death (total {_deaths})");
-            if (_deaths >= 10)
-            {
-                // We know locally the match is over (10 deaths = lost a
-                // 1v1) — same self-sufficient pattern as the winner's kill
-                // branch below, rather than waiting on a round-trip
-                // "matchEnded" response from the server to learn this.
-                // Marked matchEnd:true (not just a plain push) so the
-                // server writes our final stats through the same
-                // authoritative path the winner's push uses — a plain
-                // background push was still racing the winner's snapshot
-                // and losing often enough to matter (see server.js, which
-                // now de-dupes two matchEnd requests for the same room
-                // instead of only trusting whichever happened to arrive
-                // first).
-                _inBrawl = false;
-                _lastBrawlRoom = "";
-                _ = PushStatsAsync(matchEnd: true);
-                _ = JoinRoomAsync("battleon", username);
-            }
+            _ = PushStatsAsync();
 
             // The general "Damage taken" block below never sees this packet
             // (it returns before reaching it, and is also gated on ctHp > 0,
@@ -699,16 +683,14 @@ public class SkuaHostBridge
 
                     _kills++;
                     System.Console.WriteLine($"[skuaHost] +1 kill (total {_kills})");
-                    if (_inBrawl && _kills >= 10)
-                    {
-                        _inBrawl = false;
-                        // Match genuinely finished — a future entry into this
-                        // same room number (however unlikely) must count as a
-                        // fresh match, not a continuation.
-                        _lastBrawlRoom = "";
-                        _ = PushStatsAsync(matchEnd: true);
-                        _ = JoinRoomAsync("battleon", username);
-                    }
+                    // Push immediately — the server watches team kill totals
+                    // on every push to decide when a team has actually won
+                    // (see server.js), so getting this kill there promptly
+                    // is what keeps win detection responsive. No local
+                    // threshold check: a single player's own kill count
+                    // reaching some number doesn't mean their TEAM has won
+                    // in anything bigger than 1v1.
+                    _ = PushStatsAsync();
                     break;
                 }
             }
@@ -828,15 +810,21 @@ public class SkuaHostBridge
             var res = await _http.PostAsync(SERVER_URL + "/stats", new StringContent(payload, Encoding.UTF8, "application/json"));
             var body = await res.Content.ReadAsStringAsync();
             using var doc = JsonDocument.Parse(body);
-            // In a real 1v1 only the winner's kills ever reach 10 — the loser
-            // has no local signal the match is over, so the server tells us
-            // here instead (it already saw the winner's matchEnd). Stop
-            // tracking so this client's own periodic push doesn't keep
-            // resurrecting the live entry the server just cleared.
+            // Win detection is entirely server-side now (team kill totals,
+            // see server.js) — no client, winner or loser, teammate or
+            // opponent, has a local signal the match is over on its own.
+            // This response flag is the ONE place every player learns it,
+            // usually within ~1s via the periodic stats timer. Stop
+            // tracking so further pushes don't keep resurrecting the live
+            // entry the server already cleared, and clear _lastBrawlRoom so
+            // a future match that happens to land on the same room number
+            // (rare, but the room IDs are only 4 random digits) counts as
+            // fresh rather than a continuation.
             if (doc.RootElement.TryGetProperty("matchEnded", out var endedProp) && endedProp.GetBoolean())
             {
-                System.Console.WriteLine("[skuaHost] server reports match already ended (opponent won) — stopping stat tracking");
+                System.Console.WriteLine("[skuaHost] server reports match ended — stopping stat tracking");
                 _inBrawl = false;
+                _lastBrawlRoom = "";
                 _ = JoinRoomAsync("battleon", username);
             }
         }

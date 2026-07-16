@@ -132,64 +132,58 @@ function matchType(playerCount) {
     return `${playerCount}p`;
 }
 
+// Actually finalizes a room: snapshots current players{} into match
+// history and clears everyone's live/active-match state. Shared by both
+// the legacy explicit matchEnd:true path and the team-total auto-detector
+// below — guarded by finalizePending so two near-simultaneous triggers for
+// the same room (e.g. two teammates' kills both crossing the line on the
+// same tick) only produce one history entry, not two.
+function finalizeMatch(room) {
+    if (finalizePending[room]) return;
+    finalizePending[room] = true;
+    // Deliberately don't set endedRooms yet — that's what makes the
+    // regular-push path below reject a straggler as "already ended"
+    // (matchEnded:true) instead of writing it into players{}. Leaving it
+    // unset for this short window lets other players' still-in-flight
+    // pushes (e.g. a teammate's final death count) land and update their
+    // own entry before the snapshot actually happens.
+    setTimeout(() => {
+        delete finalizePending[room];
+        const snapshot = Object.values(players).filter(p => p.map === room).map(p => ({ ...p }));
+        if (snapshot.length > 0) {
+            matches.unshift({
+                id:        Date.now(),
+                timestamp: new Date().toISOString(),
+                map:       room,
+                type:      matchType(snapshot.length),
+                duration:  formatDuration(Date.now() - (roomStartTimes[room] || Date.now())),
+                players:   snapshot,
+            });
+            if (matches.length > MAX_MATCHES) matches.pop();
+        }
+        endedRooms[room] = Date.now();
+        delete roomStartTimes[room];
+        delete rejoinWindows2v2[room];
+        snapshot.forEach(p => {
+            delete activeRooms[p.username];
+            delete active2v2Rooms[p.username];
+            setTimeout(() => { delete players[p.username]; }, MATCH_END_VISIBLE_MS);
+        });
+    }, MATCH_END_FINALIZE_DELAY_MS);
+}
+
 // ── Receive stats from a Skua client ──────────────────────────────
 app.post('/stats', (req, res) => {
     const data = req.body;
     if (!data || !data.username) return res.status(400).json({ error: 'missing username' });
 
     if (data.matchEnd) {
-        // Write this player's final stats (e.g. the 10th kill/death that
-        // triggered matchEnd) into players{} before snapshotting —
-        // otherwise the snapshot only reflects whatever was last pushed a
-        // second earlier, silently dropping the update that actually ended
-        // the match.
+        // Legacy path — no current client sends this anymore (win
+        // detection moved server-side, see below), kept only in case an
+        // older client is still out there. Still needs its own row written
+        // before finalizing, same as ever.
         players[data.username] = { ...data, lastSeen: Date.now() };
-        const room = data.map || 'bludrutbrawl';
-        // Both the winner (kills hit 10) and the loser (deaths hit 10) now
-        // send matchEnd:true independently, near-simultaneously, as two
-        // separate requests — without this guard, each would schedule its
-        // own finalize below, producing two near-duplicate history entries
-        // for the same match. Only the first one to arrive for this room
-        // schedules the finalize; the second just writes its row above (via
-        // the line right before this) and returns, letting the
-        // already-scheduled finalize pick up its data too.
-        if (!finalizePending[room]) {
-            finalizePending[room] = true;
-            // Deliberately do NOT set endedRooms yet — that's what makes the
-            // regular-push path below reject a straggler as "already ended"
-            // (matchEnded:true) instead of writing it into players{}.
-            // Leaving it unset for this short window lets a client that,
-            // for whatever reason, DIDN'T send an explicit matchEnd (older
-            // client, edge case) still land its final regular push and
-            // update its own entry before we mark the room ended and
-            // snapshot.
-            setTimeout(() => {
-                delete finalizePending[room];
-                const snapshot = Object.values(players).map(p => ({ ...p }));
-                if (snapshot.length > 0) {
-                    matches.unshift({
-                        id:        Date.now(),
-                        timestamp: new Date().toISOString(),
-                        map:       room,
-                        type:      matchType(snapshot.length),
-                        duration:  formatDuration(Date.now() - (roomStartTimes[room] || Date.now())),
-                        players:   snapshot,
-                    });
-                    if (matches.length > MAX_MATCHES) matches.pop();
-                }
-                if (data.map) { endedRooms[data.map] = Date.now(); delete roomStartTimes[data.map]; }
-                delete rejoinWindows2v2[room];
-                // Clear EVERYONE currently live, not just the reporting
-                // player — both clients send matchEnd now, but only clearing
-                // data.username here would still race the other client's own
-                // write landing after this fires.
-                snapshot.forEach(p => {
-                    delete activeRooms[p.username];
-                    delete active2v2Rooms[p.username];
-                    setTimeout(() => { delete players[p.username]; }, MATCH_END_VISIBLE_MS);
-                });
-            }, MATCH_END_FINALIZE_DELAY_MS);
-        }
+        finalizeMatch(data.map || 'bludrutbrawl');
         return res.json({ ok: true });
     }
 
@@ -211,27 +205,26 @@ app.post('/stats', (req, res) => {
         delete pendingMatches[data.username];
     if (data.map && data.map.startsWith('bludrutbrawl') && pending2v2Matches[data.username])
         delete pending2v2Matches[data.username];
-    // Auto end match when someone hits 10 kills
-    if (data.map && data.map.startsWith('bludrutbrawl') && data.kills >= 10) {
-        const snapshot = Object.values(players).map(p => ({ ...p }));
-        if (snapshot.length > 0) {
-            matches.unshift({
-                id:        Date.now(),
-                timestamp: new Date().toISOString(),
-                map:       data.map,
-                type:      matchType(snapshot.length),
-                duration:  formatDuration(Date.now() - (roomStartTimes[data.map] || Date.now())),
-                winner:    data.username,
-                players:   snapshot,
-            });
-            if (matches.length > MAX_MATCHES) matches.pop();
-        }
-        endedRooms[data.map] = Date.now();
-        delete roomStartTimes[data.map];
-        snapshot.forEach(p => {
-            delete activeRooms[p.username];
-            setTimeout(() => { delete players[p.username]; }, MATCH_END_VISIBLE_MS);
+
+    // Win detection: every extra player on a side needs 10 more team kills
+    // to win — 1v1 is 10, 2v2 is 20, 3v3 is 30, and so on. This has to be
+    // computed from TEAM totals, not any single player's own kill count
+    // (the old version checked data.kills >= 10 per-individual, which was
+    // only ever correct for 1v1 by coincidence — in a 2v2 a single
+    // aggressive player racking up 10+ personal kills doesn't mean their
+    // TEAM has actually won yet, and that old check had no de-dupe guard at
+    // all, so it kept re-firing on every single push once anyone crossed
+    // 10, flooding history and continuously wiping the live view).
+    if (data.map && data.map.startsWith('bludrutbrawl') && !endedRooms[data.map] && !finalizePending[data.map]) {
+        const roomPlayers = Object.values(players).filter(p => p.map === data.map);
+        const teamTotals = {};
+        roomPlayers.forEach(p => {
+            if (p.team === 0 || p.team === 1) teamTotals[p.team] = (teamTotals[p.team] || 0) + (p.kills || 0);
         });
+        const teamSize  = Math.max(1, Math.round(roomPlayers.length / 2));
+        const threshold = teamSize * 10;
+        const winner = Object.keys(teamTotals).find(t => teamTotals[t] >= threshold);
+        if (winner !== undefined) finalizeMatch(data.map);
     }
 
     res.json({ ok: true });

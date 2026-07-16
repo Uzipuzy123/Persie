@@ -645,6 +645,21 @@ const fmt = n => n >= 1e6 ? (n/1e6).toFixed(2)+'m' : n >= 1000 ? (n/1000).toFixe
 const kda  = p => p.deaths === 0 ? p.kills.toFixed(1) : (p.kills / p.deaths).toFixed(2);
 const kdaCls = v => v >= 5 ? 'good' : v >= 2 ? 'mid' : 'bad';
 
+// Splits any match's player list into two sides. Prefers the actual team
+// field (pushed by the client from AQW's own pvpTeam) so 2v2+ matches group
+// real teammates together instead of assuming exactly 2 players — used by
+// the live view, match history list, and match detail modal alike. Falls
+// back to alternating position only if team data isn't present (e.g. an
+// older client, or matches recorded before the team field existed).
+const splitTeams = ps => {
+  const teamVals = [...new Set(ps.map(p => p.team))].filter(t => typeof t === 'number');
+  if (teamVals.length === 2) {
+    const sorted = teamVals.slice().sort((a, b) => a - b);
+    return [ps.filter(p => p.team === sorted[0]), ps.filter(p => p.team === sorted[1])];
+  }
+  return [ps.filter((_, i) => i % 2 === 0), ps.filter((_, i) => i % 2 === 1)];
+};
+
 // ── NAVIGATION ───────────────────────────────────────────────────────
 function go(id) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -708,22 +723,6 @@ function renderLiveRows(players) {
     const leader = [...players].sort((a,b) => b.kills - a.kills)[0];
     document.getElementById('leader-name').textContent = leader.username;
   }
-
-  // Split a room's players into two sides. Prefer the actual team field
-  // (pushed by the client from AQW's own pvpTeam, added alongside the 2v2
-  // queue work) so 2v2+ rooms group real teammates together instead of just
-  // grabbing the first 2 players — a room with 4 players used to silently
-  // drop the other 2 entirely. Falls back to alternating position only if
-  // team data isn't present yet (e.g. an older client, or right as a match
-  // starts before the team map has loaded).
-  const splitTeams = ps => {
-    const teamVals = [...new Set(ps.map(p => p.team))].filter(t => t === 0 || t === 1 || typeof t === 'number');
-    if (teamVals.length === 2) {
-      const sorted = teamVals.slice().sort((a, b) => a - b);
-      return [ps.filter(p => p.team === sorted[0]), ps.filter(p => p.team === sorted[1])];
-    }
-    return [ps.filter((_, i) => i % 2 === 0), ps.filter((_, i) => i % 2 === 1)];
-  };
 
   document.getElementById('live-rows').innerHTML = matchGroups.map(g => {
     const [teamA, teamB] = splitTeams(g.players);
@@ -1145,30 +1144,36 @@ async function openMatchDetail(id) {
   const m = lastHistoryMatches.find(x => String(x.id) === String(id));
   if (!m) return;
 
-  const [p1, p2] = m.players;
+  const [teamA, teamB] = splitTeams(m.players);
+  const kA = teamA.reduce((s, p) => s + (p.kills ?? 0), 0);
+  const kB = teamB.reduce((s, p) => s + (p.kills ?? 0), 0);
+  const namesA = teamA.map(p => p.username).join(' & ') || '???';
+  const namesB = teamB.length ? teamB.map(p => p.username).join(' & ') : '???';
   const sorted = [...m.players].sort((a,b) => b.kills - a.kills);
   const winner = sorted[0];
   const mapName = (m.map || 'bludrutbrawl').replace(/^bludrutbrawl-?\d*/i, 'GunliveTest');
-  const p1IsWinner = !p2 || winner.username === p1.username;
+  const p1IsWinner = !teamB.length || kA >= kB;
 
   // The hero row shows usernames directly (no avatar render here — real
   // character renders, via Ruffle + the CharPage proxy, only show up below
   // in the per-player stat cards, matching the old PVPHero match-result
-  // layout).
+  // layout). In a 2v2+, mm-av1/mm-av2 show the first player of each team as
+  // that side's representative avatar — every player still gets their own
+  // full card (with their own avatar) further down.
   document.getElementById('mm-hero').innerHTML = `
     <div style="text-align:center;padding:4px 0 20px">
       <div style="font-family:Georgia,serif;font-style:italic;color:var(--gold);font-size:1.3rem;font-weight:700">PvP Game Results</div>
       <div style="font-family:Georgia,serif;font-style:italic;color:var(--gold);font-size:0.85rem;margin-top:2px">Hosted in ${mapName}</div>
       <div style="display:flex;align-items:center;justify-content:center;gap:40px;margin-top:22px">
-        <div id="mm-av1" class="avatar-fx" style="font-weight:800;font-size:1rem;color:#3b82f6;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p1.username}</div>
+        <div id="mm-av1" class="avatar-fx" style="font-weight:800;font-size:1rem;color:#3b82f6;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${namesA}</div>
         <div style="text-align:center">
           <div style="font-size:0.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px">Score</div>
           <div style="font-size:1.7rem;font-weight:900;margin-top:2px">
-            <span style="color:#3b82f6">${p1.kills}</span> - <span style="color:#ef4444">${p2 ? p2.kills : 0}</span>
+            <span style="color:#3b82f6">${kA}</span> - <span style="color:#ef4444">${kB}</span>
           </div>
           <div style="font-size:0.65rem;color:var(--gold);margin-top:6px;letter-spacing:0.5px">&#9656; VIEW GAME</div>
         </div>
-        <div id="mm-av2" class="avatar-fx" style="font-weight:800;font-size:1rem;color:#ef4444;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p2 ? p2.username : '???'}</div>
+        <div id="mm-av2" class="avatar-fx" style="font-weight:800;font-size:1rem;color:#ef4444;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${namesB}</div>
       </div>
     </div>`;
 
@@ -1208,13 +1213,14 @@ async function openMatchDetail(id) {
   setTimeout(() => spawnSparkles(document.getElementById(p1IsWinner ? 'mm-av1' : 'mm-av2')), 400);
 
   // Rendered once each, into the per-player stat cards below — the hero row
-  // above keeps its plain colored silhouette rather than also rendering a
-  // second live Ruffle instance of the same avatar, which would double the
-  // render-loop cost for no visual benefit.
-  const [av1, av2] = await Promise.all([fetchAvatar(p1.username), p2 ? fetchAvatar(p2.username) : null]);
+  // above keeps its plain team-name text rather than also rendering live
+  // Ruffle instances there, which would double the render-loop cost for no
+  // visual benefit. Fetches for every player in the match, not just 2 —
+  // previously only p1/p2 ever got a real avatar, leaving every other
+  // player's card stuck on the blank silhouette in anything bigger than 1v1.
+  const avatarData = await Promise.all(sorted.map(p => fetchAvatar(p.username)));
   sorted.forEach((p, i) => {
-    const data = p.username === p1.username ? av1 : (p2 && p.username === p2.username ? av2 : null);
-    if (data) renderAvatar(`mm-pstat-av-${i}`, data);
+    if (avatarData[i]) renderAvatar(`mm-pstat-av-${i}`, avatarData[i]);
   });
 }
 
@@ -1259,8 +1265,12 @@ async function renderHistory() {
     </div>`;
 
   const rows = filtered.map(m => {
-    const [p1, p2] = m.players;
-    const p1Wins = p2 ? p1.kills >= p2.kills : true;
+    const [teamA, teamB] = splitTeams(m.players);
+    const kA = teamA.reduce((s, p) => s + (p.kills ?? 0), 0);
+    const kB = teamB.reduce((s, p) => s + (p.kills ?? 0), 0);
+    const namesA = teamA.map(p => p.username).join(', ') || '—';
+    const namesB = teamB.length ? teamB.map(p => p.username).join(', ') : '—';
+    const aWins = teamB.length ? kA >= kB : true;
     const date = new Date(m.timestamp).toLocaleString();
     return `
     <div onclick="openMatchDetail(${m.id})" style="display:grid;grid-template-columns:${gridCols};
@@ -1269,13 +1279,13 @@ async function renderHistory() {
          onmouseover="this.style.background='rgba(255,255,255,0.03)'"
          onmouseout="this.style.background='transparent'">
       <div style="font-size:0.8rem;color:var(--muted);font-weight:700">${m.type || (m.players.length + 'p')}</div>
-      <div style="text-align:center;font-size:0.85rem;font-weight:700;color:#fff">${p1.username}</div>
+      <div style="text-align:center;font-size:0.85rem;font-weight:700;color:#fff">${namesA}</div>
       <div style="text-align:center;display:flex;align-items:center;justify-content:center;gap:6px;font-weight:800">
-        ${p1Wins ? '<span>🏆</span>' : ''}
-        <span style="color:#3b82f6">${p1.kills}</span> - <span style="color:#ef4444">${p2 ? p2.kills : 0}</span>
-        ${!p1Wins ? '<span>🏆</span>' : ''}
+        ${aWins ? '<span>🏆</span>' : ''}
+        <span style="color:#3b82f6">${kA}</span> - <span style="color:#ef4444">${kB}</span>
+        ${!aWins ? '<span>🏆</span>' : ''}
       </div>
-      <div style="text-align:center;font-size:0.85rem;font-weight:700;color:#fff">${p2 ? p2.username : '—'}</div>
+      <div style="text-align:center;font-size:0.85rem;font-weight:700;color:#fff">${namesB}</div>
       <div style="text-align:center;font-size:0.8rem;color:var(--muted)">${m.duration || '—'}</div>
       <div style="text-align:center;font-size:0.8rem;color:var(--muted)">${date}</div>
     </div>`;

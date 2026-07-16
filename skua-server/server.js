@@ -178,7 +178,7 @@ app.post('/stats', (req, res) => {
     if (data.map && data.map.startsWith('bludrutbrawl') && pendingMatches[data.username])
         delete pendingMatches[data.username];
     // Auto end match when someone hits 10 kills
-    if (data.map && data.map.startsWith('bludrutbrawl') && data.kills >= 5) { // TEMP: lowered from 10 for faster race-condition retesting — revert before real use
+    if (data.map && data.map.startsWith('bludrutbrawl') && data.kills >= 10) {
         const snapshot = Object.values(players).map(p => ({ ...p }));
         if (snapshot.length > 0) {
             matches.unshift({

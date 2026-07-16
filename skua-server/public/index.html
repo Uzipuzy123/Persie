@@ -762,7 +762,7 @@ async function fetchLive() {
     }
 
     // Win condition — first to 10 kills
-    const winner = players.find(p => p.kills >= 5); // TEMP: lowered from 10 for faster race-condition retesting — revert before real use
+    const winner = players.find(p => p.kills >= 10);
     if (winner && !victoryShown && !victoryPending) {
       victoryPending = true;
       // The loser's final death (and this poll's own final damage-taken)
@@ -776,7 +776,7 @@ async function fetchLive() {
           const res2  = await fetch(url, { cache:'no-store' });
           const data2 = await res2.json();
           const freshPlayers = data2.players ?? [data2];
-          const freshWinner  = freshPlayers.find(p => p.kills >= 5) || winner; // TEMP: lowered from 10
+          const freshWinner  = freshPlayers.find(p => p.kills >= 10) || winner;
           showVictory(freshWinner, freshPlayers);
         } catch {
           showVictory(winner, players);
@@ -1222,7 +1222,7 @@ function showVictory(winner, players) {
   document.getElementById('vb-icon').textContent  = isMe ? '🏆' : '💀';
   document.getElementById('vb-title').textContent = isMe ? 'VICTORY!' : 'DEFEAT';
   document.getElementById('vb-title').style.color = isMe ? 'var(--green)' : 'var(--red)';
-  document.getElementById('vb-sub').textContent   = `${winner.username} reached 5 kills`; // TEMP: lowered from 10
+  document.getElementById('vb-sub').textContent   = `${winner.username} reached 10 kills`;
   document.getElementById('vb-sub').style.color   = 'var(--muted)';
 
   // Stats breakdown only on a win — a defeat is just "DEFEAT", no numbers.

@@ -381,6 +381,16 @@ public class SkuaHostBridge
             _currentMap = map;
             if (!_inBrawl)
             {
+                // Warm this cache now, well before anyone can die. Otherwise
+                // its first-ever resolution can land inside the death
+                // packet's handling itself (HandleCt's lethal-hit branch) —
+                // that JS round-trip isn't guaranteed to finish before the
+                // rest of that handler runs, so myId can silently come back
+                // as the zero-fallback for whichever side just happens to
+                // hit this cold, quietly zeroing out their damage-taken
+                // total for the killing blow specifically.
+                _ = GetMyUserIdAsync();
+
                 bool sameMatch = map.Equals(_lastBrawlRoom, StringComparison.OrdinalIgnoreCase);
                 _inBrawl = true;
                 if (sameMatch)
@@ -439,22 +449,56 @@ public class SkuaHostBridge
 
         if (selfEntry != null && selfEntry.intHP == 0 && pvpAttack)
         {
+            // Deaths (and the synchronous match-end push below) come FIRST
+            // and stay await-free — this is racing the winner's own
+            // synchronous matchEnd push against the server's snapshot
+            // window, and every extra await here (even a normally-cheap
+            // one) narrows that window further. An earlier version resolved
+            // GetMyUserIdAsync() at this point and measurably lost more of
+            // that race than before.
+            _deaths++;
+            System.Console.WriteLine($"[skuaHost] +1 death (total {_deaths})");
+            if (_deaths >= 10)
+            {
+                // We know locally the match is over (10 deaths = lost a
+                // 1v1) — same self-sufficient pattern as the winner's kill
+                // branch below, rather than waiting on a round-trip
+                // "matchEnded" response from the server to learn this.
+                // Marked matchEnd:true (not just a plain push) so the
+                // server writes our final stats through the same
+                // authoritative path the winner's push uses — a plain
+                // background push was still racing the winner's snapshot
+                // and losing often enough to matter (see server.js, which
+                // now de-dupes two matchEnd requests for the same room
+                // instead of only trusting whichever happened to arrive
+                // first).
+                _inBrawl = false;
+                _lastBrawlRoom = "";
+                _ = PushStatsAsync(matchEnd: true);
+                _ = JoinRoomAsync("battleon", username);
+            }
+
             // The general "Damage taken" block below never sees this packet
             // (it returns before reaching it, and is also gated on ctHp > 0,
             // which a lethal hit fails by definition) — so the killing
             // blow's damage was never counted. Sum it here instead, but
             // unlike that general block, explicitly restrict to actions
             // whose tInf actually targets US (same check the dodge-detection
-            // loop below already uses). That matters specifically here: this
-            // is the one packet where our own hit on the enemy (if this was
-            // a mutual/simultaneous exchange) could otherwise get summed in
-            // right alongside the hit that killed us.
+            // loop below already uses) — that matters specifically here,
+            // since this is the one packet where our own hit on the enemy
+            // (if this was a mutual/simultaneous exchange) could otherwise
+            // get summed in right alongside the hit that killed us.
+            //
+            // Uses the already-cached id directly (HandleMoveToArea warms it
+            // the moment the match starts) rather than awaiting
+            // GetMyUserIdAsync() — see above for why nothing here can await.
+            // If it somehow isn't cached yet, this lethal hit's damage just
+            // doesn't get added rather than delaying the push above.
             try
             {
-                if (data.sarsa != null)
+                if (data.sarsa != null && _myUserId.HasValue)
                 {
-                    var myId = await GetMyUserIdAsync();
-                    string selfTarget = "p:" + myId;
+                    string selfTarget = "p:" + _myUserId.Value;
                     int lethalDmg = 0;
                     foreach (var sv in data.sarsa)
                     {
@@ -483,20 +527,6 @@ public class SkuaHostBridge
             }
             catch { }
 
-            _deaths++;
-            System.Console.WriteLine($"[skuaHost] +1 death (total {_deaths})");
-            if (_deaths >= 10)
-            {
-                // This is very likely the losing blow (1v1s end at 10). The
-                // winner's own client processes this exact same "ct" packet
-                // and fires its own synchronous matchEnd push immediately
-                // (see the _kills >= 10 branch below) — without a matching
-                // synchronous push here, our final death only reaches the
-                // server on the next 1s timer tick, which can easily land
-                // after the winner's matchEnd snapshot already fired,
-                // permanently recording one death short in match history.
-                _ = PushStatsAsync();
-            }
             return;
         }
 
@@ -696,6 +726,10 @@ public class SkuaHostBridge
             _myUserId = id;
             return id;
         }
+        // Deliberately not cached — a transient failure here (e.g. called
+        // before `game` finished initializing) shouldn't permanently stick
+        // callers with the 0 sentinel; the next call gets a fresh attempt.
+        System.Console.WriteLine($"[skuaHost] GetMyUserIdAsync failed: Success={r.Success} Result={r.Result}");
         return 0;
     }
 

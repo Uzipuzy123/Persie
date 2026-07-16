@@ -335,6 +335,7 @@ main { flex:1; padding:28px 32px; overflow-y:auto; }
   <div class="sn-sep"></div>
   <div class="nav-item" onclick="go('live')"><span class="icon">⚔️</span> Live Match</div>
   <div class="nav-item" onclick="go('queue')"><span class="icon">🎮</span> 1v1 Queue</div>
+  <div class="nav-item" onclick="go('queue2v2')"><span class="icon">🎮</span> 2v2 Queue</div>
 </div>
 
 <!-- TOAST -->
@@ -513,6 +514,92 @@ main { flex:1; padding:28px 32px; overflow-y:auto; }
     </div>
   </div>
 
+  <!-- ══ 2v2 QUEUE ══ -->
+  <div class="page" id="page-queue2v2">
+    <div class="page-title">2v2 Queue</div>
+    <div class="page-sub">Team up two-and-two for a bludrutbrawl skirmish</div>
+
+    <div style="max-width:480px;margin:0 auto">
+
+      <!-- Username input -->
+      <div class="box" style="margin-bottom:16px">
+        <div class="box-head"><h2>Your Name</h2><span>used to identify you in the queue</span></div>
+        <div class="box-body" style="display:flex;gap:10px">
+          <input id="q2-username" type="text" placeholder="Enter your in-game username"
+            style="flex:1;background:var(--surface);border:1px solid var(--border);border-radius:8px;
+            padding:10px 14px;color:#fff;font-size:0.9rem;outline:none;font-family:inherit;transition:border-color 0.15s"
+            onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor=''"
+            oninput="saveUsername(this.value)">
+        </div>
+      </div>
+
+      <!-- Team-order explainer — AQW assigns teams purely by the order
+           players physically join the room (1st=A, 2nd=B, 3rd=A, 4th=B),
+           so queue order IS team assignment. Has to be spelled out since
+           it's not obvious from a normal "queue" button. -->
+      <div class="box" style="margin-bottom:16px;border-color:var(--accent)">
+        <div class="box-body" style="padding:14px 18px;font-size:0.78rem;color:var(--muted);line-height:1.5">
+          <b style="color:var(--accent)">Team order matters:</b> teams are assigned by queue order —
+          the <b style="color:#fff">1st and 3rd</b> players to click Queue become one team, the
+          <b style="color:#fff">2nd and 4th</b> become the other. Coordinate with your teammate on
+          when to click.
+        </div>
+      </div>
+
+      <!-- Queue status card -->
+      <div class="box">
+        <div class="box-body" style="text-align:center;padding:32px 20px">
+
+          <!-- IDLE -->
+          <div id="q2-idle">
+            <div style="font-size:3rem;margin-bottom:12px">⚔️</div>
+            <div style="font-size:1.1rem;font-weight:700;color:#fff;margin-bottom:8px">Ready for 2v2?</div>
+            <div style="font-size:0.8rem;color:var(--muted);margin-bottom:24px">All four players queue up — you'll all auto-join the same room</div>
+            <button onclick="joinQueue2v2()"
+              style="background:var(--accent);color:#fff;border:none;border-radius:8px;
+              padding:14px 40px;font-size:1rem;font-weight:700;cursor:pointer;margin-bottom:12px;
+              transition:all 0.15s;display:block;width:100%;letter-spacing:0.3px;
+              box-shadow:0 2px 10px rgba(249,115,22,0.3)"
+              onmouseover="this.style.background='#ea6c10';this.style.boxShadow='0 4px 16px rgba(249,115,22,0.45)'" onmouseout="this.style.background='var(--accent)';this.style.boxShadow='0 2px 10px rgba(249,115,22,0.3)'">
+              Queue for 2v2
+            </button>
+          </div>
+
+          <!-- SEARCHING -->
+          <div id="q2-searching" style="display:none">
+            <div style="font-size:3rem;margin-bottom:12px">🔍</div>
+            <div style="font-size:1.1rem;font-weight:700;color:#fff;margin-bottom:8px">Waiting for more players...</div>
+            <div id="q2-position" style="font-size:0.8rem;color:var(--muted);margin-bottom:8px"></div>
+            <div id="q2-timer" style="font-size:1.5rem;font-weight:800;color:var(--accent);margin-bottom:24px">0:00</div>
+            <button onclick="leaveQueue2v2()"
+              style="background:var(--surface);color:var(--muted);border:1px solid var(--border);
+              border-radius:8px;padding:8px 24px;font-size:0.8rem;cursor:pointer;font-family:inherit">
+              Cancel
+            </button>
+          </div>
+
+          <!-- MATCHED -->
+          <div id="q2-matched" style="display:none">
+            <div style="font-size:3rem;margin-bottom:12px">🎮</div>
+            <div style="font-size:1.3rem;font-weight:800;color:var(--green);margin-bottom:8px">Match Found!</div>
+            <div id="q2-team" style="font-size:1rem;color:#fff;margin-bottom:4px;font-weight:700"></div>
+            <div id="q2-teammate" style="font-size:0.85rem;color:var(--muted);margin-bottom:4px"></div>
+            <div id="q2-opponents" style="font-size:0.85rem;color:var(--muted);margin-bottom:12px"></div>
+            <div style="font-size:0.75rem;color:var(--muted);margin-bottom:16px">Your GunLive client is joining automatically...</div>
+            <button onclick="go('live');document.querySelectorAll('.nav-item')[3].classList.add('active')"
+              style="background:var(--accent);color:#fff;border:none;border-radius:8px;
+              padding:12px 24px;font-size:0.9rem;font-weight:700;cursor:pointer;font-family:inherit;
+              box-shadow:0 2px 10px rgba(249,115,22,0.3);letter-spacing:0.3px">
+              Watch Live Stats →
+            </button>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+  </div>
+
   <!-- ══ 1v1 LIVE VIEW ══ -->
   <div id="onevone-banner" style="display:none;max-width:960px;margin:0 auto 20px">
     <div style="background:var(--card);border:1px solid var(--accent);
@@ -569,6 +656,7 @@ function go(id) {
   if (id === 'history')     renderHistory();
   if (id === 'leaderboard') renderLeaderboard('all');
   if (id === 'queue')       loadUsername();
+  if (id === 'queue2v2')    loadUsername();
 }
 
 // ── LIVE PAGE ────────────────────────────────────────────────────────
@@ -1252,6 +1340,8 @@ function saveUsername(val) {
 function loadUsername() {
   const saved = localStorage.getItem('skua_username') || '';
   document.getElementById('q-username').value = saved;
+  const q2 = document.getElementById('q2-username');
+  if (q2) q2.value = saved;
   return saved;
 }
 
@@ -1370,6 +1460,73 @@ async function pollQueueStatus() {
   } catch {}
 }
 
+// ── 2v2 QUEUE ────────────────────────────────────────────────────────
+let queue2v2State    = 'idle'; // idle | waiting | matched
+let queue2v2Seconds  = 0;
+let queue2v2Interval = null;
+
+function setQueue2v2State(state, data = {}) {
+  queue2v2State = state;
+  document.getElementById('q2-idle').style.display      = state === 'idle'     ? '' : 'none';
+  document.getElementById('q2-searching').style.display  = state === 'waiting'  ? '' : 'none';
+  document.getElementById('q2-matched').style.display    = state === 'matched'  ? '' : 'none';
+
+  if (state === 'waiting') {
+    document.getElementById('q2-position').textContent = data.position ? `Position ${data.position} of 4` : '';
+    queue2v2Seconds = 0;
+    clearInterval(queue2v2Interval);
+    queue2v2Interval = setInterval(() => {
+      queue2v2Seconds++;
+      const m = String(Math.floor(queue2v2Seconds/60)).padStart(1,'0');
+      const s = String(queue2v2Seconds%60).padStart(2,'0');
+      document.getElementById('q2-timer').textContent = m+':'+s;
+    }, 1000);
+  }
+
+  if (state === 'matched') {
+    clearInterval(queue2v2Interval);
+    const teammates = data.teammates || [];
+    const opponents = data.opponents || [];
+    document.getElementById('q2-team').textContent      = `You are Team ${data.team || '?'}`;
+    document.getElementById('q2-teammate').textContent  = teammates.length ? `Teammate: ${teammates.join(', ')}` : '';
+    document.getElementById('q2-opponents').textContent = opponents.length ? `Opponents: ${opponents.join(', ')}` : '';
+  }
+
+  if (state === 'idle') clearInterval(queue2v2Interval);
+}
+
+async function joinQueue2v2() {
+  const username = document.getElementById('q2-username').value.trim();
+  if (!username) { alert('Enter your in-game username first'); return; }
+  saveUsername(username);
+  try {
+    const res  = await fetch(CENTRAL_SERVER + '/queue2v2', {
+      method: 'POST', headers: { 'Content-Type':'application/json' },
+      body: JSON.stringify({ username })
+    });
+    const data = await res.json();
+    if (data.status === 'matched') setQueue2v2State('matched', data);
+    else setQueue2v2State('waiting', data);
+  } catch { alert('Could not reach server'); }
+}
+
+async function leaveQueue2v2() {
+  const username = loadUsername();
+  try { await fetch(CENTRAL_SERVER + '/queue2v2/leave', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ username }) }); } catch {}
+  setQueue2v2State('idle');
+}
+
+async function pollQueue2v2Status() {
+  if (queue2v2State !== 'waiting') return;
+  const username = loadUsername();
+  if (!username) return;
+  try {
+    const res  = await fetch(CENTRAL_SERVER + '/match2v2?username=' + encodeURIComponent(username), { cache:'no-store' });
+    const data = await res.json();
+    if (data.status === 'matched') setQueue2v2State('matched', data);
+  } catch {}
+}
+
 function showOneVOne(p1, p2, room) {
   const banner = document.getElementById('onevone-banner');
   const col1   = COLORS[p1] || '#4f5de4';
@@ -1399,6 +1556,7 @@ renderHistory();
 setInterval(fetchLive, 1000);
 setInterval(tickMatch, 1000);
 setInterval(pollQueueStatus, 2000);
+setInterval(pollQueue2v2Status, 2000);
 
 // Simulate stats ticking in demo mode so it feels alive
 setInterval(() => {

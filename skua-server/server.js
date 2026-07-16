@@ -44,8 +44,9 @@ matches.push({
 });
 const queue          = [];  // usernames waiting for a 1v1
 const queueJoinedAt  = {};  // username -> Date.now() when they entered queue
-const pendingMatches = {};  // { username: { room, opponent, createdAt } }
-const activeRooms    = {};  // { username: { room, opponent } } — persists for rejoin
+const pendingMatches = {};  // { username: { room, opponent, createdAt, order, joinAtMs } }
+const activeRooms    = {};  // { username: { room, opponent, order } } — persists for rejoin
+const rejoinWindows  = {};  // room -> { startedAt } — same purpose as rejoinWindows2v2, just for 1v1
 
 // ── 2v2 queue ─────────────────────────────────────────────────────
 // Team assignment in bludrutbrawl is decided by AQW's own live server based
@@ -63,7 +64,8 @@ const queue2v2JoinedAt = {};
 const pending2v2Matches = {}; // { username: { room, team, teammates, opponents, joinAtMs } }
 const active2v2Rooms   = {};  // { username: { room, team, teammates, opponents, order } } — persists for rejoin
 const rejoinWindows2v2 = {};  // room -> { startedAt } — groups near-simultaneous rejoins so they stay staggered relative to each other, same as the original queue-fill join
-const JOIN_STEP_MS = 3500; // gap between each successive player's scheduled room-join — generous margin for lag/slow room loads before the next join fires
+const JOIN_STEP_MS = 3500; // gap between each successive player's scheduled room-join (2v2) — generous margin for lag/slow room loads before the next join fires
+const JOIN_STEP_MS_1V1 = 5000; // same idea but for 1v1 — only one gap to cover (2 players), so it can afford to be a bit more generous
 const REJOIN_WINDOW_MS = 8000; // a rejoin more than this long after the first one in a room starts its own fresh window instead
 const MAX_MATCHES    = 50;
 const PLAYER_TIMEOUT_MS  = 15000;
@@ -163,6 +165,7 @@ function finalizeMatch(room) {
         }
         endedRooms[room] = Date.now();
         delete roomStartTimes[room];
+        delete rejoinWindows[room];
         delete rejoinWindows2v2[room];
         snapshot.forEach(p => {
             delete activeRooms[p.username];
@@ -253,13 +256,19 @@ app.post('/queue', (req, res) => {
 
     // Already matched
     if (pendingMatches[username]) {
-        return res.json({ status: 'matched', room: pendingMatches[username].room, opponent: pendingMatches[username].opponent });
+        const m = pendingMatches[username];
+        return res.json({ status: 'matched', room: m.room, opponent: m.opponent, joinAtMs: m.joinAtMs });
     }
 
     // Already in queue
     if (!queue.includes(username)) { queue.push(username); queueJoinedAt[username] = Date.now(); }
 
-    // Two players ready — make a match
+    // Two players ready — make a match. AQW's own room-join isn't reliable
+    // for two near-simultaneous joins to the same freshly-created room
+    // number (see the 2v2 staggering comment above) — a real 1v1 doesn't
+    // need join ORDER to matter, just needs the two joins spaced apart so
+    // the second player's client actually finds the room the first one just
+    // created instead of racing it and spawning a separate instance.
     if (queue.length >= 2) {
         const p1   = queue.shift();
         const p2   = queue.shift();
@@ -267,12 +276,15 @@ app.post('/queue', (req, res) => {
         delete queueJoinedAt[p2];
         const room = 'bludrutbrawl-' + (Math.floor(Math.random() * 9000) + 1000);
         const createdAt = Date.now();
-        pendingMatches[p1] = { room, opponent: p2, createdAt };
-        pendingMatches[p2] = { room, opponent: p1, createdAt };
-        activeRooms[p1]    = { room, opponent: p2 };
-        activeRooms[p2]    = { room, opponent: p1 };
+        const order = { [p1]: 1, [p2]: 2 };
+        [p1, p2].forEach(u => {
+            const opponent = u === p1 ? p2 : p1;
+            const joinAtMs = createdAt + (order[u] - 1) * JOIN_STEP_MS_1V1;
+            pendingMatches[u] = { room, opponent, createdAt, order: order[u], joinAtMs };
+            activeRooms[u]    = { room, opponent, order: order[u] };
+        });
         const matched = pendingMatches[username];
-        return res.json({ status: 'matched', room: matched.room, opponent: matched.opponent });
+        return res.json({ status: 'matched', room: matched.room, opponent: matched.opponent, joinAtMs: matched.joinAtMs });
     }
 
     res.json({ status: 'waiting', position: queue.indexOf(username) + 1 });
@@ -295,8 +307,10 @@ app.get('/match', (req, res) => {
 
     // Case-insensitive match lookup
     const matchKey = Object.keys(pendingMatches).find(k => k.toLowerCase() === username.toLowerCase());
-    if (matchKey)
-        return res.json({ status: 'matched', room: pendingMatches[matchKey].room, opponent: pendingMatches[matchKey].opponent });
+    if (matchKey) {
+        const m = pendingMatches[matchKey];
+        return res.json({ status: 'matched', room: m.room, opponent: m.opponent, joinAtMs: m.joinAtMs });
+    }
 
     const inQueue = queue.some(u => u.toLowerCase() === username.toLowerCase());
     if (inQueue) return res.json({ status: 'waiting' });
@@ -406,6 +420,9 @@ app.post('/queue/leave', (req, res) => {
 });
 
 // ── Rejoin — re-arms pending match so Skua auto-joins again ───────
+// Same join-race concern as the initial /queue match — a relog is just
+// another room-join, so it gets the same staggering treatment (see
+// /rejoin2v2's comment for the near-simultaneous-rejoin grouping logic).
 app.post('/rejoin', (req, res) => {
     const { username } = req.body;
     if (!username) return res.status(400).json({ error: 'missing username' });
@@ -413,9 +430,17 @@ app.post('/rejoin', (req, res) => {
     const key = Object.keys(activeRooms).find(k => k.toLowerCase() === username.toLowerCase());
     if (!key) return res.status(404).json({ error: 'no active match' });
 
-    const { room, opponent } = activeRooms[key];
-    pendingMatches[key] = { room, opponent, createdAt: Date.now() };
-    res.json({ ok: true, room, opponent });
+    const info = activeRooms[key];
+    const now = Date.now();
+    let win = rejoinWindows[info.room];
+    if (!win || now - win.startedAt > REJOIN_WINDOW_MS) {
+        win = { startedAt: now };
+        rejoinWindows[info.room] = win;
+    }
+
+    const joinAtMs = win.startedAt + (info.order - 1) * JOIN_STEP_MS_1V1;
+    pendingMatches[key] = { room: info.room, opponent: info.opponent, createdAt: now, order: info.order, joinAtMs };
+    res.json({ ok: true, room: info.room, opponent: info.opponent, joinAtMs });
 });
 
 // ── Rejoin (2v2) — schedules the reconnect into the SAME team slot ──

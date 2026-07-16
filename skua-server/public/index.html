@@ -987,11 +987,6 @@ function renderAvatar(containerId, data) {
   };
 }
 
-function silhouetteHtml(col) {
-  return `<div style="width:64px;height:64px;border-radius:50%;background:${col}22;border:3px solid ${col};
-              display:flex;align-items:center;justify-content:center;font-size:1.8rem;flex-shrink:0">🧍</div>`;
-}
-
 // One-time celebratory burst around the winner's avatar — purely decorative
 // DOM elements layered on top, self-removing once their animation ends.
 function spawnSparkles(container) {
@@ -1022,15 +1017,16 @@ async function openMatchDetail(id) {
   const mapName = (m.map || 'bludrutbrawl').replace(/^bludrutbrawl-?\d*/i, 'GunliveTest');
   const p1IsWinner = !p2 || winner.username === p1.username;
 
-  // Silhouette placeholders go up immediately; real character renders (via
-  // Ruffle + the CharPage proxy) swap in below once fetched, matching the
-  // old PVPHero match-result layout.
+  // The hero row shows usernames directly (no avatar render here — real
+  // character renders, via Ruffle + the CharPage proxy, only show up below
+  // in the per-player stat cards, matching the old PVPHero match-result
+  // layout).
   document.getElementById('mm-hero').innerHTML = `
     <div style="text-align:center;padding:4px 0 20px">
       <div style="font-family:Georgia,serif;font-style:italic;color:var(--gold);font-size:1.3rem;font-weight:700">PvP Game Results</div>
       <div style="font-family:Georgia,serif;font-style:italic;color:var(--gold);font-size:0.85rem;margin-top:2px">Hosted in ${mapName}</div>
       <div style="display:flex;align-items:center;justify-content:center;gap:40px;margin-top:22px">
-        <div id="mm-av1" class="avatar-fx">${silhouetteHtml('#3b82f6')}</div>
+        <div id="mm-av1" class="avatar-fx" style="font-weight:800;font-size:1rem;color:#3b82f6;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p1.username}</div>
         <div style="text-align:center">
           <div style="font-size:0.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px">Score</div>
           <div style="font-size:1.7rem;font-weight:900;margin-top:2px">
@@ -1038,10 +1034,7 @@ async function openMatchDetail(id) {
           </div>
           <div style="font-size:0.65rem;color:var(--gold);margin-top:6px;letter-spacing:0.5px">&#9656; VIEW GAME</div>
         </div>
-        <div id="mm-av2" class="avatar-fx">${p2 ? silhouetteHtml('#ef4444') : silhouetteHtml('#555')}</div>
-      </div>
-      <div style="font-size:0.7rem;color:var(--muted);margin-top:16px;line-height:1.6">
-        *Hover for username<br>*Click on player to view individual stats
+        <div id="mm-av2" class="avatar-fx" style="font-weight:800;font-size:1rem;color:#ef4444;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p2 ? p2.username : '???'}</div>
       </div>
     </div>`;
 

@@ -43,11 +43,30 @@ matches.push({
     ],
 });
 const queue          = [];  // usernames waiting for a 1v1
+const queueJoinedAt  = {};  // username -> Date.now() when they entered queue
 const pendingMatches = {};  // { username: { room, opponent, createdAt } }
 const activeRooms    = {};  // { username: { room, opponent } } — persists for rejoin
 const MAX_MATCHES    = 50;
 const PLAYER_TIMEOUT_MS  = 15000;
 const MATCH_EXPIRE_MS    = 120000; // pending match expires after 2 min
+// Unlike pendingMatches, queue entries never had any expiry at all — a
+// client that queues then crashes/closes without calling /queue/leave (or a
+// bot pushed via /queue/test that never actually gets consumed) sat there
+// forever, silently occupying one of the two matching slots for every
+// future queue attempt. Longer than MATCH_EXPIRE_MS since a legitimate
+// player might genuinely wait a while for a real opponent.
+const QUEUE_EXPIRE_MS    = 180000; // 3 min
+
+function pruneQueue() {
+    const now = Date.now();
+    for (let i = queue.length - 1; i >= 0; i--) {
+        const u = queue[i];
+        if (now - (queueJoinedAt[u] || 0) > QUEUE_EXPIRE_MS) {
+            queue.splice(i, 1);
+            delete queueJoinedAt[u];
+        }
+    }
+}
 // Live view is polled once a second — deleting a finished player's entry in
 // the same tick that writes their final kill count means the poll can never
 // actually observe the 10th kill, only "gone". Keep it visible this long
@@ -191,18 +210,22 @@ app.post('/queue', (req, res) => {
     const { username } = req.body;
     if (!username) return res.status(400).json({ error: 'missing username' });
 
+    pruneQueue();
+
     // Already matched
     if (pendingMatches[username]) {
         return res.json({ status: 'matched', room: pendingMatches[username].room, opponent: pendingMatches[username].opponent });
     }
 
     // Already in queue
-    if (!queue.includes(username)) queue.push(username);
+    if (!queue.includes(username)) { queue.push(username); queueJoinedAt[username] = Date.now(); }
 
     // Two players ready — make a match
     if (queue.length >= 2) {
         const p1   = queue.shift();
         const p2   = queue.shift();
+        delete queueJoinedAt[p1];
+        delete queueJoinedAt[p2];
         const room = 'bludrutbrawl-' + (Math.floor(Math.random() * 9000) + 1000);
         const createdAt = Date.now();
         pendingMatches[p1] = { room, opponent: p2, createdAt };
@@ -226,6 +249,10 @@ app.get('/match', (req, res) => {
     Object.keys(pendingMatches).forEach(k => {
         if (now - pendingMatches[k].createdAt > MATCH_EXPIRE_MS) delete pendingMatches[k];
     });
+    // This endpoint is polled continuously by a waiting client, so it's the
+    // most reliable place to also prune stale queue entries left behind by
+    // anyone else's crashed/closed session.
+    pruneQueue();
 
     // Case-insensitive match lookup
     const matchKey = Object.keys(pendingMatches).find(k => k.toLowerCase() === username.toLowerCase());
@@ -249,6 +276,7 @@ app.post('/queue/leave', (req, res) => {
     if (username) {
         const idx = queue.indexOf(username);
         if (idx > -1) queue.splice(idx, 1);
+        delete queueJoinedAt[username];
         delete pendingMatches[username];
     }
     res.json({ ok: true });
@@ -270,7 +298,7 @@ app.post('/rejoin', (req, res) => {
 // ── Solo test — adds a bot so one player can test matchmaking ──────
 app.post('/queue/test', (req, res) => {
     const botName = '__TestBot__';
-    if (!queue.includes(botName)) queue.push(botName);
+    if (!queue.includes(botName)) { queue.push(botName); queueJoinedAt[botName] = Date.now(); }
     res.json({ ok: true });
 });
 

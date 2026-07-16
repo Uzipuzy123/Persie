@@ -1,6 +1,9 @@
-// Simulates a full 1v1 — two players pushing stats concurrently, winner
-// reaching 10 kills first, loser's client still pushing afterward (exactly
-// the scenario that used to leave the loser stuck in Live). No real gameplay
+// Simulates a full 1v1 — two players pushing stats concurrently. Both the
+// winner (10th kill) and loser (10th death) now send matchEnd:true
+// near-simultaneously, same as the real AqwBrowser clients do — this
+// exercises the server's finalizePending de-dupe (one match-history entry,
+// not two) and confirms the loser's final death count actually lands
+// (10, not 9) instead of racing the winner's snapshot. No real gameplay
 // needed at all.
 // Usage: node simulate-1v1.js [winnerName] [loserName] [server]
 const winnerName = process.argv[2] || 'TestWinner';
@@ -42,12 +45,27 @@ async function push(username, kills, deaths, matchEnd = false) {
         await sleep(700);
     }
 
-    console.log('\n-- winner lands the 10th kill --');
-    await push(winnerName, 10, 3, true);
+    console.log('\n-- both the winning 10th kill and the losing 10th death land on the same tick, each declaring matchEnd --');
+    await Promise.all([
+        push(winnerName, 10, 9, true),
+        push(loserName, 4, 10, true),
+    ]);
 
-    console.log('-- loser\'s client, unaware the match ended, keeps pushing --');
-    await sleep(500);
-    await push(loserName, 4, 10);
+    console.log('\nWaiting for the server\'s finalize delay...');
+    await sleep(900);
 
-    console.log('\nDone — check the live stats page: both should have shown live, then both cleared together (not just the winner).');
+    const res = await fetch(server + '/matches');
+    const { matches } = await res.json();
+    const match = matches.find(m => m.map === map);
+    if (!match) {
+        console.log('FAIL: no match history entry found for this room.');
+        return;
+    }
+    const dupes = matches.filter(m => m.map === map).length;
+    const w = match.players.find(p => p.username === winnerName);
+    const l = match.players.find(p => p.username === loserName);
+    console.log(`\nMatch history entries for this room: ${dupes} (expect 1)`);
+    console.log(`${winnerName}: kills=${w?.kills} deaths=${w?.deaths}`);
+    console.log(`${loserName}: kills=${l?.kills} deaths=${l?.deaths} (expect deaths=10)`);
+    console.log(dupes === 1 && l?.deaths === 10 ? '\nPASS' : '\nFAIL');
 })();

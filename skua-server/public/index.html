@@ -621,6 +621,7 @@ function go(id) {
 // ── LIVE PAGE ────────────────────────────────────────────────────────
 let liveData       = [];
 let firstBloodDone = false;
+let currentLiveDetailRoom = null; // set while the live match-detail popup is open, so fetchLive can keep it refreshed
 
 function renderLiveRows(players) {
   if (!players.length) { document.getElementById('live-rows').innerHTML = ''; return; }
@@ -748,6 +749,11 @@ async function fetchLive() {
     document.getElementById('cstatus').textContent = CENTRAL_SERVER ? 'Server connected' : 'Local client';
     document.getElementById('live-sub').textContent = 'bludrutbrawl • live';
     renderLiveRows(players);
+
+    // Keep the live match-detail popup updating while it's open instead of
+    // needing a close/reopen to see fresh numbers — cheap now that it has
+    // no avatars to re-render (those only ever show in Most Recent Games).
+    if (currentLiveDetailRoom) openLiveMatchDetail(currentLiveDetailRoom);
 
     if (players.length === 0) firstBloodDone = false;
     if (!firstBloodDone && players.some(p => p.kills > 0)) {
@@ -1116,13 +1122,15 @@ async function openMatchDetail(id) {
 // Wired to a Live Match overview row. Entirely separate implementation from
 // openMatchDetail above (own modal, own element IDs, own function) —
 // deliberately not sharing code, so a live-match-only change can never leak
-// into the history detail view again. A one-time snapshot at click time,
-// not continuously refreshing — good enough to "pick the match to see",
-// and avoids re-rendering the avatar Ruffle instances on every 1s poll tick
-// while it's open (which would flicker).
-async function openLiveMatchDetail(room) {
+// into the history detail view again. No character avatars here (those
+// only render for finished matches in Most Recent Games) — just names and
+// stats, which is cheap enough to fully re-render every 1s poll tick while
+// open (see currentLiveDetailRoom / fetchLive), so it stays live instead of
+// needing a close/reopen to see fresh numbers.
+function openLiveMatchDetail(room) {
   const roomPlayers = liveData.filter(p => (p.map || 'unknown') === room);
   if (!roomPlayers.length) return;
+  currentLiveDetailRoom = room;
 
   const [teamA, teamB] = splitTeams(roomPlayers);
   const kA = teamA.reduce((s, p) => s + (p.kills ?? 0), 0);
@@ -1163,11 +1171,8 @@ async function openLiveMatchDetail(room) {
       <span class="pval">${val}</span>
     </div>`;
 
-  const pstatCard = p => {
-    const i = orderedPlayers.indexOf(p);
-    return `
+  const pstatCard = p => `
     <div class="pstat-card">
-      <div id="lmm-pstat-av-${i}" style="flex-shrink:0"></div>
       <div style="flex:1">
         <div style="text-align:center">
           <div class="pstat-name">${p.username}</div>
@@ -1185,7 +1190,6 @@ async function openLiveMatchDetail(room) {
         </div>
       </div>
     </div>`;
-  };
 
   document.getElementById('lmm-players').innerHTML = `
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
@@ -1200,16 +1204,11 @@ async function openLiveMatchDetail(room) {
     </div>`;
 
   document.getElementById('live-modal-backdrop').style.display = '';
-
-  const avatarData = await Promise.all(orderedPlayers.map(p => fetchAvatar(p.username)));
-  orderedPlayers.forEach((p, i) => {
-    if (avatarData[i]) renderAvatar(`lmm-pstat-av-${i}`, avatarData[i]);
-  });
 }
 
 function closeLiveMatchDetail() {
   document.getElementById('live-modal-backdrop').style.display = 'none';
-  Object.keys(activeAvatarLoops).forEach(id => activeAvatarLoops[id]?.stop());
+  currentLiveDetailRoom = null;
 }
 
 function closeMatchDetail() {

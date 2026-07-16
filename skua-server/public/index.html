@@ -726,8 +726,12 @@ function renderLiveRows(players) {
 
   document.getElementById('live-rows').innerHTML = matchGroups.map(g => {
     const [teamA, teamB] = splitTeams(g.players);
-    const col1 = COLORS[teamA[0]?.username] || '#f97316';
-    const col2 = COLORS[teamB[0]?.username] || '#ef4444';
+    // Fixed blue/red per team, not per-player COLORS lookup — matches the
+    // Team A / Team B color scheme Most Recent Games already uses, so a
+    // team reads the same color everywhere instead of shifting per-match
+    // based on whichever username happened to queue first.
+    const col1 = '#3b82f6';
+    const col2 = '#ef4444';
     const expanded = expandedMatches.has(g.room);
 
     const playerRow = (p, col, alignRight) => `
@@ -748,11 +752,14 @@ function renderLiveRows(players) {
         </div>`;
 
     // Per-player breakdown, not team totals — one row per player, each
-    // showing their own individual numbers, colored by which side they're
-    // on. Works the same for a 1v1 (2 rows) or a 4v4 (8 rows).
+    // showing their own individual numbers. Teams get their own side-by-
+    // side column (blue/red, matching col1/col2) rather than one long
+    // stacked list, so it stays readable as a 1v1 (1 row each side) grows
+    // into a 4v4 (4 rows each side).
+    const statCols = '1fr repeat(6,minmax(0,1fr))';
     const statRow = (p, col) => `
-      <div style="display:grid;grid-template-columns:1fr repeat(6,64px);align-items:center;gap:6px;padding:5px 0;font-size:0.78rem">
-        <div style="font-weight:700;color:${col}">${p.username}</div>
+      <div style="display:grid;grid-template-columns:${statCols};align-items:center;gap:4px;padding:5px 0;font-size:0.76rem">
+        <div style="font-weight:700;color:${col};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.username}</div>
         <div style="text-align:center;color:#fff">${p.kills ?? 0}</div>
         <div style="text-align:center;color:#fff">${p.deaths ?? 0}</div>
         <div style="text-align:center;color:#fff">${fmt(p.dmgDealt ?? 0)}</div>
@@ -761,11 +768,17 @@ function renderLiveRows(players) {
         <div style="text-align:center;color:#fff">${p.dodges ?? 0}</div>
       </div>`;
     const statHeader = `
-      <div style="display:grid;grid-template-columns:1fr repeat(6,64px);gap:6px;padding:4px 0 6px;
-        font-size:0.58rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;border-bottom:1px solid var(--border);margin-bottom:4px">
-        <div>Player</div><div style="text-align:center">Kills</div><div style="text-align:center">Deaths</div>
-        <div style="text-align:center">Dmg Dealt</div><div style="text-align:center">Dmg Taken</div>
+      <div style="display:grid;grid-template-columns:${statCols};gap:4px;padding:4px 0 6px;
+        font-size:0.56rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.3px;border-bottom:1px solid var(--border);margin-bottom:4px">
+        <div>Player</div><div style="text-align:center">K</div><div style="text-align:center">D</div>
+        <div style="text-align:center">Dealt</div><div style="text-align:center">Taken</div>
         <div style="text-align:center">Crits</div><div style="text-align:center">Dodges</div>
+      </div>`;
+    const teamStatBlock = (team, col, label) => `
+      <div style="min-width:0">
+        <div style="font-size:0.62rem;font-weight:800;color:${col};text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">${label}</div>
+        ${statHeader}
+        ${team.length ? team.map(p => statRow(p, col)).join('') : `<div style="font-size:0.75rem;color:var(--muted);padding:6px 0">—</div>`}
       </div>`;
 
     return `<div style="background:var(--card);border-radius:8px;margin-bottom:8px;overflow:hidden">
@@ -779,10 +792,10 @@ function renderLiveRows(players) {
           ${expanded ? '&#9650; HIDE STATS' : '&#128202; SHOW LIVE STATS'}
         </button>
       </div>
-      ${expanded ? `<div style="padding:2px 16px 16px;border-top:1px solid var(--border);overflow-x:auto">
-        ${statHeader}
-        ${teamA.map(p => statRow(p, col1)).join('')}
-        ${teamB.map(p => statRow(p, col2)).join('')}
+      ${expanded ? `<div style="padding:10px 16px 16px;border-top:1px solid var(--border);
+          display:grid;grid-template-columns:1fr 1fr;gap:20px;overflow-x:auto">
+        ${teamStatBlock(teamA, col1, 'Team A')}
+        ${teamStatBlock(teamB, col2, 'Team B')}
       </div>` : ''}
     </div>`;
   }).join('');

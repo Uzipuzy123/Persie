@@ -78,22 +78,6 @@ main { flex:1; padding:28px 32px; overflow-y:auto; }
 .page-title { font-size:1.6rem; font-weight:800; color:#fff; margin-bottom:4px; letter-spacing:-0.3px; }
 .page-sub   { font-size:0.78rem; color:var(--muted); margin-bottom:24px; }
 
-/* ── STAT CARDS ── */
-.stat-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:24px; }
-
-.stat-card {
-  background:var(--card); border:1px solid var(--border);
-  border-radius:10px; padding:18px 20px;
-  box-shadow:0 2px 12px rgba(0,0,0,0.3);
-  transition:border-color 0.15s;
-}
-.stat-card:hover { border-color:var(--accent); }
-.stat-card .sc-label { font-size:0.65rem; color:var(--muted); text-transform:uppercase; letter-spacing:1.5px; margin-bottom:10px; font-weight:600; }
-.stat-card .sc-val   { font-size:1.9rem; font-weight:800; color:#fff; letter-spacing:-1px; }
-.stat-card .sc-sub   { font-size:0.7rem; color:var(--muted); margin-top:6px; }
-.stat-card .sc-val.up   { color:var(--green); }
-.stat-card .sc-val.gold { color:var(--gold); }
-
 /* ── PER-PLAYER MATCH STAT CARD (mirrors the in-game results panel) ── */
 .pstat-card {
   display:flex; gap:24px; align-items:flex-start;
@@ -186,16 +170,6 @@ main { flex:1; padding:28px 32px; overflow-y:auto; }
 .kda-badge.mid  { background:rgba(251,191,36,0.15); color:var(--gold); }
 .kda-badge.bad  { background:rgba(239,68,68,0.15);  color:var(--red); }
 
-/* ── SORT BAR ── */
-.sort-bar { display:flex; gap:6px; margin-bottom:12px; flex-wrap:wrap; }
-.sbtn {
-  background:var(--surface); border:1px solid var(--border);
-  color:var(--muted); padding:5px 14px; border-radius:8px;
-  cursor:pointer; font-size:0.73rem; font-weight:600;
-  transition:all 0.15s; letter-spacing:0.3px;
-}
-.sbtn:hover { color:var(--text); border-color:var(--accent); }
-.sbtn.active { background:var(--accent); color:#fff; border-color:var(--accent); box-shadow:0 2px 8px rgba(249,115,22,0.35); }
 
 /* ── MATCH HISTORY CARDS ── */
 .match-row {
@@ -253,10 +227,6 @@ main { flex:1; padding:28px 32px; overflow-y:auto; }
 /* ── TOAST ── */
 .toast { position:fixed; top:20px; right:20px; background:var(--accent); color:#fff; padding:12px 20px; border-radius:10px; font-weight:700; font-size:0.85rem; box-shadow:0 4px 24px rgba(249,115,22,0.4); transform:translateX(220px); opacity:0; transition:all 0.35s cubic-bezier(.4,0,.2,1); z-index:999; }
 .toast.show { transform:translateX(0); opacity:1; }
-
-/* ── TIMER ── */
-.match-timer { font-size:2.5rem; font-weight:900; color:#fff; font-variant-numeric:tabular-nums; letter-spacing:2px; }
-.timer-label { font-size:0.65rem; color:var(--muted); text-transform:uppercase; letter-spacing:2px; margin-top:4px; font-weight:600; }
 
 /* ── ACTION BUTTONS ── */
 .btn {
@@ -350,39 +320,6 @@ main { flex:1; padding:28px 32px; overflow-y:auto; }
     <div class="page-title">Live Match</div>
     <div class="page-sub" id="live-sub">bludrutbrawl &bull; waiting for client...</div>
 
-    <div class="stat-grid" id="live-stat-grid" style="display:none">
-      <div class="stat-card">
-        <div class="sc-label">Match Timer</div>
-        <div class="match-timer" id="mtimer">00:00</div>
-        <div class="timer-label">elapsed</div>
-      </div>
-      <div class="stat-card">
-        <div class="sc-label">Players in Room</div>
-        <div class="sc-val" id="player-count">—</div>
-        <div class="sc-sub">in your cell</div>
-      </div>
-      <div class="stat-card">
-        <div class="sc-label">Your KDA</div>
-        <div class="sc-val gold" id="my-kda">—</div>
-        <div class="sc-sub">kills / deaths / assists</div>
-      </div>
-      <div class="stat-card">
-        <div class="sc-label">Current Leader</div>
-        <div class="sc-val up" id="leader-name">—</div>
-        <div class="sc-sub" id="leader-stat">by kills</div>
-      </div>
-    </div>
-
-    <div class="sort-bar">
-      <button class="sbtn active" onclick="liveSort(this,'kills')">Kills</button>
-      <button class="sbtn" onclick="liveSort(this,'deaths')">Deaths</button>
-      <button class="sbtn" onclick="liveSort(this,'dmgDealt')">Dmg Dealt</button>
-      <button class="sbtn" onclick="liveSort(this,'dmgTaken')">Dmg Taken</button>
-      <button class="sbtn" onclick="liveSort(this,'crits')">Crits</button>
-      <button class="sbtn" onclick="liveSort(this,'dodges')">Dodges</button>
-      <button class="sbtn" onclick="liveSort(this,'kda')">KDA</button>
-    </div>
-
     <div id="live-rows"></div>
 
     <div class="box" id="build-stats-box" style="display:none;margin-top:20px">
@@ -390,16 +327,8 @@ main { flex:1; padding:28px 32px; overflow-y:auto; }
       <div class="box-body" id="build-stats-body" style="display:flex;gap:16px;flex-wrap:wrap"></div>
     </div>
 
-    <!-- Victory banner (hidden until match ends) -->
-    <div id="victory-banner" style="display:none;margin-top:20px;border-radius:12px;padding:32px;text-align:center">
-      <div id="vb-icon" style="font-size:3rem;margin-bottom:8px"></div>
-      <div id="vb-title" style="font-size:1.8rem;font-weight:900;margin-bottom:6px"></div>
-      <div id="vb-sub" style="font-size:0.9rem;margin-bottom:20px"></div>
-      <div id="vb-stats" style="display:flex;justify-content:center;gap:24px;flex-wrap:wrap"></div>
-    </div>
-
     <div style="text-align:center;margin-top:12px;font-size:0.72rem;color:var(--muted)" id="live-footer">
-      First to 10 kills wins &bull; Dmg Dealt for opponents shown from your client only
+      Win condition scales with team size (10 kills per player on a team) &bull; Dmg Dealt for opponents shown from your client only
     </div>
   </div>
 
@@ -673,18 +602,8 @@ function go(id) {
 }
 
 // ── LIVE PAGE ────────────────────────────────────────────────────────
-let liveSortField = 'kills';
-let liveData      = [];
-let matchSec      = 0;
-let matchActive   = false; // true only while a live match actually has players
+let liveData       = [];
 let firstBloodDone = false;
-
-function liveSort(btn, field) {
-  liveSortField = field;
-  document.querySelectorAll('.sort-bar .sbtn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  renderLiveRows(liveData);
-}
 
 function renderLiveRows(players) {
   if (!players.length) { document.getElementById('live-rows').innerHTML = ''; return; }
@@ -693,8 +612,7 @@ function renderLiveRows(players) {
   // — every client always reports itself as isSelf:true, so in a 1v1 BOTH
   // players' rows legitimately have isSelf:true. It answers "did this
   // client report its own data" (always yes), not "is this the account the
-  // person viewing this page is playing as" — the YOU badge needs the
-  // latter, same comparison the victory banner already uses correctly.
+  // person viewing this page is playing as" — the YOU badge needs it.
   const myUsername = (localStorage.getItem('skua_username') || '').toLowerCase();
 
   // One match = one room. A 1v1 is a single match with two players, not two
@@ -703,16 +621,11 @@ function renderLiveRows(players) {
   players.forEach(p => (byRoom[p.map || 'unknown'] ??= []).push(p));
   const matchGroups = Object.entries(byRoom).map(([room, ps]) => ({ room, players: ps }));
 
-  const sortVal = p => liveSortField === 'kda' ? parseFloat(kda(p)) : (p[liveSortField] ?? 0);
-  matchGroups.sort((a, b) => Math.max(...b.players.map(sortVal)) - Math.max(...a.players.map(sortVal)));
-
-  const me = players.find(p => myUsername && p.username.toLowerCase() === myUsername) || players.find(p => p.isSelf);
-  if (me) {
-    document.getElementById('my-kda').textContent = kda(me);
-    document.getElementById('player-count').textContent = players.length;
-    const leader = [...players].sort((a,b) => b.kills - a.kills)[0];
-    document.getElementById('leader-name').textContent = leader.username;
-  }
+  // No sort-by-stat UI anymore (that was built around ranking individual
+  // players, which doesn't map cleanly onto an overview of whole matches) —
+  // just a fixed order, most total kills first.
+  const totalKills = g => g.players.reduce((s, p) => s + (p.kills ?? 0), 0);
+  matchGroups.sort((a, b) => totalKills(b) - totalKills(a));
 
   // Overview rows, same visual pattern as Most Recent Games — Type / Team A
   // / Score / Team B / status, click a row to open the full per-player
@@ -795,17 +708,6 @@ function renderBuildStats(players) {
   }).join('');
 }
 
-function tickMatch() {
-  // Only run while an actual match is live — previously this ticked
-  // unconditionally from page load, so it just showed "how long has this
-  // tab been open" rather than the match's real duration.
-  if (!matchActive) return;
-  matchSec++;
-  const m = String(Math.floor(matchSec/60)).padStart(2,'0');
-  const s = String(matchSec%60).padStart(2,'0');
-  document.getElementById('mtimer').textContent = m+':'+s;
-}
-
 function showToast(msg) {
   const t = document.getElementById('toast');
   t.textContent = msg;
@@ -830,47 +732,11 @@ async function fetchLive() {
     document.getElementById('live-sub').textContent = 'bludrutbrawl • live';
     renderLiveRows(players);
 
-    // Match timer tracks the actual live match, not the tab: starts (from
-    // 00:00) the moment players first appear, stops the moment they're gone
-    // (match ended / everyone left) instead of running continuously.
-    if (players.length > 0 && !matchActive) {
-      matchActive = true;
-      matchSec = 0;
-      firstBloodDone = false;
-      document.getElementById('mtimer').textContent = '00:00';
-      document.getElementById('live-stat-grid').style.display = '';
-    } else if (players.length === 0 && matchActive) {
-      matchActive = false;
-      document.getElementById('live-stat-grid').style.display = 'none';
-    }
-
+    if (players.length === 0) firstBloodDone = false;
     if (!firstBloodDone && players.some(p => p.kills > 0)) {
       const first = [...players].sort((a,b)=>b.kills-a.kills)[0];
       showToast('⚔️ First Blood — ' + first.username + '!');
       firstBloodDone = true;
-    }
-
-    // Win condition — first to 10 kills
-    const winner = players.find(p => p.kills >= 10);
-    if (winner && !victoryShown && !victoryPending) {
-      victoryPending = true;
-      // The loser's final death (and this poll's own final damage-taken)
-      // can land on the server a moment after the winner's kill crosses
-      // 10 — this poll can easily be the one that catches the match
-      // mid-flight, before those last updates arrive. Give it a beat and
-      // re-fetch once more before freezing the banner on stale numbers,
-      // rather than trusting whatever this exact 1s tick happened to see.
-      setTimeout(async () => {
-        try {
-          const res2  = await fetch(url, { cache:'no-store' });
-          const data2 = await res2.json();
-          const freshPlayers = data2.players ?? [data2];
-          const freshWinner  = freshPlayers.find(p => p.kills >= 10) || winner;
-          showVictory(freshWinner, freshPlayers);
-        } catch {
-          showVictory(winner, players);
-        }
-      }, 700);
     }
   } catch {
     document.getElementById('cdot').className     = 'cdot';
@@ -1317,44 +1183,6 @@ function renderLeaderboard(tier) {
     </div>`;
 }
 
-// ── VICTORY ──────────────────────────────────────────────────────────
-let victoryShown   = false;
-let victoryPending = false; // a delayed re-check (see fetchLive) is in flight
-function showVictory(winner, players) {
-  if (victoryShown) return;
-  victoryShown = true;
-
-  const myName = loadUsername();
-  // Case-insensitive — the game reports your username in lowercase
-  // (sfc.myUserName), but whatever you typed into the queue box (any case)
-  // is what's saved to localStorage, so a bare === here could show DEFEAT
-  // even when you're the one who actually won.
-  const isMe   = winner.username.toLowerCase() === myName.toLowerCase();
-  const banner = document.getElementById('victory-banner');
-
-  banner.style.display    = '';
-  banner.style.background = isMe ? '#10b98122' : '#ef444422';
-  banner.style.border     = isMe ? '1px solid var(--green)' : '1px solid var(--red)';
-
-  // Just the icon + result, nothing else — no subtitle, no stats breakdown,
-  // on either a win or a loss.
-  document.getElementById('vb-icon').textContent  = isMe ? '🏆' : '💀';
-  document.getElementById('vb-title').textContent = isMe ? 'VICTORY!' : 'DEFEAT';
-  document.getElementById('vb-title').style.color = isMe ? 'var(--green)' : 'var(--red)';
-  document.getElementById('vb-sub').textContent   = '';
-  document.getElementById('vb-stats').innerHTML   = '';
-
-  showToast(isMe ? '🏆 You won! GG!' : `💀 ${winner.username} wins!`);
-}
-
-// Reset victory banner when a new match starts
-function resetVictory() {
-  victoryShown   = false;
-  victoryPending = false;
-  document.getElementById('victory-banner').style.display = 'none';
-  firstBloodDone = false;
-}
-
 // ── QUEUE ────────────────────────────────────────────────────────────
 let queueState    = 'idle'; // idle | waiting | matched
 let queueSeconds  = 0;
@@ -1398,7 +1226,7 @@ function setQueueState(state, data = {}) {
     document.getElementById('q-vs').textContent   = `You vs ${matchOpponent}`;
     document.getElementById('q-room').textContent = 'GunliveTest';
     showOneVOne(loadUsername(), matchOpponent, matchRoom);
-    resetVictory();
+    firstBloodDone = false;
   }
 
   if (state === 'idle') clearInterval(queueInterval);
@@ -1583,7 +1411,6 @@ loadUsername();
 fetchLive();
 renderHistory();
 setInterval(fetchLive, 1000);
-setInterval(tickMatch, 1000);
 setInterval(pollQueueStatus, 2000);
 setInterval(pollQueue2v2Status, 2000);
 

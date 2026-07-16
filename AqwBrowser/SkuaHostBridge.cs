@@ -9,6 +9,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using JsonDocument = System.Text.Json.JsonDocument;
+using JsonElement = System.Text.Json.JsonElement;
 using JsonSerializer = System.Text.Json.JsonSerializer;
 using JsonValueKind = System.Text.Json.JsonValueKind;
 
@@ -289,12 +290,89 @@ public class SkuaHostBridge
                     try { await JoinRoomAsync(room, username); }
                     finally { _joining = false; }
                 }
+                return;
+            }
+
+            // Not in a 1v1 match/queue — also check the 2v2 queue, since a
+            // client that queued via Queue2v2() but wasn't the one whose
+            // request happened to complete the group of 4 only learns
+            // about the match through this poll, not a direct response.
+            var res2v2 = await _http.GetAsync($"{SERVER_URL}/match2v2?username={Uri.EscapeDataString(username)}");
+            var body2v2 = await res2v2.Content.ReadAsStringAsync();
+            using var doc2v2 = JsonDocument.Parse(body2v2);
+            if (doc2v2.RootElement.GetProperty("status").GetString() == "matched")
+            {
+                await HandleMatched2v2Async(doc2v2.RootElement, username);
             }
         }
         catch (Exception e)
         {
             System.Console.WriteLine($"[skuaHost] PollForMatchAsync failed: {e}");
         }
+    }
+
+    // Wired to the "Queue 2v2" toolbar button. Team assignment in
+    // bludrutbrawl is decided entirely by AQW's own server based on the
+    // order players physically join the room (1st=A, 2nd=B, 3rd=A, 4th=B —
+    // confirmed empirically, no way to control it otherwise), so queuing
+    // order directly determines pairing: to team up with a specific ally
+    // across your windows, queue 1st-and-3rd (or 2nd-and-4th). The server
+    // schedules each player's actual room-join (see HandleMatched2v2Async)
+    // to land in that same order rather than racing.
+    public async void Queue2v2()
+    {
+        try
+        {
+            var username = await GetUsernameAsync();
+            if (string.IsNullOrEmpty(username))
+            {
+                System.Console.WriteLine("[skuaHost] Queue2v2: no username yet (not logged in?)");
+                return;
+            }
+
+            var payload = JsonSerializer.Serialize(new { username });
+            var res = await _http.PostAsync(SERVER_URL + "/queue2v2", new StringContent(payload, Encoding.UTF8, "application/json"));
+            var body = await res.Content.ReadAsStringAsync();
+            using var doc = JsonDocument.Parse(body);
+            var status = doc.RootElement.GetProperty("status").GetString();
+            System.Console.WriteLine($"[skuaHost] queue2v2 response: status={status}");
+
+            if (status == "matched")
+            {
+                await HandleMatched2v2Async(doc.RootElement, username);
+            }
+            // "waiting" — PollForMatchAsync's 2v2 check above picks this up
+            // once the 4th player queues.
+        }
+        catch (Exception e)
+        {
+            System.Console.WriteLine($"[skuaHost] Queue2v2 failed: {e}");
+        }
+    }
+
+    // Shared by Queue2v2() and PollForMatchAsync()'s 2v2 branch. Waits
+    // until the server's assigned joinAtMs (an absolute timestamp shared
+    // by all 4 matched players) before actually sending the room-join
+    // packet, so the real in-game join order lands the intended A/B
+    // pairing instead of however these 4 separate HTTP round-trips happen
+    // to race in practice.
+    private async Task HandleMatched2v2Async(JsonElement match, string username)
+    {
+        var room = match.GetProperty("room").GetString();
+        if (string.IsNullOrEmpty(room) || ShouldSkipJoin(room)) return;
+
+        var team = match.TryGetProperty("team", out var teamProp) ? teamProp.GetString() : "?";
+        var joinAtMs = match.GetProperty("joinAtMs").GetInt64();
+        var nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        var delayMs = (int)Math.Max(0, Math.Min(int.MaxValue, joinAtMs - nowMs));
+        System.Console.WriteLine($"[skuaHost] 2v2 matched: room={room} team={team} — waiting {delayMs}ms before joining");
+        if (delayMs > 0) await Task.Delay(delayMs);
+
+        _joining = true;
+        _lastJoinedRoom = room;
+        _lastJoinedAt = DateTime.UtcNow;
+        try { await JoinRoomAsync(room, username); }
+        finally { _joining = false; }
     }
 
     private async Task JoinRoomAsync(string room, string username)

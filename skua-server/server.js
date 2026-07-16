@@ -46,6 +46,21 @@ const queue          = [];  // usernames waiting for a 1v1
 const queueJoinedAt  = {};  // username -> Date.now() when they entered queue
 const pendingMatches = {};  // { username: { room, opponent, createdAt } }
 const activeRooms    = {};  // { username: { room, opponent } } — persists for rejoin
+
+// ── 2v2 queue ─────────────────────────────────────────────────────
+// Team assignment in bludrutbrawl is decided by AQW's own live server based
+// purely on the order players physically join the room — 1st joiner = team
+// A, 2nd = team B, 3rd = A, 4th = B (confirmed empirically; there's no
+// client-side or server-side-of-ours control over it otherwise). So the
+// only way to land a specific 2v2 pairing is to control the ACTUAL join
+// order to match: queue position 1&3 become team A, 2&4 become team B, and
+// each client is told an absolute joinAtMs to wait until before sending its
+// own room-join packet, staggered JOIN_STEP_MS apart, so the real in-game
+// join order matches the intended pairing instead of racing.
+const queue2v2         = [];  // usernames waiting for a 2v2
+const queue2v2JoinedAt = {};
+const pending2v2Matches = {}; // { username: { room, team, teammates, opponents, joinAtMs } }
+const JOIN_STEP_MS = 2000; // gap between each successive player's scheduled room-join
 const MAX_MATCHES    = 50;
 const PLAYER_TIMEOUT_MS  = 15000;
 const MATCH_EXPIRE_MS    = 120000; // pending match expires after 2 min
@@ -64,6 +79,17 @@ function pruneQueue() {
         if (now - (queueJoinedAt[u] || 0) > QUEUE_EXPIRE_MS) {
             queue.splice(i, 1);
             delete queueJoinedAt[u];
+        }
+    }
+}
+
+function pruneQueue2v2() {
+    const now = Date.now();
+    for (let i = queue2v2.length - 1; i >= 0; i--) {
+        const u = queue2v2[i];
+        if (now - (queue2v2JoinedAt[u] || 0) > QUEUE_EXPIRE_MS) {
+            queue2v2.splice(i, 1);
+            delete queue2v2JoinedAt[u];
         }
     }
 }
@@ -177,6 +203,8 @@ app.post('/stats', (req, res) => {
     // Clear pending match once player has joined the brawl map
     if (data.map && data.map.startsWith('bludrutbrawl') && pendingMatches[data.username])
         delete pendingMatches[data.username];
+    if (data.map && data.map.startsWith('bludrutbrawl') && pending2v2Matches[data.username])
+        delete pending2v2Matches[data.username];
     // Auto end match when someone hits 10 kills
     if (data.map && data.map.startsWith('bludrutbrawl') && data.kills >= 10) {
         const snapshot = Object.values(players).map(p => ({ ...p }));
@@ -277,9 +305,77 @@ app.get('/match', (req, res) => {
     res.json({ status: 'idle' });
 });
 
+// ── Join 2v2 queue ──────────────────────────────────────────────────
+app.post('/queue2v2', (req, res) => {
+    const { username } = req.body;
+    if (!username) return res.status(400).json({ error: 'missing username' });
+
+    pruneQueue2v2();
+
+    if (pending2v2Matches[username]) {
+        return res.json({ status: 'matched', ...pending2v2Matches[username] });
+    }
+
+    if (!queue2v2.includes(username)) { queue2v2.push(username); queue2v2JoinedAt[username] = Date.now(); }
+
+    // Four players ready — form two teams by strict queue order (1st&3rd =
+    // team A, 2nd&4th = team B), matching AQW's own join-order-based team
+    // assignment. Whoever queues in what order IS the intended pairing —
+    // e.g. to team up two friends, queue them 1st and 3rd.
+    if (queue2v2.length >= 4) {
+        const [p1, p2, p3, p4] = queue2v2.splice(0, 4);
+        [p1, p2, p3, p4].forEach(u => delete queue2v2JoinedAt[u]);
+        const room = 'bludrutbrawl-' + (Math.floor(Math.random() * 9000) + 1000);
+        const createdAt = Date.now();
+        const order = { [p1]: 1, [p2]: 2, [p3]: 3, [p4]: 4 };
+        const team  = { [p1]: 'A', [p2]: 'B', [p3]: 'A', [p4]: 'B' };
+        const teammateOf = { [p1]: p3, [p2]: p4, [p3]: p1, [p4]: p2 };
+        [p1, p2, p3, p4].forEach(u => {
+            pending2v2Matches[u] = {
+                room,
+                team: team[u],
+                teammates: [teammateOf[u]],
+                opponents: [p1, p2, p3, p4].filter(x => x !== u && x !== teammateOf[u]),
+                joinAtMs: createdAt + (order[u] - 1) * JOIN_STEP_MS,
+            };
+        });
+        return res.json({ status: 'matched', ...pending2v2Matches[username] });
+    }
+
+    res.json({ status: 'waiting', position: queue2v2.indexOf(username) + 1 });
+});
+
+// ── Check 2v2 match status (polled by client) ───────────────────────
+app.get('/match2v2', (req, res) => {
+    const username = (req.query.username || '').trim();
+    if (!username) return res.status(400).json({ error: 'missing username' });
+
+    pruneQueue2v2();
+
+    const matchKey = Object.keys(pending2v2Matches).find(k => k.toLowerCase() === username.toLowerCase());
+    if (matchKey) return res.json({ status: 'matched', ...pending2v2Matches[matchKey] });
+
+    const inQueue = queue2v2.some(u => u.toLowerCase() === username.toLowerCase());
+    if (inQueue) return res.json({ status: 'waiting' });
+
+    res.json({ status: 'idle' });
+});
+
+// ── Leave 2v2 queue ──────────────────────────────────────────────────
+app.post('/queue2v2/leave', (req, res) => {
+    const { username } = req.body;
+    if (username) {
+        const idx = queue2v2.indexOf(username);
+        if (idx > -1) queue2v2.splice(idx, 1);
+        delete queue2v2JoinedAt[username];
+        delete pending2v2Matches[username];
+    }
+    res.json({ ok: true });
+});
+
 // ── Debug — see current server state ──────────────────────────────
 app.get('/debug', (req, res) => {
-    res.json({ queue, pendingMatches, activePlayers: Object.keys(players) });
+    res.json({ queue, pendingMatches, queue2v2, pending2v2Matches, activePlayers: Object.keys(players) });
 });
 
 // ── Leave queue ────────────────────────────────────────────────────

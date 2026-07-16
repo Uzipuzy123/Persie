@@ -205,6 +205,21 @@ public class BrowserForm : Form
         };
         testSoloBtn.Click += (s, e) => _hostBridge?.TestSoloQueue();
 
+        var queue2v2Btn = new Button
+        {
+            Text = "🧪 Queue 2v2",
+            AutoSize = false,
+            Width = 110,
+            Height = 26,
+            Font = new Font("Segoe UI", 8.5f, FontStyle.Bold),
+            Location = new Point(0, 7),
+            Anchor = AnchorStyles.Top | AnchorStyles.Right,
+        };
+        // Team is purely queue-order-based (1st&3rd = team A, 2nd&4th =
+        // team B — see Queue2v2's own comment) — to team up two specific
+        // windows, click this button on them 1st and 3rd (or 2nd and 4th).
+        queue2v2Btn.Click += (s, e) => _hostBridge?.Queue2v2();
+
         var rejoinBtn = new Button
         {
             Text = "🔄 Rejoin",
@@ -280,7 +295,7 @@ public class BrowserForm : Form
         foreach (var t in Themes) themeCombo.Items.Add(t.Name);
         themeCombo.SelectedIndex = 0;
 
-        var themedButtons = new[] { testSoloBtn, rejoinBtn, keybindsBtn, deathcamBtn, animPatchBtn };
+        var themedButtons = new[] { testSoloBtn, queue2v2Btn, rejoinBtn, keybindsBtn, deathcamBtn, animPatchBtn };
         foreach (var b in themedButtons)
         {
             // Windows' default button chrome ignores BackColor entirely — Flat
@@ -311,10 +326,11 @@ public class BrowserForm : Form
 
         toolbar.Resize += (s, e) =>
         {
-            addressBar.Width = Math.Max(0, toolbar.Width - addressBar.Left - testSoloBtn.Width - rejoinBtn.Width - keybindsBtn.Width - deathcamBtn.Width - animPatchBtn.Width - themeCombo.Width - 52);
+            addressBar.Width = Math.Max(0, toolbar.Width - addressBar.Left - testSoloBtn.Width - queue2v2Btn.Width - rejoinBtn.Width - keybindsBtn.Width - deathcamBtn.Width - animPatchBtn.Width - themeCombo.Width - 60);
             rejoinBtn.Left = toolbar.Width - rejoinBtn.Width - 8;
             testSoloBtn.Left = rejoinBtn.Left - testSoloBtn.Width - 8;
-            keybindsBtn.Left = testSoloBtn.Left - keybindsBtn.Width - 8;
+            queue2v2Btn.Left = testSoloBtn.Left - queue2v2Btn.Width - 8;
+            keybindsBtn.Left = queue2v2Btn.Left - keybindsBtn.Width - 8;
             deathcamBtn.Left = keybindsBtn.Left - deathcamBtn.Width - 8;
             animPatchBtn.Left = deathcamBtn.Left - animPatchBtn.Width - 8;
             themeCombo.Left = animPatchBtn.Left - themeCombo.Width - 8;
@@ -323,6 +339,7 @@ public class BrowserForm : Form
         toolbar.Controls.Add(nav);
         toolbar.Controls.Add(addressBar);
         toolbar.Controls.Add(testSoloBtn);
+        toolbar.Controls.Add(queue2v2Btn);
         toolbar.Controls.Add(rejoinBtn);
         toolbar.Controls.Add(keybindsBtn);
         toolbar.Controls.Add(deathcamBtn);

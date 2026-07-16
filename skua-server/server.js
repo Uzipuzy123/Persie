@@ -53,6 +53,10 @@ const MATCH_EXPIRE_MS    = 120000; // pending match expires after 2 min
 // actually observe the 10th kill, only "gone". Keep it visible this long
 // first so the live page has a real window to show the true final state.
 const MATCH_END_VISIBLE_MS = 4000;
+// How long to wait after the winner's matchEnd push before snapshotting into
+// match history — gives the loser's own synchronous final-death push (fired
+// client-side the moment their deaths hits 10) a chance to land first.
+const MATCH_END_FINALIZE_DELAY_MS = 600;
 // In a real 1v1 only the winner's client ever crosses 10 kills and sends
 // matchEnd — the loser's client has no local signal the match is over, so it
 // just keeps pushing its own regular stats every second, which would
@@ -89,28 +93,40 @@ app.post('/stats', (req, res) => {
         // snapshot only reflects whatever was last pushed a second earlier,
         // silently dropping the last update that actually ended the match.
         players[data.username] = { ...data, lastSeen: Date.now() };
-        const snapshot = Object.values(players).map(p => ({ ...p }));
-        if (snapshot.length > 0) {
-            const room = data.map || 'bludrutbrawl';
-            matches.unshift({
-                id:        Date.now(),
-                timestamp: new Date().toISOString(),
-                map:       room,
-                type:      matchType(snapshot.length),
-                duration:  formatDuration(Date.now() - (roomStartTimes[room] || Date.now())),
-                players:   snapshot,
+        const room = data.map || 'bludrutbrawl';
+        // The loser has no local "match over" signal — it only learns via its
+        // own next stats push, which now fires synchronously the moment their
+        // deaths hits 10 (same as the winner's kills) but is still a separate
+        // in-flight HTTP request racing this one. Deliberately do NOT set
+        // endedRooms yet — that's what makes the regular-push path below
+        // reject a straggler as "already ended" (matchEnded:true) instead of
+        // writing it into players{}. Leaving it unset for this short window
+        // lets the loser's racing push land normally and update its own
+        // entry before we mark the room ended and snapshot.
+        setTimeout(() => {
+            const snapshot = Object.values(players).map(p => ({ ...p }));
+            if (snapshot.length > 0) {
+                matches.unshift({
+                    id:        Date.now(),
+                    timestamp: new Date().toISOString(),
+                    map:       room,
+                    type:      matchType(snapshot.length),
+                    duration:  formatDuration(Date.now() - (roomStartTimes[room] || Date.now())),
+                    players:   snapshot,
+                });
+                if (matches.length > MAX_MATCHES) matches.pop();
+            }
+            if (data.map) { endedRooms[data.map] = Date.now(); delete roomStartTimes[data.map]; }
+            // Clear EVERYONE currently live, not just the reporting player —
+            // in a real 1v1 only the winner's client ever sends matchEnd
+            // (their kills hit 10; the opponent's never will), so clearing
+            // just data.username left the loser's row stuck in Live forever
+            // with nothing to end it.
+            snapshot.forEach(p => {
+                delete activeRooms[p.username];
+                setTimeout(() => { delete players[p.username]; }, MATCH_END_VISIBLE_MS);
             });
-            if (matches.length > MAX_MATCHES) matches.pop();
-        }
-        if (data.map) { endedRooms[data.map] = Date.now(); delete roomStartTimes[data.map]; }
-        // Clear EVERYONE currently live, not just the reporting player — in a
-        // real 1v1 only the winner's client ever sends matchEnd (their kills
-        // hit 10; the opponent's never will), so clearing just data.username
-        // left the loser's row stuck in Live forever with nothing to end it.
-        snapshot.forEach(p => {
-            delete activeRooms[p.username];
-            setTimeout(() => { delete players[p.username]; }, MATCH_END_VISIBLE_MS);
-        });
+        }, MATCH_END_FINALIZE_DELAY_MS);
         return res.json({ ok: true });
     }
 

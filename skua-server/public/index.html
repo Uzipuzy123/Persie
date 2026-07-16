@@ -747,16 +747,26 @@ function renderLiveRows(players) {
           <div style="font-size:0.75rem">waiting...</div>
         </div>`;
 
-    const sum = (team, field) => team.reduce((acc, p) => acc + (p[field] ?? 0), 0);
-    const compareRow = (label, v1, v2, isDmg) => {
-      const fmtV = isDmg ? fmt : (x => x);
-      const bBetter = teamB.length && v2 > v1;
-      return `<div style="display:grid;grid-template-columns:1fr 90px 1fr;align-items:center;gap:8px;padding:5px 0">
-        <div style="text-align:right;font-weight:800;font-size:0.9rem;color:${!bBetter && (v1>0||!teamB.length)?'var(--accent)':'#fff'}">${fmtV(v1)}</div>
-        <div style="font-size:0.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;text-align:center">${label}</div>
-        <div style="text-align:left;font-weight:800;font-size:0.9rem;color:${bBetter?'var(--accent)':'#fff'}">${teamB.length?fmtV(v2):'—'}</div>
+    // Per-player breakdown, not team totals — one row per player, each
+    // showing their own individual numbers, colored by which side they're
+    // on. Works the same for a 1v1 (2 rows) or a 4v4 (8 rows).
+    const statRow = (p, col) => `
+      <div style="display:grid;grid-template-columns:1fr repeat(6,64px);align-items:center;gap:6px;padding:5px 0;font-size:0.78rem">
+        <div style="font-weight:700;color:${col}">${p.username}</div>
+        <div style="text-align:center;color:#fff">${p.kills ?? 0}</div>
+        <div style="text-align:center;color:#fff">${p.deaths ?? 0}</div>
+        <div style="text-align:center;color:#fff">${fmt(p.dmgDealt ?? 0)}</div>
+        <div style="text-align:center;color:#fff">${fmt(p.dmgTaken ?? 0)}</div>
+        <div style="text-align:center;color:#fff">${p.crits ?? 0}</div>
+        <div style="text-align:center;color:#fff">${p.dodges ?? 0}</div>
       </div>`;
-    };
+    const statHeader = `
+      <div style="display:grid;grid-template-columns:1fr repeat(6,64px);gap:6px;padding:4px 0 6px;
+        font-size:0.58rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;border-bottom:1px solid var(--border);margin-bottom:4px">
+        <div>Player</div><div style="text-align:center">Kills</div><div style="text-align:center">Deaths</div>
+        <div style="text-align:center">Dmg Dealt</div><div style="text-align:center">Dmg Taken</div>
+        <div style="text-align:center">Crits</div><div style="text-align:center">Dodges</div>
+      </div>`;
 
     return `<div style="background:var(--card);border-radius:8px;margin-bottom:8px;overflow:hidden">
       <div style="display:flex;align-items:center;gap:16px;padding:14px 16px">
@@ -769,13 +779,10 @@ function renderLiveRows(players) {
           ${expanded ? '&#9650; HIDE STATS' : '&#128202; SHOW LIVE STATS'}
         </button>
       </div>
-      ${expanded ? `<div style="padding:2px 16px 16px;border-top:1px solid var(--border)">
-        ${g.players.length > 2 ? `<div style="text-align:center;font-size:0.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Team Totals</div>` : ''}
-        ${compareRow('Dmg Dealt', sum(teamA,'dmgDealt'), sum(teamB,'dmgDealt'), true)}
-        ${compareRow('Dmg Taken', sum(teamA,'dmgTaken'), sum(teamB,'dmgTaken'), true)}
-        ${compareRow('Crits', sum(teamA,'crits'), sum(teamB,'crits'), false)}
-        ${compareRow('Dodges', sum(teamA,'dodges'), sum(teamB,'dodges'), false)}
-        ${compareRow('Kills', sum(teamA,'kills'), sum(teamB,'kills'), false)}
+      ${expanded ? `<div style="padding:2px 16px 16px;border-top:1px solid var(--border);overflow-x:auto">
+        ${statHeader}
+        ${teamA.map(p => statRow(p, col1)).join('')}
+        ${teamB.map(p => statRow(p, col2)).join('')}
       </div>` : ''}
     </div>`;
   }).join('');

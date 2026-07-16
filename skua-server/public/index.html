@@ -296,39 +296,13 @@ main { flex:1; padding:28px 32px; overflow-y:auto; }
 .pv-empty-icon { font-size:2.4rem; color:#3a3a40; margin-bottom:10px; opacity:0.8; }
 .pv-empty-text { font-size:0.85rem; color:var(--muted); }
 
-/* ── AVATAR EFFECTS (layered on top of the character render, not baked into it) ── */
-@keyframes avatarSlideIn {
-  from { opacity:0; transform:translateY(18px) scale(0.94); }
-  to   { opacity:1; transform:translateY(0) scale(1); }
-}
-@keyframes avatarWinnerGlow {
-  0%, 100% { filter:drop-shadow(0 0 6px var(--gold)) drop-shadow(0 0 2px var(--gold)); }
-  50%      { filter:drop-shadow(0 0 18px var(--gold)) drop-shadow(0 0 6px var(--gold)); }
-}
-/* Slow head-hang slump, plays once and holds on the loser. */
-@keyframes loserSlump {
-  0%   { transform:translateY(0)   rotate(0deg) scale(1);    filter:saturate(1)    brightness(1); }
-  100% { transform:translateY(10px) rotate(6deg) scale(0.92); filter:saturate(0.35) brightness(0.6); }
-}
+/* ── AVATAR EFFECTS (layered on top of the character render, not baked into it) ──
+   Slide-in/glow/slump keyframes were removed — the glow's infinite
+   drop-shadow animation stacked on top of the live Ruffle render loop was
+   causing GPU crashes, so avatar-fx is now just a plain positioning
+   container with no animation. */
 .avatar-fx {
   position:relative;
-  animation: avatarSlideIn 0.45s cubic-bezier(.2,.8,.3,1) both;
-}
-.avatar-fx.winner {
-  animation-name: avatarSlideIn, avatarWinnerGlow;
-  animation-duration: 0.45s, 1.8s;
-  animation-timing-function: cubic-bezier(.2,.8,.3,1), ease-in-out;
-  animation-delay: 0s, 0s;
-  animation-iteration-count: 1, infinite;
-  animation-fill-mode: both, none;
-}
-.avatar-fx.loser {
-  animation-name: avatarSlideIn, loserSlump;
-  animation-duration: 0.45s, 1.2s;
-  animation-timing-function: cubic-bezier(.2,.8,.3,1), ease-out;
-  animation-delay: 0s, 0.5s;
-  animation-iteration-count: 1, 1;
-  animation-fill-mode: both, forwards;
 }
 
 @keyframes sparkleBurst {
@@ -1050,14 +1024,13 @@ async function openMatchDetail(id) {
 
   // Silhouette placeholders go up immediately; real character renders (via
   // Ruffle + the CharPage proxy) swap in below once fetched, matching the
-  // old PVPHero match-result layout. avatar-fx adds a slide-in entrance +
-  // idle bob; "winner" adds a gold glow pulse on the winning side.
+  // old PVPHero match-result layout.
   document.getElementById('mm-hero').innerHTML = `
     <div style="text-align:center;padding:4px 0 20px">
       <div style="font-family:Georgia,serif;font-style:italic;color:var(--gold);font-size:1.3rem;font-weight:700">PvP Game Results</div>
       <div style="font-family:Georgia,serif;font-style:italic;color:var(--gold);font-size:0.85rem;margin-top:2px">Hosted in ${mapName}</div>
       <div style="display:flex;align-items:center;justify-content:center;gap:40px;margin-top:22px">
-        <div id="mm-av1" class="avatar-fx${p1IsWinner ? ' winner' : (p2 ? ' loser' : '')}">${silhouetteHtml('#3b82f6')}</div>
+        <div id="mm-av1" class="avatar-fx">${silhouetteHtml('#3b82f6')}</div>
         <div style="text-align:center">
           <div style="font-size:0.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px">Score</div>
           <div style="font-size:1.7rem;font-weight:900;margin-top:2px">
@@ -1065,7 +1038,7 @@ async function openMatchDetail(id) {
           </div>
           <div style="font-size:0.65rem;color:var(--gold);margin-top:6px;letter-spacing:0.5px">&#9656; VIEW GAME</div>
         </div>
-        <div id="mm-av2" class="avatar-fx${p2 && !p1IsWinner ? ' winner' : (p2 ? ' loser' : '')}">${p2 ? silhouetteHtml('#ef4444') : silhouetteHtml('#555')}</div>
+        <div id="mm-av2" class="avatar-fx">${p2 ? silhouetteHtml('#ef4444') : silhouetteHtml('#555')}</div>
       </div>
       <div style="font-size:0.7rem;color:var(--muted);margin-top:16px;line-height:1.6">
         *Hover for username<br>*Click on player to view individual stats

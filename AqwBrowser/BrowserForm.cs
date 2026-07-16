@@ -32,17 +32,26 @@ public class BrowserForm : Form
         }
         else
         {
-            // The whole point of running a second profile is watching both
-            // accounts fight at once — maximizing it would just stack it
-            // exactly on top of the first window. Snap each extra profile to
-            // the left/right half of the work area instead, alternating
-            // sides, so a second and third window are both immediately
-            // visible side by side with no manual resizing needed.
+            // The whole point of running extra profiles is watching multiple
+            // accounts at once (1v1 or 2v2 self-testing) — maximizing would
+            // just stack each one on top of the others. Tile into quadrants
+            // instead: profile 2 top-right, 3 bottom-left, 4 bottom-right
+            // (profile 1 occupies the top-left conceptually, though it stays
+            // maximized above rather than being forced into that quadrant —
+            // most launches are still just a single window, where maximized
+            // is the right default; move it manually when running a full
+            // 4-way test). Previously this alternated left/right halves
+            // only, which put profile 3 on top of profile 1's half and
+            // profile 4 exactly on top of profile 2's — not a bug that
+            // showed up until testing actually needed all 4 visible at once.
             var area = Screen.PrimaryScreen!.WorkingArea;
-            int half = area.Width / 2;
-            bool rightSide = profile % 2 == 0;
+            int halfW = area.Width / 2;
+            int halfH = area.Height / 2;
+            int slot = (profile - 2) % 4; // 0=top-right, 1=bottom-left, 2=bottom-right, 3=top-right again (5th+ profile wraps)
+            int col = slot == 1 ? 0 : 1;
+            int row = slot == 0 || slot == 3 ? 0 : 1;
             StartPosition = FormStartPosition.Manual;
-            Bounds = new Rectangle(area.X + (rightSide ? half : 0), area.Y, half, area.Height);
+            Bounds = new Rectangle(area.X + col * halfW, area.Y + row * halfH, halfW, halfH);
         }
 
         var toolbar = BuildFakeToolbar(startUrl);

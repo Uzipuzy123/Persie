@@ -224,10 +224,12 @@ public class SkuaHostBridge
         }
     }
 
-    // Wired to the "Rejoin" toolbar button. Uses the server's own /rejoin
-    // endpoint, which re-arms a pendingMatch from your last *active* room
-    // (activeRooms) — deliberately the SAME room as before, unlike
-    // TestSoloQueue() above which always forces a new one.
+    // Wired to the "Rejoin" toolbar button. Tries the 1v1 /rejoin endpoint
+    // first (re-arms a pendingMatch from activeRooms — deliberately the
+    // SAME room as before, unlike TestSoloQueue() which always forces a new
+    // one); if that finds nothing, falls back to /rejoin2v2. A single
+    // button works for both since a client is only ever in one match type
+    // at a time.
     public async void Rejoin()
     {
         try
@@ -243,21 +245,35 @@ public class SkuaHostBridge
             var res = await _http.PostAsync(SERVER_URL + "/rejoin", new StringContent(payload, Encoding.UTF8, "application/json"));
             var body = await res.Content.ReadAsStringAsync();
             using var doc = JsonDocument.Parse(body);
-            if (!doc.RootElement.TryGetProperty("ok", out var okProp) || !okProp.GetBoolean())
+            if (doc.RootElement.TryGetProperty("ok", out var okProp) && okProp.GetBoolean())
             {
-                System.Console.WriteLine($"[skuaHost] Rejoin: no active match found ({body})");
+                var room = doc.RootElement.GetProperty("room").GetString();
+                System.Console.WriteLine($"[skuaHost] Rejoin: room={room}");
+                if (!string.IsNullOrEmpty(room))
+                {
+                    _joining = true;
+                    _lastJoinedRoom = room;
+                    _lastJoinedAt = DateTime.UtcNow;
+                    try { await JoinRoomAsync(room, username); }
+                    finally { _joining = false; }
+                }
                 return;
             }
 
-            var room = doc.RootElement.GetProperty("room").GetString();
-            System.Console.WriteLine($"[skuaHost] Rejoin: room={room}");
-            if (!string.IsNullOrEmpty(room))
+            // No active 1v1 match — this might be a 2v2 rejoin instead.
+            // Same staggered-join scheduling as the initial 2v2 match, just
+            // triggered by a reconnect rather than the queue filling up
+            // (see /rejoin2v2's own comment for why that matters).
+            var res2v2 = await _http.PostAsync(SERVER_URL + "/rejoin2v2", new StringContent(payload, Encoding.UTF8, "application/json"));
+            var body2v2 = await res2v2.Content.ReadAsStringAsync();
+            using var doc2v2 = JsonDocument.Parse(body2v2);
+            if (doc2v2.RootElement.TryGetProperty("ok", out var ok2v2) && ok2v2.GetBoolean())
             {
-                _joining = true;
-                _lastJoinedRoom = room;
-                _lastJoinedAt = DateTime.UtcNow;
-                try { await JoinRoomAsync(room, username); }
-                finally { _joining = false; }
+                await HandleMatched2v2Async(doc2v2.RootElement, username);
+            }
+            else
+            {
+                System.Console.WriteLine($"[skuaHost] Rejoin: no active match found (1v1: {body}, 2v2: {body2v2})");
             }
         }
         catch (Exception e)

@@ -61,7 +61,10 @@ const activeRooms    = {};  // { username: { room, opponent } } — persists for
 const queue2v2         = [];  // usernames waiting for a 2v2
 const queue2v2JoinedAt = {};
 const pending2v2Matches = {}; // { username: { room, team, teammates, opponents, joinAtMs } }
+const active2v2Rooms   = {};  // { username: { room, team, teammates, opponents, order } } — persists for rejoin
+const rejoinWindows2v2 = {};  // room -> { startedAt } — groups near-simultaneous rejoins so they stay staggered relative to each other, same as the original queue-fill join
 const JOIN_STEP_MS = 3500; // gap between each successive player's scheduled room-join — generous margin for lag/slow room loads before the next join fires
+const REJOIN_WINDOW_MS = 8000; // a rejoin more than this long after the first one in a room starts its own fresh window instead
 const MAX_MATCHES    = 50;
 const PLAYER_TIMEOUT_MS  = 15000;
 const MATCH_EXPIRE_MS    = 120000; // pending match expires after 2 min
@@ -175,12 +178,14 @@ app.post('/stats', (req, res) => {
                     if (matches.length > MAX_MATCHES) matches.pop();
                 }
                 if (data.map) { endedRooms[data.map] = Date.now(); delete roomStartTimes[data.map]; }
+                delete rejoinWindows2v2[room];
                 // Clear EVERYONE currently live, not just the reporting
                 // player — both clients send matchEnd now, but only clearing
                 // data.username here would still race the other client's own
                 // write landing after this fires.
                 snapshot.forEach(p => {
                     delete activeRooms[p.username];
+                    delete active2v2Rooms[p.username];
                     setTimeout(() => { delete players[p.username]; }, MATCH_END_VISIBLE_MS);
                 });
             }, MATCH_END_FINALIZE_DELAY_MS);
@@ -341,13 +346,20 @@ app.post('/queue2v2', (req, res) => {
         const team  = { [p1]: 'A', [p2]: 'B', [p3]: 'A', [p4]: 'B' };
         const teammateOf = { [p1]: p3, [p2]: p4, [p3]: p1, [p4]: p2 };
         [p1, p2, p3, p4].forEach(u => {
-            pending2v2Matches[u] = {
+            const info = {
                 room,
                 team: team[u],
                 teammates: [teammateOf[u]],
                 opponents: [p1, p2, p3, p4].filter(x => x !== u && x !== teammateOf[u]),
-                joinAtMs: createdAt + (order[u] - 1) * JOIN_STEP_MS,
             };
+            pending2v2Matches[u] = { ...info, joinAtMs: createdAt + (order[u] - 1) * JOIN_STEP_MS };
+            // Persists past the initial join (unlike pending2v2Matches,
+            // which gets cleared the moment the player's first push from
+            // inside the room lands) — this is what /rejoin2v2 reads to
+            // know a player's ORIGINAL team/order for this match, so a
+            // later relog can be scheduled back into the same slot instead
+            // of just racing a fresh untracked join.
+            active2v2Rooms[u] = { ...info, order: order[u] };
         });
         return res.json({ status: 'matched', ...pending2v2Matches[username] });
     }
@@ -411,6 +423,35 @@ app.post('/rejoin', (req, res) => {
     const { room, opponent } = activeRooms[key];
     pendingMatches[key] = { room, opponent, createdAt: Date.now() };
     res.json({ ok: true, room, opponent });
+});
+
+// ── Rejoin (2v2) — schedules the reconnect into the SAME team slot ──
+// A relog is itself just another room-join to AQW, and team assignment is
+// join-order-based (see the big comment near queue2v2's declaration) — so
+// an unscheduled rejoin risks re-scrambling teams exactly like an
+// unscheduled initial join would. Reuses each player's ORIGINAL order
+// (their position 1-4 from when the match was first formed) and groups
+// rejoins that land close together in time under one shared reference
+// timestamp, so two teammates relogging near-simultaneously still end up
+// staggered correctly relative to each other — same mechanism, just
+// triggered by a reconnect instead of the queue filling up.
+app.post('/rejoin2v2', (req, res) => {
+    const { username } = req.body;
+    if (!username) return res.status(400).json({ error: 'missing username' });
+
+    const key = Object.keys(active2v2Rooms).find(k => k.toLowerCase() === username.toLowerCase());
+    if (!key) return res.status(404).json({ error: 'no active 2v2 match' });
+
+    const info = active2v2Rooms[key];
+    const now = Date.now();
+    let win = rejoinWindows2v2[info.room];
+    if (!win || now - win.startedAt > REJOIN_WINDOW_MS) {
+        win = { startedAt: now };
+        rejoinWindows2v2[info.room] = win;
+    }
+
+    const joinAtMs = win.startedAt + (info.order - 1) * JOIN_STEP_MS;
+    res.json({ ok: true, room: info.room, team: info.team, teammates: info.teammates, opponents: info.opponents, joinAtMs });
 });
 
 // ── Solo test — adds a bot so one player can test matchmaking ──────

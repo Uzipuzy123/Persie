@@ -109,14 +109,22 @@ function pruneQueue2v2() {
     }
 }
 
-// Has this player's live /stats push actually reported standing in `room`
-// yet — the real "they're in the game" signal, not just "clicked Join".
-// Case-insensitive since the website-typed queue name and the client's
-// self-reported username aren't guaranteed to match case (see the /stats
-// handler's own comment on this — that mismatch was the join-spam bug).
-function isPlayerJoined(username, room) {
+// Has this player's live /stats push actually reported standing in a
+// bludrutbrawl room yet — the real "they're in the game" signal, not just
+// "clicked Join". Case-insensitive since the website-typed queue name and
+// the client's self-reported username aren't guaranteed to match case (see
+// the /stats handler's own comment on this — that mismatch was the
+// join-spam bug). Deliberately only checks the ZONE, not the specific
+// numbered room we invented (e.g. "bludrutbrawl-9921") — confirmed live
+// that AQW's own client only ever reports the bare zone name
+// (strMapName == "bludrutbrawl") via /stats, never our made-up room
+// suffix, so an exact-room comparison here can never succeed for anyone.
+// We're trusting AQW's own room-assignment to honor the shared room
+// parameter both clients sent in their tfer packets, since the specific
+// instance isn't a signal available to verify independently.
+function isPlayerJoined(username) {
     const key = Object.keys(players).find(k => k.toLowerCase() === username.toLowerCase());
-    return !!(key && players[key].map && players[key].map.toLowerCase() === room.toLowerCase());
+    return !!(key && players[key].map && players[key].map.toLowerCase().startsWith('bludrutbrawl'));
 }
 
 // 1v1-only dedicated first/second join system: shared by /queue and /match
@@ -139,7 +147,7 @@ function matchStatusResponse(username, m) {
     const isFirst   = active ? !!active.isFirst : true; // fallback: don't block if state's missing
     const oppKey    = Object.keys(pendingMatches).find(k => k.toLowerCase() === m.opponent.toLowerCase());
     const opponentConfirmed = !!(oppKey && pendingMatches[oppKey].joinAtMs !== undefined);
-    const opponentJoined    = isPlayerJoined(m.opponent, m.room);
+    const opponentJoined    = isPlayerJoined(m.opponent);
     return {
         status: 'matched-pending-confirm',
         room: m.room,
@@ -257,48 +265,33 @@ app.post('/stats', (req, res) => {
     // match's start, so Duration can be computed once it ends.
     if (data.map && data.map.startsWith('bludrutbrawl') && !roomStartTimes[data.map])
         roomStartTimes[data.map] = Date.now();
-    // Clear pending match once player has joined the SPECIFIC room they were
-    // pending for — not just any bludrutbrawl push for their username. A
-    // push for an unrelated room (e.g. a stray simulate-script hitting a
-    // real account name, or a leftover test match) used to blow away a
-    // genuine pending match before the player had actually joined it.
-    // Case-insensitive lookup (same as /match, /rejoin, /queue/confirm) —
-    // an exact-case match here missed real players whose website-typed
-    // queue username differed in case from what their client reports back
-    // via /stats, which left pendingMatches never cleared: the "matched"
-    // status (and joinAtMs) kept coming back from /match every poll, and
-    // AqwBrowser dutifully kept re-sending the join packet every
-    // RejoinCooldown even though the player was already standing in the
-    // room — the "continuous join spam" bug.
+    // Clear pending match once player has joined ANY bludrutbrawl room —
+    // NOT the specific numbered room they were assigned (e.g.
+    // "bludrutbrawl-9921"). Confirmed live that AQW's own client only ever
+    // reports the bare zone name via strMapName ("bludrutbrawl", no
+    // suffix), never our made-up per-match room label — so an exact-room
+    // comparison here could never succeed for anyone, which was the real
+    // root cause of pendingMatches never clearing (the "join spam" bug —
+    // case-insensitivity alone wasn't the whole fix). Case-insensitive
+    // lookup for the username itself is still needed for the same reason
+    // as /match, /rejoin, /queue/confirm.
     const pendingKey = Object.keys(pendingMatches).find(k => k.toLowerCase() === data.username.toLowerCase());
-    if (data.map && pendingKey && pendingMatches[pendingKey].room.toLowerCase() === data.map.toLowerCase())
+    if (data.map && pendingKey && data.map.toLowerCase().startsWith('bludrutbrawl'))
         delete pendingMatches[pendingKey];
     const pending2v2Key = Object.keys(pending2v2Matches).find(k => k.toLowerCase() === data.username.toLowerCase());
-    if (data.map && pending2v2Key && pending2v2Matches[pending2v2Key].room.toLowerCase() === data.map.toLowerCase())
+    if (data.map && pending2v2Key && data.map.toLowerCase().startsWith('bludrutbrawl'))
         delete pending2v2Matches[pending2v2Key];
 
-    // Safety net: AQW's own room-join can still occasionally bounce a
-    // player into a different physical room than the one they were
-    // assigned (the join-stagger above makes this rare, not impossible —
-    // see the 1v1/2v2 joinAtMs comments). `data.map` is the player's own
-    // client reporting what room it ACTUALLY landed in (real strMapName,
-    // not just what we requested), so comparing it against the room the
-    // server originally decided for them catches a split instead of it
-    // silently producing two separate 1-player "matches". activeRooms /
-    // active2v2Rooms persist for the whole match (unlike pendingMatches,
-    // which gets cleared above the moment the first push lands), so this
-    // stays valid to check for as long as the match is ongoing.
-    let roomMismatch = false;
-    if (data.map && data.map.startsWith('bludrutbrawl')) {
-        // Case-insensitive, same reasoning as the pendingMatches lookup above.
-        const activeKey     = Object.keys(activeRooms).find(k => k.toLowerCase() === data.username.toLowerCase());
-        const active2v2Key  = Object.keys(active2v2Rooms).find(k => k.toLowerCase() === data.username.toLowerCase());
-        const expected = (activeKey && activeRooms[activeKey]) || (active2v2Key && active2v2Rooms[active2v2Key]);
-        if (expected && expected.room && expected.room.toLowerCase() !== data.map.toLowerCase()) {
-            roomMismatch = true;
-            console.log(`[roomMismatch] ${data.username} expected ${expected.room} but is actually in ${data.map}`);
-        }
-    }
+    // roomMismatch is disabled: it compared the player's reported map
+    // against the specific numbered room they were assigned, but AQW's
+    // client never actually reports that number back (same limitation as
+    // above) — so this was permanently a false positive for every single
+    // legitimately-joined player, not just genuine mismatches, showing
+    // "⚠ Rejoin (Mismatch!)" in AqwBrowser constantly regardless of
+    // whether anything was actually wrong. Left disabled rather than
+    // loosened to a no-op check, since there's no real signal available to
+    // detect this failure mode with what AQW's client exposes.
+    const roomMismatch = false;
 
     // Win detection: every extra player on a side needs 10 more team kills
     // to win — 1v1 is 10, 2v2 is 20, 3v3 is 30, and so on. This has to be
@@ -417,7 +410,7 @@ app.post('/queue/confirm', (req, res) => {
     const active    = activeKey ? activeRooms[activeKey] : null;
     const isFirst   = active ? !!active.isFirst : true; // fallback: don't block if state's missing
 
-    if (!isFirst && !isPlayerJoined(m.opponent, m.room)) {
+    if (!isFirst && !isPlayerJoined(m.opponent)) {
         return res.status(409).json({ ok: false, error: `Waiting for ${m.opponent} to join first`, blocked: true });
     }
     if (isFirst && active) active.firstClaimedAt = Date.now();
@@ -457,7 +450,7 @@ app.get('/match', (req, res) => {
         const m = pendingMatches[k];
         if (!m) return; // already joined for real and cleared — nothing to disqualify
         if (now - m.createdAt <= FIRST_JOIN_TIMEOUT_MS) return;
-        if (isPlayerJoined(k, a.room)) return; // joined; /stats push just hasn't cleared pendingMatches yet
+        if (isPlayerJoined(k)) return; // joined; /stats push just hasn't cleared pendingMatches yet
         const oppKey = Object.keys(activeRooms).find(x => x.toLowerCase() === a.opponent.toLowerCase());
         console.log(`[firstJoinTimeout] ${k} (designated first) never joined ${a.room} within ${FIRST_JOIN_TIMEOUT_MS}ms — voiding match`);
         delete pendingMatches[k];
@@ -481,7 +474,7 @@ app.get('/match', (req, res) => {
         // has THIS player's own live /stats push actually reported standing
         // in the assigned room yet (not just clicked Join) — opponentJoined
         // is already included by matchStatusResponse.
-        resp.joined = isPlayerJoined(matchKey, m.room);
+        resp.joined = isPlayerJoined(matchKey);
         return res.json(resp);
     }
 

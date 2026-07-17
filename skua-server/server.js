@@ -235,12 +235,20 @@ app.post('/stats', (req, res) => {
     // push for an unrelated room (e.g. a stray simulate-script hitting a
     // real account name, or a leftover test match) used to blow away a
     // genuine pending match before the player had actually joined it.
-    if (data.map && pendingMatches[data.username] &&
-        pendingMatches[data.username].room.toLowerCase() === data.map.toLowerCase())
-        delete pendingMatches[data.username];
-    if (data.map && pending2v2Matches[data.username] &&
-        pending2v2Matches[data.username].room.toLowerCase() === data.map.toLowerCase())
-        delete pending2v2Matches[data.username];
+    // Case-insensitive lookup (same as /match, /rejoin, /queue/confirm) —
+    // an exact-case match here missed real players whose website-typed
+    // queue username differed in case from what their client reports back
+    // via /stats, which left pendingMatches never cleared: the "matched"
+    // status (and joinAtMs) kept coming back from /match every poll, and
+    // AqwBrowser dutifully kept re-sending the join packet every
+    // RejoinCooldown even though the player was already standing in the
+    // room — the "continuous join spam" bug.
+    const pendingKey = Object.keys(pendingMatches).find(k => k.toLowerCase() === data.username.toLowerCase());
+    if (data.map && pendingKey && pendingMatches[pendingKey].room.toLowerCase() === data.map.toLowerCase())
+        delete pendingMatches[pendingKey];
+    const pending2v2Key = Object.keys(pending2v2Matches).find(k => k.toLowerCase() === data.username.toLowerCase());
+    if (data.map && pending2v2Key && pending2v2Matches[pending2v2Key].room.toLowerCase() === data.map.toLowerCase())
+        delete pending2v2Matches[pending2v2Key];
 
     // Safety net: AQW's own room-join can still occasionally bounce a
     // player into a different physical room than the one they were
@@ -255,7 +263,10 @@ app.post('/stats', (req, res) => {
     // stays valid to check for as long as the match is ongoing.
     let roomMismatch = false;
     if (data.map && data.map.startsWith('bludrutbrawl')) {
-        const expected = activeRooms[data.username] || active2v2Rooms[data.username];
+        // Case-insensitive, same reasoning as the pendingMatches lookup above.
+        const activeKey     = Object.keys(activeRooms).find(k => k.toLowerCase() === data.username.toLowerCase());
+        const active2v2Key  = Object.keys(active2v2Rooms).find(k => k.toLowerCase() === data.username.toLowerCase());
+        const expected = (activeKey && activeRooms[activeKey]) || (active2v2Key && active2v2Rooms[active2v2Key]);
         if (expected && expected.room && expected.room.toLowerCase() !== data.map.toLowerCase()) {
             roomMismatch = true;
             console.log(`[roomMismatch] ${data.username} expected ${expected.room} but is actually in ${data.map}`);
@@ -413,8 +424,10 @@ app.get('/match', (req, res) => {
         // has this player's live /stats push actually reported standing in
         // the assigned room yet (not just clicked Join) — same comparison
         // already used for roomMismatch detection in POST /stats.
-        const selfMap = players[matchKey] && players[matchKey].map;
-        const oppMap  = players[m.opponent] && players[m.opponent].map;
+        const selfPlayerKey = Object.keys(players).find(k => k.toLowerCase() === matchKey.toLowerCase());
+        const oppPlayerKey  = Object.keys(players).find(k => k.toLowerCase() === m.opponent.toLowerCase());
+        const selfMap = selfPlayerKey && players[selfPlayerKey].map;
+        const oppMap  = oppPlayerKey && players[oppPlayerKey].map;
         resp.joined         = !!selfMap && selfMap.toLowerCase() === m.room.toLowerCase();
         resp.opponentJoined = !!oppMap && oppMap.toLowerCase() === m.room.toLowerCase();
         return res.json(resp);

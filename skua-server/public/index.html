@@ -423,10 +423,17 @@ main { flex:1; padding:28px 32px; overflow-y:auto; }
 
             <!-- Waiting on one or both players to click Join -->
             <div id="q-pending-confirm" style="display:none">
-              <div style="font-size:0.8rem;color:var(--muted);margin-bottom:14px">Click Join when you're ready — you'll see below once you're both in.</div>
-              <div style="display:flex;flex-direction:column;gap:6px;align-items:center;margin-bottom:16px">
-                <div style="font-size:0.9rem;color:#fff"><span id="q-self-tick">⏳</span> You</div>
-                <div style="font-size:0.9rem;color:#fff"><span id="q-opp-tick">⏳</span> <span id="q-opp-name"></span></div>
+              <div style="font-size:0.8rem;color:var(--muted);margin-bottom:14px">Click Join when you're ready</div>
+              <div style="display:flex;justify-content:center;align-items:flex-start;gap:18px;margin-bottom:18px">
+                <div style="flex:1;text-align:center;min-width:0">
+                  <div id="q-self-name" style="font-size:0.95rem;font-weight:700;color:#fff;margin-bottom:6px;overflow-wrap:anywhere"></div>
+                  <div id="q-self-tick" style="font-size:0.78rem;font-weight:800;color:var(--muted)">⏳ NOT JOINED</div>
+                </div>
+                <div style="font-size:0.85rem;color:var(--muted);font-weight:800;padding-top:2px">VS</div>
+                <div style="flex:1;text-align:center;min-width:0">
+                  <div id="q-opp-name" style="font-size:0.95rem;font-weight:700;color:#fff;margin-bottom:6px;overflow-wrap:anywhere"></div>
+                  <div id="q-opp-tick" style="font-size:0.78rem;font-weight:800;color:var(--muted)">⏳ NOT JOINED</div>
+                </div>
               </div>
               <button id="q-join-btn" onclick="confirmJoin()"
                 style="background:var(--accent);color:#fff;border:none;border-radius:8px;
@@ -1366,18 +1373,34 @@ function setQueueState(state, data = {}) {
     clearInterval(queueInterval);
     matchRoom     = data.room     || matchRoom || '';
     matchOpponent = data.opponent || matchOpponent || '';
-    document.getElementById('q-vs').textContent       = `You vs ${matchOpponent}`;
-    document.getElementById('q-opp-name').textContent = matchOpponent;
+    const selfName = loadUsername() || 'You';
+    document.getElementById('q-vs').textContent        = `${selfName} vs ${matchOpponent}`;
+    document.getElementById('q-self-name').textContent = selfName;
+    document.getElementById('q-opp-name').textContent  = matchOpponent;
   }
 
   // Manual confirm-to-join test (1v1 only, see /queue/confirm on the
   // server): tickmarks reflect the real /stats-confirmed "joined" signal,
-  // not just "clicked the button" — falls back to a clicked/pending marker
-  // in between so it's clear the click registered while waiting on AqwBrowser
-  // to actually land in the room.
+  // not just "clicked the button" — an explicit "X HAS JOINED" line rather
+  // than a bare icon, since a small checkmark alone wasn't a clear enough
+  // signal in testing.
   if (state === 'matched-pending-confirm') {
-    document.getElementById('q-self-tick').textContent = data.joined         ? '✅' : (data.confirmed         ? '🟡' : '⏳');
-    document.getElementById('q-opp-tick').textContent  = data.opponentJoined ? '✅' : (data.opponentConfirmed ? '🟡' : '⏳');
+    const selfName = loadUsername() || 'You';
+    const renderTick = (el, name, joined, confirmed) => {
+      if (joined) {
+        el.textContent = `✅ ${name.toUpperCase()} HAS JOINED`;
+        el.style.color = 'var(--green)';
+      } else if (confirmed) {
+        el.textContent = `🟡 ${name} is joining...`;
+        el.style.color = 'var(--accent)';
+      } else {
+        el.textContent = '⏳ NOT JOINED';
+        el.style.color = 'var(--muted)';
+      }
+    };
+    renderTick(document.getElementById('q-self-tick'), selfName,     data.joined,         data.confirmed);
+    renderTick(document.getElementById('q-opp-tick'),  matchOpponent, data.opponentJoined, data.opponentConfirmed);
+
     const btn = document.getElementById('q-join-btn');
     if (data.confirmed) {
       btn.disabled    = true;

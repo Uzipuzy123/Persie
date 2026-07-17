@@ -106,13 +106,15 @@ function pruneQueue2v2() {
 }
 
 // 1v1-only manual confirm-to-join: shared by /queue and /match so both
-// endpoints report the same shape. Before both players have clicked Join
-// (m.joinAtMs is unset — see the /queue matching block and /queue/confirm),
-// reports 'matched-pending-confirm' plus each side's confirmed flag so the
-// website can render the two ready-checkmarks. Once joinAtMs is set, reports
-// plain 'matched' exactly as before this feature existed — AqwBrowser's
-// PollForMatchAsync only ever acts on that exact status, so this is what
-// keeps the client-side join flow completely unchanged.
+// endpoints report the same shape. Each player clicks Join independently —
+// clicking sets THEIR OWN joinAtMs immediately (see /queue/confirm), it
+// doesn't wait on the opponent. Before this player has clicked
+// (m.joinAtMs is unset), reports 'matched-pending-confirm' plus `order` (so
+// the website can show "you're #1/#2" as a hint, not a gate) and the
+// opponent's confirmed state (informational only). Once joinAtMs is set,
+// reports plain 'matched' exactly as before this feature existed —
+// AqwBrowser's PollForMatchAsync only ever acts on that exact status, so
+// this is what keeps the client-side join flow completely unchanged.
 function matchStatusResponse(username, m) {
     if (m.joinAtMs !== undefined) {
         return { status: 'matched', room: m.room, opponent: m.opponent, joinAtMs: m.joinAtMs };
@@ -122,6 +124,7 @@ function matchStatusResponse(username, m) {
         status: 'matched-pending-confirm',
         room: m.room,
         opponent: m.opponent,
+        order: m.order,
         confirmed: !!m.confirmed,
         opponentConfirmed: oppKey ? !!pendingMatches[oppKey].confirmed : false,
     };
@@ -361,12 +364,14 @@ app.post('/queue', (req, res) => {
 
 // ── Confirm ready to join (1v1 manual confirm-to-join test) ─────────
 // Website's "Join" button hits this. Doesn't touch the game at all — just
-// flips this player's confirmed flag; once BOTH sides of a match are
-// confirmed, computes the join stagger schedule (same order/JOIN_STEP_MS_1V1
-// math /queue used to do immediately) so AqwBrowser's existing poll loop
-// picks it up and performs the real join, completely unaware anything about
-// the flow changed (see matchStatusResponse for how that's kept invisible
-// to it).
+// sets THIS player's own joinAtMs immediately (order-based stagger from the
+// moment of their own click, not the opponent's) so AqwBrowser's existing
+// poll loop picks it up and performs the real join. Deliberately NOT gated
+// on the opponent having clicked too — a player shouldn't be stuck waiting
+// on someone else's click; the website shows each side's `order` (1 or 2)
+// as a hint for who should go first, but doesn't enforce it. The
+// order-based offset still exists purely so two clicks landing in the same
+// instant don't race into a freshly-created room.
 app.post('/queue/confirm', (req, res) => {
     const { username } = req.body;
     if (!username) return res.status(400).json({ error: 'missing username' });
@@ -376,17 +381,12 @@ app.post('/queue/confirm', (req, res) => {
 
     const m = pendingMatches[key];
     m.confirmed = true;
+    if (m.joinAtMs === undefined) {
+        m.joinAtMs = Date.now() + (m.order - 1) * JOIN_STEP_MS_1V1;
+    }
 
     const oppKey = Object.keys(pendingMatches).find(k => k.toLowerCase() === m.opponent.toLowerCase());
     const opponentConfirmed = oppKey ? !!pendingMatches[oppKey].confirmed : false;
-
-    if (opponentConfirmed && m.joinAtMs === undefined) {
-        const createdAt = Date.now();
-        [key, oppKey].forEach(k => {
-            const entry = pendingMatches[k];
-            entry.joinAtMs = createdAt + (entry.order - 1) * JOIN_STEP_MS_1V1;
-        });
-    }
 
     res.json({ ok: true, confirmed: true, opponentConfirmed });
 });

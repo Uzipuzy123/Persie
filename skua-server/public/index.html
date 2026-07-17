@@ -421,24 +421,23 @@ main { flex:1; padding:28px 32px; overflow-y:auto; }
             <div style="font-size:1.3rem;font-weight:800;color:var(--green);margin-bottom:8px">Match Found!</div>
             <div id="q-vs" style="font-size:1rem;color:#fff;margin-bottom:8px"></div>
 
-            <!-- Each player clicks Join independently, whenever they're ready -->
+            <!-- Dedicated first/second join system: whoever clicks Join
+                 first goes immediately; the other player's button is
+                 disabled until that's actually confirmed (see q-join-hint) -->
             <div id="q-pending-confirm" style="display:none">
-              <div style="font-size:0.8rem;color:var(--muted);margin-bottom:14px">Click Join whenever you're ready — no need to wait on the other player</div>
-              <div style="display:flex;justify-content:center;align-items:flex-start;gap:18px;margin-bottom:18px">
+              <div style="font-size:0.8rem;color:var(--muted);margin-bottom:14px">First to click Join goes first — the other player follows once they're confirmed in</div>
+              <div style="display:flex;justify-content:center;align-items:flex-start;gap:18px;margin-bottom:14px">
                 <div style="flex:1;text-align:center;min-width:0">
-                  <span id="q-self-order" style="display:inline-block;background:var(--surface);border:1px solid var(--border);
-                    border-radius:4px;padding:1px 6px;font-size:0.7rem;font-weight:800;color:var(--accent);margin-bottom:4px"></span>
                   <div id="q-self-name" style="font-size:0.95rem;font-weight:700;color:#fff;margin-bottom:6px;overflow-wrap:anywhere"></div>
                   <div id="q-self-tick" style="font-size:0.78rem;font-weight:800;color:var(--muted)">⏳ NOT JOINED</div>
                 </div>
-                <div style="font-size:0.85rem;color:var(--muted);font-weight:800;padding-top:20px">VS</div>
+                <div style="font-size:0.85rem;color:var(--muted);font-weight:800;padding-top:2px">VS</div>
                 <div style="flex:1;text-align:center;min-width:0">
-                  <span id="q-opp-order" style="display:inline-block;background:var(--surface);border:1px solid var(--border);
-                    border-radius:4px;padding:1px 6px;font-size:0.7rem;font-weight:800;color:var(--accent);margin-bottom:4px"></span>
                   <div id="q-opp-name" style="font-size:0.95rem;font-weight:700;color:#fff;margin-bottom:6px;overflow-wrap:anywhere"></div>
                   <div id="q-opp-tick" style="font-size:0.78rem;font-weight:800;color:var(--muted)">⏳ NOT JOINED</div>
                 </div>
               </div>
+              <div id="q-join-hint" style="font-size:0.75rem;color:var(--muted);margin-bottom:10px;min-height:1em"></div>
               <button id="q-join-btn" onclick="confirmJoin()"
                 style="background:var(--accent);color:#fff;border:none;border-radius:8px;
                 padding:12px 32px;font-size:0.95rem;font-weight:700;cursor:pointer;font-family:inherit;
@@ -1402,23 +1401,26 @@ function setQueueState(state, data = {}) {
         el.style.color = 'var(--muted)';
       }
     };
-    renderTick(document.getElementById('q-self-tick'), selfName,     data.joined,         data.confirmed);
+    // Our own tick is always "not joined yet" here — the moment we click
+    // and are allowed through, our status flips to 'matched' and this
+    // whole panel is replaced (see the 'matched' branch below).
+    renderTick(document.getElementById('q-self-tick'), selfName,     false,               false);
     renderTick(document.getElementById('q-opp-tick'),  matchOpponent, data.opponentJoined, data.opponentConfirmed);
 
-    // Order is just a hint for who clicks first, not enforced server-side —
-    // either player can click any time (see /queue/confirm).
-    if (data.order) {
-      document.getElementById('q-self-order').textContent = '#' + data.order + (data.order === 1 ? ' · GO FIRST' : '');
-      document.getElementById('q-opp-order').textContent  = '#' + (data.order === 1 ? 2 : 1);
-    }
-
-    const btn = document.getElementById('q-join-btn');
-    if (data.confirmed) {
-      btn.disabled    = true;
-      btn.textContent = '⏳ Joining...';
-    } else {
+    // Dedicated first/second join system (see /queue/confirm on the
+    // server): canJoinNow is false only when the opponent has already
+    // claimed "first" and hasn't actually landed in the room yet — the
+    // button stays disabled until that's real, not just clicked.
+    const btn  = document.getElementById('q-join-btn');
+    const hint = document.getElementById('q-join-hint');
+    if (data.canJoinNow) {
       btn.disabled    = false;
       btn.textContent = '✅ Join Match';
+      hint.textContent = data.opponentConfirmed ? `${matchOpponent} is in — go ahead` : '';
+    } else {
+      btn.disabled    = true;
+      btn.textContent = '🔒 Locked';
+      hint.textContent = `Waiting for ${matchOpponent} to join first...`;
     }
   }
 
@@ -1446,7 +1448,16 @@ async function confirmJoin() {
       body: JSON.stringify({ username })
     });
     const data = await res.json();
-    if (!data.ok) { btn.disabled = false; btn.textContent = '✅ Join Match'; }
+    if (!data.ok) {
+      // Proactive disabling based on canJoinNow should make this rare, but
+      // state can go stale between polls — show the real reason and let
+      // the next pollQueueStatus tick (still running in this state) put
+      // the button back into its correct disabled/hinted state.
+      btn.disabled     = true;
+      btn.textContent  = '🔒 Locked';
+      const hint = document.getElementById('q-join-hint');
+      if (hint && data.error) hint.textContent = data.error;
+    }
     // Otherwise leave the disabled "waiting..." state — the next
     // pollQueueStatus tick (still running while matched-pending-confirm)
     // will refresh tickmarks/button text from real server state.

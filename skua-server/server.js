@@ -75,6 +75,14 @@ const MATCH_EXPIRE_MS    = 120000; // pending match expires after 2 min
 // If one player never clicks, don't leave the other stuck for the full
 // MATCH_EXPIRE_MS silent timeout — clear it much sooner so they can requeue.
 const CONFIRM_EXPIRE_MS  = 45000; // 45s to both confirm before a match is dropped
+// Dedicated first/second join system (1v1 only): whoever clicks Join first
+// on the website is locked in as "first" and joins immediately; the other
+// player's button stays disabled until the first player's real /stats
+// report confirms they actually landed in the room — no guessed delay, just
+// proof. If the first player claims it but never actually shows (crash,
+// alt-tab, stuck client), the second player would otherwise be blocked
+// forever — void the whole match after this long instead so they can requeue.
+const FIRST_JOIN_TIMEOUT_MS = 120000; // 2 min
 // Unlike pendingMatches, queue entries never had any expiry at all — a
 // client that queues then crashes/closes without calling /queue/leave (or a
 // bot pushed via /queue/test that never actually gets consumed) sat there
@@ -105,28 +113,43 @@ function pruneQueue2v2() {
     }
 }
 
-// 1v1-only manual confirm-to-join: shared by /queue and /match so both
-// endpoints report the same shape. Each player clicks Join independently —
-// clicking sets THEIR OWN joinAtMs immediately (see /queue/confirm), it
-// doesn't wait on the opponent. Before this player has clicked
-// (m.joinAtMs is unset), reports 'matched-pending-confirm' plus `order` (so
-// the website can show "you're #1/#2" as a hint, not a gate) and the
-// opponent's confirmed state (informational only). Once joinAtMs is set,
-// reports plain 'matched' exactly as before this feature existed —
-// AqwBrowser's PollForMatchAsync only ever acts on that exact status, so
-// this is what keeps the client-side join flow completely unchanged.
+// Has this player's live /stats push actually reported standing in `room`
+// yet — the real "they're in the game" signal, not just "clicked Join".
+// Case-insensitive since the website-typed queue name and the client's
+// self-reported username aren't guaranteed to match case (see the /stats
+// handler's own comment on this — that mismatch was the join-spam bug).
+function isPlayerJoined(username, room) {
+    const key = Object.keys(players).find(k => k.toLowerCase() === username.toLowerCase());
+    return !!(key && players[key].map && players[key].map.toLowerCase() === room.toLowerCase());
+}
+
+// 1v1-only dedicated first/second join system: shared by /queue and /match
+// so both endpoints report the same shape. Whoever clicks Join first (see
+// /queue/confirm) is locked in via activeRooms[u].isFirst and joins
+// immediately; the other player's button stays disabled until isFirst's
+// real join is confirmed via isPlayerJoined (proof, not a guessed delay).
+// Once THIS player's own joinAtMs is set, reports plain 'matched' exactly
+// as before this feature existed — AqwBrowser's PollForMatchAsync only
+// ever acts on that exact status, so this is what keeps the client-side
+// join flow completely unchanged regardless of what this flow does.
 function matchStatusResponse(username, m) {
     if (m.joinAtMs !== undefined) {
         return { status: 'matched', room: m.room, opponent: m.opponent, joinAtMs: m.joinAtMs };
     }
-    const oppKey = Object.keys(pendingMatches).find(k => k.toLowerCase() === m.opponent.toLowerCase());
+    const oppActiveKey = Object.keys(activeRooms).find(k => k.toLowerCase() === m.opponent.toLowerCase());
+    const oppActive    = oppActiveKey ? activeRooms[oppActiveKey] : null;
+    const opponentClaimedFirst = !!(oppActive && oppActive.isFirst === true);
+    const opponentJoined       = isPlayerJoined(m.opponent, m.room);
     return {
         status: 'matched-pending-confirm',
         room: m.room,
         opponent: m.opponent,
-        order: m.order,
-        confirmed: !!m.confirmed,
-        opponentConfirmed: oppKey ? !!pendingMatches[oppKey].confirmed : false,
+        confirmed: false,
+        opponentConfirmed: opponentClaimedFirst,
+        opponentJoined,
+        // Am I allowed to click Join right now? Yes unless the opponent has
+        // already claimed "first" and hasn't actually joined for real yet.
+        canJoinNow: !opponentClaimedFirst || opponentJoined,
     };
 }
 // Live view is polled once a second — deleting a finished player's entry in
@@ -343,18 +366,19 @@ app.post('/queue', (req, res) => {
         const room = 'bludrutbrawl-' + (Math.floor(Math.random() * 9000) + 1000);
         const createdAt = Date.now();
         const order = { [p1]: 1, [p2]: 2 };
-        // Manual confirm-to-join test (1v1 only): joinAtMs isn't computed
-        // yet — the website shows a Join button for each player, and only
-        // once BOTH have clicked (POST /queue/confirm) does the stagger
-        // schedule actually get set (see that handler). The dev/test bot
-        // path (__TestBot__, added via /queue/test) has no website to
-        // click from, so it keeps the old instant-join behavior unchanged.
+        // Dedicated first/second join system (1v1 only): joinAtMs isn't
+        // computed yet — the website shows a Join button for each player,
+        // and whoever clicks first (POST /queue/confirm) is locked in via
+        // activeRooms[u].isFirst; the other player's button stays disabled
+        // until that's actually confirmed (see matchStatusResponse). The
+        // dev/test bot path (__TestBot__, added via /queue/test) has no
+        // website to click from, so it keeps the old instant-join behavior.
         const isBotMatch = p1 === '__TestBot__' || p2 === '__TestBot__';
         [p1, p2].forEach(u => {
             const opponent = u === p1 ? p2 : p1;
             const joinAtMs = isBotMatch ? createdAt + (order[u] - 1) * JOIN_STEP_MS_1V1 : undefined;
             pendingMatches[u] = { room, opponent, createdAt, order: order[u], joinAtMs, confirmed: isBotMatch };
-            activeRooms[u]    = { room, opponent, order: order[u] };
+            activeRooms[u]    = { room, opponent, order: order[u], isFirst: undefined, firstClaimedAt: undefined };
         });
         return res.json(matchStatusResponse(username, pendingMatches[username]));
     }
@@ -362,33 +386,49 @@ app.post('/queue', (req, res) => {
     res.json({ status: 'waiting', position: queue.indexOf(username) + 1 });
 });
 
-// ── Confirm ready to join (1v1 manual confirm-to-join test) ─────────
-// Website's "Join" button hits this. Doesn't touch the game at all — just
-// sets THIS player's own joinAtMs immediately (order-based stagger from the
-// moment of their own click, not the opponent's) so AqwBrowser's existing
-// poll loop picks it up and performs the real join. Deliberately NOT gated
-// on the opponent having clicked too — a player shouldn't be stuck waiting
-// on someone else's click; the website shows each side's `order` (1 or 2)
-// as a hint for who should go first, but doesn't enforce it. The
-// order-based offset still exists purely so two clicks landing in the same
-// instant don't race into a freshly-created room.
+// ── Confirm ready to join (1v1 dedicated first/second join system) ──
+// Website's "Join" button hits this. Whoever's request lands here first
+// (Node handles requests one at a time, so even two same-instant clicks
+// resolve deterministically) is locked in as "first" via
+// activeRooms[u].isFirst and joins immediately — no artificial delay. If
+// the opponent already claimed first, this click is only allowed once
+// they've actually joined for real (isPlayerJoined, not just "clicked") —
+// otherwise it's rejected with 409 so the website's button stays disabled.
+// Once genuinely allowed to proceed, there's no delay needed either: the
+// first player being confirmed in-room already means there's no race left
+// to protect against.
 app.post('/queue/confirm', (req, res) => {
     const { username } = req.body;
     if (!username) return res.status(400).json({ error: 'missing username' });
 
     const key = Object.keys(pendingMatches).find(k => k.toLowerCase() === username.toLowerCase());
     if (!key) return res.status(404).json({ error: 'no pending match' });
-
     const m = pendingMatches[key];
-    m.confirmed = true;
-    if (m.joinAtMs === undefined) {
-        m.joinAtMs = Date.now() + (m.order - 1) * JOIN_STEP_MS_1V1;
+
+    if (m.joinAtMs !== undefined) {
+        // Already confirmed (e.g. a duplicate click) — idempotent no-op.
+        return res.json({ ok: true, confirmed: true, isFirst: !!m.isFirst });
     }
 
-    const oppKey = Object.keys(pendingMatches).find(k => k.toLowerCase() === m.opponent.toLowerCase());
-    const opponentConfirmed = oppKey ? !!pendingMatches[oppKey].confirmed : false;
+    const activeKey    = Object.keys(activeRooms).find(k => k.toLowerCase() === username.toLowerCase());
+    const active       = activeKey ? activeRooms[activeKey] : null;
+    const oppActiveKey = active ? Object.keys(activeRooms).find(k => k.toLowerCase() === active.opponent.toLowerCase()) : null;
+    const oppActive    = oppActiveKey ? activeRooms[oppActiveKey] : null;
 
-    res.json({ ok: true, confirmed: true, opponentConfirmed });
+    if (oppActive && oppActive.isFirst === true) {
+        if (!isPlayerJoined(active.opponent, m.room)) {
+            return res.status(409).json({ ok: false, error: `Waiting for ${active.opponent} to join first`, blocked: true });
+        }
+        m.isFirst = false;
+        if (active) active.isFirst = false;
+    } else {
+        m.isFirst = true;
+        if (active) { active.isFirst = true; active.firstClaimedAt = Date.now(); }
+    }
+
+    m.confirmed = true;
+    m.joinAtMs  = Date.now();
+    res.json({ ok: true, confirmed: true, isFirst: !!m.isFirst });
 });
 
 // ── Check match status (polled by client) ──────────────────────────
@@ -410,6 +450,25 @@ app.get('/match', (req, res) => {
         }
         if (now - m.createdAt > MATCH_EXPIRE_MS) delete pendingMatches[k];
     });
+    // Auto-disqualify: the player who claimed "first" (see /queue/confirm)
+    // clicked but never actually landed in the room within
+    // FIRST_JOIN_TIMEOUT_MS — the second player would otherwise sit on a
+    // disabled button forever waiting on proof that's never coming. Void
+    // the whole match for both sides so the second player can requeue.
+    Object.keys(activeRooms).forEach(k => {
+        const a = activeRooms[k];
+        if (a.isFirst !== true || !a.firstClaimedAt) return;
+        if (now - a.firstClaimedAt <= FIRST_JOIN_TIMEOUT_MS) return;
+        if (isPlayerJoined(k, a.room)) return;
+        const oppKey = Object.keys(activeRooms).find(x => x.toLowerCase() === a.opponent.toLowerCase());
+        console.log(`[firstJoinTimeout] ${k} claimed first for ${a.room} but never joined — voiding match`);
+        delete pendingMatches[k];
+        delete activeRooms[k];
+        if (oppKey) {
+            delete pendingMatches[oppKey];
+            delete activeRooms[oppKey];
+        }
+    });
     // This endpoint is polled continuously by a waiting client, so it's the
     // most reliable place to also prune stale queue entries left behind by
     // anyone else's crashed/closed session.
@@ -421,15 +480,10 @@ app.get('/match', (req, res) => {
         const m = pendingMatches[matchKey];
         const resp = matchStatusResponse(matchKey, m);
         // Real "tickmark" signal for the website's confirm-to-join popup:
-        // has this player's live /stats push actually reported standing in
-        // the assigned room yet (not just clicked Join) — same comparison
-        // already used for roomMismatch detection in POST /stats.
-        const selfPlayerKey = Object.keys(players).find(k => k.toLowerCase() === matchKey.toLowerCase());
-        const oppPlayerKey  = Object.keys(players).find(k => k.toLowerCase() === m.opponent.toLowerCase());
-        const selfMap = selfPlayerKey && players[selfPlayerKey].map;
-        const oppMap  = oppPlayerKey && players[oppPlayerKey].map;
-        resp.joined         = !!selfMap && selfMap.toLowerCase() === m.room.toLowerCase();
-        resp.opponentJoined = !!oppMap && oppMap.toLowerCase() === m.room.toLowerCase();
+        // has THIS player's own live /stats push actually reported standing
+        // in the assigned room yet (not just clicked Join) — opponentJoined
+        // is already included by matchStatusResponse.
+        resp.joined = isPlayerJoined(matchKey, m.room);
         return res.json(resp);
     }
 

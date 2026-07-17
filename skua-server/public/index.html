@@ -421,19 +421,22 @@ main { flex:1; padding:28px 32px; overflow-y:auto; }
             <div style="font-size:1.3rem;font-weight:800;color:var(--green);margin-bottom:8px">Match Found!</div>
             <div id="q-vs" style="font-size:1rem;color:#fff;margin-bottom:8px"></div>
 
-            <!-- Dedicated first/second join system: whoever clicks Join
-                 first goes immediately; the other player's button is
-                 disabled until that's actually confirmed (see q-join-hint) -->
+            <!-- Dedicated first/second join system: the server assigns who
+                 goes first the moment the match is made (shown below per
+                 name); the second player's button is disabled until the
+                 first player's real join is confirmed (see q-join-hint) -->
             <div id="q-pending-confirm" style="display:none">
-              <div style="font-size:0.8rem;color:var(--muted);margin-bottom:14px">First to click Join goes first — the other player follows once they're confirmed in</div>
+              <div style="font-size:0.8rem;color:var(--muted);margin-bottom:14px">Click Join when it's your turn</div>
               <div style="display:flex;justify-content:center;align-items:flex-start;gap:18px;margin-bottom:14px">
                 <div style="flex:1;text-align:center;min-width:0">
-                  <div id="q-self-name" style="font-size:0.95rem;font-weight:700;color:#fff;margin-bottom:6px;overflow-wrap:anywhere"></div>
+                  <div id="q-self-name" style="font-size:0.95rem;font-weight:700;color:#fff;margin-bottom:2px;overflow-wrap:anywhere"></div>
+                  <div id="q-self-role" style="font-size:0.68rem;font-weight:800;letter-spacing:0.4px;color:var(--accent);margin-bottom:6px"></div>
                   <div id="q-self-tick" style="font-size:0.78rem;font-weight:800;color:var(--muted)">⏳ NOT JOINED</div>
                 </div>
                 <div style="font-size:0.85rem;color:var(--muted);font-weight:800;padding-top:2px">VS</div>
                 <div style="flex:1;text-align:center;min-width:0">
-                  <div id="q-opp-name" style="font-size:0.95rem;font-weight:700;color:#fff;margin-bottom:6px;overflow-wrap:anywhere"></div>
+                  <div id="q-opp-name" style="font-size:0.95rem;font-weight:700;color:#fff;margin-bottom:2px;overflow-wrap:anywhere"></div>
+                  <div id="q-opp-role" style="font-size:0.68rem;font-weight:800;letter-spacing:0.4px;color:var(--accent);margin-bottom:6px"></div>
                   <div id="q-opp-tick" style="font-size:0.78rem;font-weight:800;color:var(--muted)">⏳ NOT JOINED</div>
                 </div>
               </div>
@@ -1407,16 +1410,18 @@ function setQueueState(state, data = {}) {
     renderTick(document.getElementById('q-self-tick'), selfName,     false,               false);
     renderTick(document.getElementById('q-opp-tick'),  matchOpponent, data.opponentJoined, data.opponentConfirmed);
 
-    // Dedicated first/second join system (see /queue/confirm on the
-    // server): canJoinNow is false only when the opponent has already
-    // claimed "first" and hasn't actually landed in the room yet — the
-    // button stays disabled until that's real, not just clicked.
+    // Dedicated first/second join system: the server assigns who's first
+    // the moment the match is made (data.isFirst, see /queue/confirm on
+    // the server) — shown here as a fixed label, not a race to click.
+    document.getElementById('q-self-role').textContent = data.isFirst ? 'GOES FIRST' : 'GOES SECOND';
+    document.getElementById('q-opp-role').textContent  = data.isFirst ? 'GOES SECOND' : 'GOES FIRST';
+
     const btn  = document.getElementById('q-join-btn');
     const hint = document.getElementById('q-join-hint');
     if (data.canJoinNow) {
       btn.disabled    = false;
       btn.textContent = '✅ Join Match';
-      hint.textContent = data.opponentConfirmed ? `${matchOpponent} is in — go ahead` : '';
+      hint.textContent = data.isFirst ? '' : `${matchOpponent} is in — go ahead`;
     } else {
       btn.disabled    = true;
       btn.textContent = '🔒 Locked';

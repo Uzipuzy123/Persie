@@ -161,6 +161,42 @@ function matchStatusResponse(username, m) {
         canJoinNow: isFirst || opponentJoined,
     };
 }
+
+// 2v2 dedicated join-chain system: shared by /queue2v2 and /match2v2. AQW's
+// own server assigns PvP team purely from PHYSICAL JOIN ORDER (1st joiner
+// = team A, 2nd = B, 3rd = A, 4th = B — see the big comment on queue2v2's
+// declaration) — so unlike 1v1 (where join order only matters to dodge a
+// room-creation race), for 2v2 the join order genuinely IS the team-
+// assignment mechanism. That means a strict 4-player chain: position N
+// (activeRooms[u].order) may only join once position N-1 has actually
+// landed in the room for real (isPlayerJoined) — not "anyone earlier",
+// specifically their immediate predecessor, since real physical arrival
+// order is what AQW's server is watching. Once THIS player's own joinAtMs
+// is set, reports plain 'matched' exactly as before this feature existed,
+// same invisible-to-the-client trick as the 1v1 version.
+function match2v2StatusResponse(username, m) {
+    if (m.joinAtMs !== undefined) {
+        return { status: 'matched', room: m.room, team: m.team, teammates: m.teammates, opponents: m.opponents, joinAtMs: m.joinAtMs };
+    }
+    const roomEntries = Object.entries(active2v2Rooms).filter(([, v]) => v.room === m.room);
+    const selfEntry    = roomEntries.find(([k]) => k.toLowerCase() === username.toLowerCase());
+    const order        = selfEntry ? selfEntry[1].order : m.order;
+    const predecessor   = order > 1 ? roomEntries.find(([, v]) => v.order === order - 1) : null;
+    const canJoinNow    = order === 1 || (!!predecessor && isPlayerJoined(predecessor[0]));
+    const roster = roomEntries
+        .map(([k, v]) => ({ username: k, team: v.team, order: v.order, joined: isPlayerJoined(k) }))
+        .sort((a, b) => a.order - b.order);
+    return {
+        status: 'matched-pending-confirm',
+        room: m.room,
+        team: m.team,
+        teammates: m.teammates,
+        opponents: m.opponents,
+        order,
+        canJoinNow,
+        roster,
+    };
+}
 // Live view is polled once a second — deleting a finished player's entry in
 // the same tick that writes their final kill count means the poll can never
 // actually observe the 10th kill, only "gone". Keep it visible this long
@@ -492,7 +528,7 @@ app.post('/queue2v2', (req, res) => {
     pruneQueue2v2();
 
     if (pending2v2Matches[username]) {
-        return res.json({ status: 'matched', ...pending2v2Matches[username] });
+        return res.json(match2v2StatusResponse(username, pending2v2Matches[username]));
     }
 
     if (!queue2v2.includes(username)) { queue2v2.push(username); queue2v2JoinedAt[username] = Date.now(); }
@@ -518,6 +554,12 @@ app.post('/queue2v2', (req, res) => {
         const order = { [p1]: 1, [p2]: 2, [p3]: 3, [p4]: 4 };
         const team  = { [p1]: 'A', [p2]: 'B', [p3]: 'A', [p4]: 'B' };
         const teammateOf = { [p1]: p3, [p2]: p4, [p3]: p1, [p4]: p2 };
+        // Dedicated join-chain system (mirrors 1v1, see match2v2StatusResponse):
+        // joinAtMs isn't set yet — position 1 can click Join immediately,
+        // position 2 only once position 1 has actually landed, and so on.
+        // This IS how the random team split above actually gets realized,
+        // not just a race-avoidance nicety — proof of real physical join
+        // order instead of a guessed JOIN_STEP_MS gap.
         [p1, p2, p3, p4].forEach(u => {
             const info = {
                 room,
@@ -525,19 +567,53 @@ app.post('/queue2v2', (req, res) => {
                 teammates: [teammateOf[u]],
                 opponents: [p1, p2, p3, p4].filter(x => x !== u && x !== teammateOf[u]),
             };
-            pending2v2Matches[u] = { ...info, joinAtMs: createdAt + (order[u] - 1) * JOIN_STEP_MS };
+            pending2v2Matches[u] = { ...info, createdAt, order: order[u], joinAtMs: undefined };
             // Persists past the initial join (unlike pending2v2Matches,
             // which gets cleared the moment the player's first push from
             // inside the room lands) — this is what /rejoin2v2 reads to
             // know a player's ORIGINAL team/order for this match, so a
             // later relog can be scheduled back into the same slot instead
             // of just racing a fresh untracked join.
-            active2v2Rooms[u] = { ...info, order: order[u] };
+            active2v2Rooms[u] = { ...info, createdAt, order: order[u] };
         });
-        return res.json({ status: 'matched', ...pending2v2Matches[username] });
+        return res.json(match2v2StatusResponse(username, pending2v2Matches[username]));
     }
 
     res.json({ status: 'waiting', position: queue2v2.indexOf(username) + 1 });
+});
+
+// ── Confirm ready to join (2v2 dedicated join-chain system) ─────────
+// Mirrors /queue/confirm but for a 4-player chain instead of a single
+// first/second: position N (active2v2Rooms[u].order) may only succeed
+// once position N-1 has actually landed in the room for real — see the
+// big comment on match2v2StatusResponse for why this is the actual team-
+// assignment mechanism for 2v2, not just a race-avoidance nicety.
+app.post('/queue2v2/confirm', (req, res) => {
+    const { username } = req.body;
+    if (!username) return res.status(400).json({ error: 'missing username' });
+
+    const key = Object.keys(pending2v2Matches).find(k => k.toLowerCase() === username.toLowerCase());
+    if (!key) return res.status(404).json({ error: 'no pending 2v2 match' });
+    const m = pending2v2Matches[key];
+
+    if (m.joinAtMs !== undefined) {
+        // Already confirmed (e.g. a duplicate click) — idempotent no-op.
+        return res.json({ ok: true, confirmed: true, order: m.order });
+    }
+
+    const roomEntries = Object.entries(active2v2Rooms).filter(([, v]) => v.room === m.room);
+    const selfEntry    = roomEntries.find(([k]) => k.toLowerCase() === username.toLowerCase());
+    const order        = selfEntry ? selfEntry[1].order : m.order;
+
+    if (order > 1) {
+        const predecessor = roomEntries.find(([, v]) => v.order === order - 1);
+        if (!predecessor || !isPlayerJoined(predecessor[0])) {
+            return res.status(409).json({ ok: false, error: `Waiting for position ${order - 1} to join first`, blocked: true });
+        }
+    }
+
+    m.joinAtMs = Date.now();
+    res.json({ ok: true, confirmed: true, order });
 });
 
 // ── Check 2v2 match status (polled by client) ───────────────────────
@@ -547,8 +623,32 @@ app.get('/match2v2', (req, res) => {
 
     pruneQueue2v2();
 
+    // Auto-disqualify: whichever position is currently blocking the join
+    // chain (the lowest-order not-yet-joined slot in a room) gets a
+    // deadline scaled by its position (order * FIRST_JOIN_TIMEOUT_MS from
+    // match creation) — later positions naturally take longer to reach in
+    // the chain, so they get proportionally more time. If blown, void the
+    // whole match so the other 3 aren't stuck on a dead chain forever.
+    const now = Date.now();
+    const roomsSeen = new Set();
+    Object.entries(active2v2Rooms).forEach(([, a]) => {
+        if (roomsSeen.has(a.room)) return;
+        roomsSeen.add(a.room);
+        const entries  = Object.entries(active2v2Rooms).filter(([, v]) => v.room === a.room);
+        const unjoined = entries.filter(([uk]) => !isPlayerJoined(uk)).sort((x, y) => x[1].order - y[1].order);
+        if (unjoined.length === 0) return; // everyone's in
+        const [blockerKey, blocker] = unjoined[0];
+        const createdAt = (pending2v2Matches[blockerKey] || blocker).createdAt;
+        if (!createdAt || now - createdAt <= blocker.order * FIRST_JOIN_TIMEOUT_MS) return;
+        console.log(`[firstJoinTimeout] 2v2 room ${a.room} stuck on position ${blocker.order} (${blockerKey}) — voiding match`);
+        entries.forEach(([uk]) => {
+            delete pending2v2Matches[uk];
+            delete active2v2Rooms[uk];
+        });
+    });
+
     const matchKey = Object.keys(pending2v2Matches).find(k => k.toLowerCase() === username.toLowerCase());
-    if (matchKey) return res.json({ status: 'matched', ...pending2v2Matches[matchKey] });
+    if (matchKey) return res.json(match2v2StatusResponse(matchKey, pending2v2Matches[matchKey]));
 
     const inQueue = queue2v2.some(u => u.toLowerCase() === username.toLowerCase());
     if (inQueue) return res.json({ status: 'waiting' });

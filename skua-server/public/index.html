@@ -1128,6 +1128,7 @@ async function openMatchDetail(id) {
           ${pstatRow('Dodges', 'Amount of attacks that missed on the player.', p.dodges??0)}
           ${pstatRow('Deaths', 'Number of times you were defeated.', p.deaths)}
           ${pstatRow('Crits', 'Number of critical hits landed.', p.crits??0)}
+          ${pstatRow('Misses', 'Number of your own attacks that failed to land.', p.misses??0)}
         </div>
         <div class="pstat-divider"></div>
         <div class="pstat-cols">
@@ -1233,6 +1234,7 @@ function openLiveMatchDetail(room) {
           ${pstatRow('Dodges', 'Amount of attacks that missed on the player.', p.dodges??0)}
           ${pstatRow('Deaths', 'Number of times you were defeated.', p.deaths)}
           ${pstatRow('Crits', 'Number of critical hits landed.', p.crits??0)}
+          ${pstatRow('Misses', 'Number of your own attacks that failed to land.', p.misses??0)}
         </div>
         <div class="pstat-divider"></div>
         <div class="pstat-cols">

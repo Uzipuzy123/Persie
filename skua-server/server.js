@@ -627,8 +627,8 @@ app.get('/match2v2', (req, res) => {
     // chain (the lowest-order not-yet-joined slot in a room) gets a
     // deadline scaled by its position (order * FIRST_JOIN_TIMEOUT_MS from
     // match creation) — later positions naturally take longer to reach in
-    // the chain, so they get proportionally more time. If blown, void the
-    // whole match so the other 3 aren't stuck on a dead chain forever.
+    // the chain, so they get proportionally more time. If blown, drop that
+    // player and void the match for whoever's left.
     const now = Date.now();
     const roomsSeen = new Set();
     Object.entries(active2v2Rooms).forEach(([, a]) => {
@@ -645,6 +645,21 @@ app.get('/match2v2', (req, res) => {
             delete pending2v2Matches[uk];
             delete active2v2Rooms[uk];
         });
+        // If the chain never got past position 1, nobody else has actually
+        // physically joined the room yet — they're all still blocked behind
+        // the dead first player, so it's safe to drop the ghost and put the
+        // other 3 straight back in queue2v2 instead of forcing everyone to
+        // manually requeue. If a LATER position is the one that's stuck,
+        // the earlier players are already standing in the real bludrutbrawl
+        // room — there's no clean way to auto-recover them from here (we
+        // have no channel to tell a live client "leave, this match is
+        // dead"), so that case just voids and leaves it to the players to
+        // notice and requeue themselves, same as before this change.
+        if (blocker.order === 1) {
+            entries.filter(([uk]) => uk !== blockerKey).forEach(([uk]) => {
+                if (!queue2v2.includes(uk)) { queue2v2.push(uk); queue2v2JoinedAt[uk] = Date.now(); }
+            });
+        }
     });
 
     const matchKey = Object.keys(pending2v2Matches).find(k => k.toLowerCase() === username.toLowerCase());
@@ -977,6 +992,18 @@ function serveGamefileFallback(subPath, res) {
     res.sendFile(filePath);
     return true;
 }
+
+// pruneQueue()/pruneQueue2v2() were only ever request-triggered (called
+// from inside /queue, /match, /queue2v2, /match2v2) — if nothing hits any
+// of those endpoints for a while (e.g. testing pauses, or a client queues
+// from the website then the tab/app is closed with nothing left polling),
+// a stale entry can sit well past QUEUE_EXPIRE_MS until something
+// coincidentally triggers a prune. A real production incident: two
+// abandoned 2v2-queue entries sat there long enough to get swept into a
+// live match as ghost players with no client behind them, which then
+// poisoned that whole match. Run it on a timer too so staleness never
+// depends on traffic happening to show up.
+setInterval(() => { pruneQueue(); pruneQueue2v2(); }, 30000);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`GunLive Server on port ${PORT}`));

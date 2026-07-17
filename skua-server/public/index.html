@@ -682,7 +682,7 @@ function renderLiveRows(players) {
   // players' rows legitimately have isSelf:true. It answers "did this
   // client report its own data" (always yes), not "is this the account the
   // person viewing this page is playing as" — the YOU badge needs it.
-  const myUsername = (localStorage.getItem('skua_username') || '').toLowerCase();
+  const myUsername = (sessionStorage.getItem('skua_username') || '').toLowerCase();
 
   // One match = one room. A 1v1 is a single match with two players, not two
   // separate leaderboard rows — group by the room (map) they're both in.
@@ -1362,12 +1362,22 @@ let queueInterval = null;
 let matchRoom     = '';
 let matchOpponent = '';
 
+// sessionStorage, not localStorage — localStorage is shared across every
+// tab of the same browser, so queueing 4 different accounts from 4 tabs of
+// one browser meant each saveUsername() call overwrote the SAME shared
+// value, and every tab's poll loop (which calls loadUsername() to know
+// whose status to check) ended up polling for whichever account was saved
+// most recently — not its own. That's what caused matches to look like
+// they formed with only 2 players and the others to bounce back to idle:
+// they were polling (and this even rewrote their visible input field to)
+// the wrong username entirely. sessionStorage is isolated per tab, so each
+// tab keeps its own identity.
 function saveUsername(val) {
-  localStorage.setItem('skua_username', val);
+  sessionStorage.setItem('skua_username', val);
 }
 
 function loadUsername() {
-  const saved = localStorage.getItem('skua_username') || '';
+  const saved = sessionStorage.getItem('skua_username') || '';
   document.getElementById('q-username').value = saved;
   const q2 = document.getElementById('q2-username');
   if (q2) q2.value = saved;

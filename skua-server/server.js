@@ -203,11 +203,37 @@ app.post('/stats', (req, res) => {
     // match's start, so Duration can be computed once it ends.
     if (data.map && data.map.startsWith('bludrutbrawl') && !roomStartTimes[data.map])
         roomStartTimes[data.map] = Date.now();
-    // Clear pending match once player has joined the brawl map
-    if (data.map && data.map.startsWith('bludrutbrawl') && pendingMatches[data.username])
+    // Clear pending match once player has joined the SPECIFIC room they were
+    // pending for — not just any bludrutbrawl push for their username. A
+    // push for an unrelated room (e.g. a stray simulate-script hitting a
+    // real account name, or a leftover test match) used to blow away a
+    // genuine pending match before the player had actually joined it.
+    if (data.map && pendingMatches[data.username] &&
+        pendingMatches[data.username].room.toLowerCase() === data.map.toLowerCase())
         delete pendingMatches[data.username];
-    if (data.map && data.map.startsWith('bludrutbrawl') && pending2v2Matches[data.username])
+    if (data.map && pending2v2Matches[data.username] &&
+        pending2v2Matches[data.username].room.toLowerCase() === data.map.toLowerCase())
         delete pending2v2Matches[data.username];
+
+    // Safety net: AQW's own room-join can still occasionally bounce a
+    // player into a different physical room than the one they were
+    // assigned (the join-stagger above makes this rare, not impossible —
+    // see the 1v1/2v2 joinAtMs comments). `data.map` is the player's own
+    // client reporting what room it ACTUALLY landed in (real strMapName,
+    // not just what we requested), so comparing it against the room the
+    // server originally decided for them catches a split instead of it
+    // silently producing two separate 1-player "matches". activeRooms /
+    // active2v2Rooms persist for the whole match (unlike pendingMatches,
+    // which gets cleared above the moment the first push lands), so this
+    // stays valid to check for as long as the match is ongoing.
+    let roomMismatch = false;
+    if (data.map && data.map.startsWith('bludrutbrawl')) {
+        const expected = activeRooms[data.username] || active2v2Rooms[data.username];
+        if (expected && expected.room && expected.room.toLowerCase() !== data.map.toLowerCase()) {
+            roomMismatch = true;
+            console.log(`[roomMismatch] ${data.username} expected ${expected.room} but is actually in ${data.map}`);
+        }
+    }
 
     // Win detection: every extra player on a side needs 10 more team kills
     // to win — 1v1 is 10, 2v2 is 20, 3v3 is 30, and so on. This has to be
@@ -230,7 +256,7 @@ app.post('/stats', (req, res) => {
         if (winner !== undefined) finalizeMatch(data.map);
     }
 
-    res.json({ ok: true });
+    res.json(roomMismatch ? { ok: true, roomMismatch: true } : { ok: true });
 });
 
 // ── Get live stats ─────────────────────────────────────────────────

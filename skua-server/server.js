@@ -65,11 +65,16 @@ const pending2v2Matches = {}; // { username: { room, team, teammates, opponents,
 const active2v2Rooms   = {};  // { username: { room, team, teammates, opponents, order } } — persists for rejoin
 const rejoinWindows2v2 = {};  // room -> { startedAt } — groups near-simultaneous rejoins so they stay staggered relative to each other, same as the original queue-fill join
 const JOIN_STEP_MS = 3500; // gap between each successive player's scheduled room-join (2v2) — generous margin for lag/slow room loads before the next join fires
-const JOIN_STEP_MS_1V1 = 5000; // same idea but for 1v1 — only one gap to cover (2 players), so it can afford to be a bit more generous
+const JOIN_STEP_MS_1V1 = 3500; // same idea but for 1v1 — only one gap to cover (2 players), so it can afford to be a bit more generous
 const REJOIN_WINDOW_MS = 8000; // a rejoin more than this long after the first one in a room starts its own fresh window instead
 const MAX_MATCHES    = 50;
 const PLAYER_TIMEOUT_MS  = 15000;
 const MATCH_EXPIRE_MS    = 120000; // pending match expires after 2 min
+// 1v1-only manual confirm-to-join test: a match sits with joinAtMs unset
+// until both players click "Join" on the website (see /queue/confirm).
+// If one player never clicks, don't leave the other stuck for the full
+// MATCH_EXPIRE_MS silent timeout — clear it much sooner so they can requeue.
+const CONFIRM_EXPIRE_MS  = 45000; // 45s to both confirm before a match is dropped
 // Unlike pendingMatches, queue entries never had any expiry at all — a
 // client that queues then crashes/closes without calling /queue/leave (or a
 // bot pushed via /queue/test that never actually gets consumed) sat there
@@ -98,6 +103,28 @@ function pruneQueue2v2() {
             delete queue2v2JoinedAt[u];
         }
     }
+}
+
+// 1v1-only manual confirm-to-join: shared by /queue and /match so both
+// endpoints report the same shape. Before both players have clicked Join
+// (m.joinAtMs is unset — see the /queue matching block and /queue/confirm),
+// reports 'matched-pending-confirm' plus each side's confirmed flag so the
+// website can render the two ready-checkmarks. Once joinAtMs is set, reports
+// plain 'matched' exactly as before this feature existed — AqwBrowser's
+// PollForMatchAsync only ever acts on that exact status, so this is what
+// keeps the client-side join flow completely unchanged.
+function matchStatusResponse(username, m) {
+    if (m.joinAtMs !== undefined) {
+        return { status: 'matched', room: m.room, opponent: m.opponent, joinAtMs: m.joinAtMs };
+    }
+    const oppKey = Object.keys(pendingMatches).find(k => k.toLowerCase() === m.opponent.toLowerCase());
+    return {
+        status: 'matched-pending-confirm',
+        room: m.room,
+        opponent: m.opponent,
+        confirmed: !!m.confirmed,
+        opponentConfirmed: oppKey ? !!pendingMatches[oppKey].confirmed : false,
+    };
 }
 // Live view is polled once a second — deleting a finished player's entry in
 // the same tick that writes their final kill count means the poll can never
@@ -282,8 +309,7 @@ app.post('/queue', (req, res) => {
 
     // Already matched
     if (pendingMatches[username]) {
-        const m = pendingMatches[username];
-        return res.json({ status: 'matched', room: m.room, opponent: m.opponent, joinAtMs: m.joinAtMs });
+        return res.json(matchStatusResponse(username, pendingMatches[username]));
     }
 
     // Already in queue
@@ -303,17 +329,55 @@ app.post('/queue', (req, res) => {
         const room = 'bludrutbrawl-' + (Math.floor(Math.random() * 9000) + 1000);
         const createdAt = Date.now();
         const order = { [p1]: 1, [p2]: 2 };
+        // Manual confirm-to-join test (1v1 only): joinAtMs isn't computed
+        // yet — the website shows a Join button for each player, and only
+        // once BOTH have clicked (POST /queue/confirm) does the stagger
+        // schedule actually get set (see that handler). The dev/test bot
+        // path (__TestBot__, added via /queue/test) has no website to
+        // click from, so it keeps the old instant-join behavior unchanged.
+        const isBotMatch = p1 === '__TestBot__' || p2 === '__TestBot__';
         [p1, p2].forEach(u => {
             const opponent = u === p1 ? p2 : p1;
-            const joinAtMs = createdAt + (order[u] - 1) * JOIN_STEP_MS_1V1;
-            pendingMatches[u] = { room, opponent, createdAt, order: order[u], joinAtMs };
+            const joinAtMs = isBotMatch ? createdAt + (order[u] - 1) * JOIN_STEP_MS_1V1 : undefined;
+            pendingMatches[u] = { room, opponent, createdAt, order: order[u], joinAtMs, confirmed: isBotMatch };
             activeRooms[u]    = { room, opponent, order: order[u] };
         });
-        const matched = pendingMatches[username];
-        return res.json({ status: 'matched', room: matched.room, opponent: matched.opponent, joinAtMs: matched.joinAtMs });
+        return res.json(matchStatusResponse(username, pendingMatches[username]));
     }
 
     res.json({ status: 'waiting', position: queue.indexOf(username) + 1 });
+});
+
+// ── Confirm ready to join (1v1 manual confirm-to-join test) ─────────
+// Website's "Join" button hits this. Doesn't touch the game at all — just
+// flips this player's confirmed flag; once BOTH sides of a match are
+// confirmed, computes the join stagger schedule (same order/JOIN_STEP_MS_1V1
+// math /queue used to do immediately) so AqwBrowser's existing poll loop
+// picks it up and performs the real join, completely unaware anything about
+// the flow changed (see matchStatusResponse for how that's kept invisible
+// to it).
+app.post('/queue/confirm', (req, res) => {
+    const { username } = req.body;
+    if (!username) return res.status(400).json({ error: 'missing username' });
+
+    const key = Object.keys(pendingMatches).find(k => k.toLowerCase() === username.toLowerCase());
+    if (!key) return res.status(404).json({ error: 'no pending match' });
+
+    const m = pendingMatches[key];
+    m.confirmed = true;
+
+    const oppKey = Object.keys(pendingMatches).find(k => k.toLowerCase() === m.opponent.toLowerCase());
+    const opponentConfirmed = oppKey ? !!pendingMatches[oppKey].confirmed : false;
+
+    if (opponentConfirmed && m.joinAtMs === undefined) {
+        const createdAt = Date.now();
+        [key, oppKey].forEach(k => {
+            const entry = pendingMatches[k];
+            entry.joinAtMs = createdAt + (entry.order - 1) * JOIN_STEP_MS_1V1;
+        });
+    }
+
+    res.json({ ok: true, confirmed: true, opponentConfirmed });
 });
 
 // ── Check match status (polled by client) ──────────────────────────
@@ -324,7 +388,16 @@ app.get('/match', (req, res) => {
     // Expire old pending matches
     const now = Date.now();
     Object.keys(pendingMatches).forEach(k => {
-        if (now - pendingMatches[k].createdAt > MATCH_EXPIRE_MS) delete pendingMatches[k];
+        const m = pendingMatches[k];
+        // Still waiting on one or both players to click Join (see
+        // /queue/confirm) — give up much sooner than a fully-joined match
+        // would, so a no-show doesn't leave the other player stuck.
+        if (m.joinAtMs === undefined && now - m.createdAt > CONFIRM_EXPIRE_MS) {
+            delete pendingMatches[k];
+            delete activeRooms[k];
+            return;
+        }
+        if (now - m.createdAt > MATCH_EXPIRE_MS) delete pendingMatches[k];
     });
     // This endpoint is polled continuously by a waiting client, so it's the
     // most reliable place to also prune stale queue entries left behind by
@@ -335,7 +408,16 @@ app.get('/match', (req, res) => {
     const matchKey = Object.keys(pendingMatches).find(k => k.toLowerCase() === username.toLowerCase());
     if (matchKey) {
         const m = pendingMatches[matchKey];
-        return res.json({ status: 'matched', room: m.room, opponent: m.opponent, joinAtMs: m.joinAtMs });
+        const resp = matchStatusResponse(matchKey, m);
+        // Real "tickmark" signal for the website's confirm-to-join popup:
+        // has this player's live /stats push actually reported standing in
+        // the assigned room yet (not just clicked Join) — same comparison
+        // already used for roomMismatch detection in POST /stats.
+        const selfMap = players[matchKey] && players[matchKey].map;
+        const oppMap  = players[m.opponent] && players[m.opponent].map;
+        resp.joined         = !!selfMap && selfMap.toLowerCase() === m.room.toLowerCase();
+        resp.opponentJoined = !!oppMap && oppMap.toLowerCase() === m.room.toLowerCase();
+        return res.json(resp);
     }
 
     const inQueue = queue.some(u => u.toLowerCase() === username.toLowerCase());

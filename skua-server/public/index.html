@@ -420,22 +420,41 @@ main { flex:1; padding:28px 32px; overflow-y:auto; }
             <div style="font-size:3rem;margin-bottom:12px">🎮</div>
             <div style="font-size:1.3rem;font-weight:800;color:var(--green);margin-bottom:8px">Match Found!</div>
             <div id="q-vs" style="font-size:1rem;color:#fff;margin-bottom:8px"></div>
-            <div id="q-room" style="font-size:0.85rem;color:var(--accent);font-weight:700;margin-bottom:8px"></div>
-            <div style="font-size:0.75rem;color:var(--muted);margin-bottom:16px">Your GunLive client is joining automatically...</div>
-            <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
-              <button onclick="go('live');document.querySelectorAll('.nav-item')[3].classList.add('active')"
+
+            <!-- Waiting on one or both players to click Join -->
+            <div id="q-pending-confirm" style="display:none">
+              <div style="font-size:0.8rem;color:var(--muted);margin-bottom:14px">Click Join when you're ready — you'll see below once you're both in.</div>
+              <div style="display:flex;flex-direction:column;gap:6px;align-items:center;margin-bottom:16px">
+                <div style="font-size:0.9rem;color:#fff"><span id="q-self-tick">⏳</span> You</div>
+                <div style="font-size:0.9rem;color:#fff"><span id="q-opp-tick">⏳</span> <span id="q-opp-name"></span></div>
+              </div>
+              <button id="q-join-btn" onclick="confirmJoin()"
                 style="background:var(--accent);color:#fff;border:none;border-radius:8px;
-                padding:12px 24px;font-size:0.9rem;font-weight:700;cursor:pointer;font-family:inherit;
+                padding:12px 32px;font-size:0.95rem;font-weight:700;cursor:pointer;font-family:inherit;
                 box-shadow:0 2px 10px rgba(249,115,22,0.3);letter-spacing:0.3px">
-                Watch Live Stats →
-              </button>
-              <button id="rejoin-btn" onclick="rejoin()"
-                style="background:transparent;color:var(--accent);border:2px solid var(--accent);border-radius:8px;
-                padding:12px 24px;font-size:0.9rem;font-weight:700;cursor:pointer;font-family:inherit;letter-spacing:0.3px">
-                🔄 Rejoin
+                ✅ Join Match
               </button>
             </div>
-            <div id="rejoin-status" style="font-size:0.75rem;color:var(--green);margin-top:10px;display:none"></div>
+
+            <!-- Both confirmed — AqwBrowser's existing auto-join takes over from here -->
+            <div id="q-confirmed-content" style="display:none">
+              <div id="q-room" style="font-size:0.85rem;color:var(--accent);font-weight:700;margin-bottom:8px"></div>
+              <div style="font-size:0.75rem;color:var(--muted);margin-bottom:16px">Your GunLive client is joining automatically...</div>
+              <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+                <button onclick="go('live');document.querySelectorAll('.nav-item')[3].classList.add('active')"
+                  style="background:var(--accent);color:#fff;border:none;border-radius:8px;
+                  padding:12px 24px;font-size:0.9rem;font-weight:700;cursor:pointer;font-family:inherit;
+                  box-shadow:0 2px 10px rgba(249,115,22,0.3);letter-spacing:0.3px">
+                  Watch Live Stats →
+                </button>
+                <button id="rejoin-btn" onclick="rejoin()"
+                  style="background:transparent;color:var(--accent);border:2px solid var(--accent);border-radius:8px;
+                  padding:12px 24px;font-size:0.9rem;font-weight:700;cursor:pointer;font-family:inherit;letter-spacing:0.3px">
+                  🔄 Rejoin
+                </button>
+              </div>
+              <div id="rejoin-status" style="font-size:0.75rem;color:var(--green);margin-top:10px;display:none"></div>
+            </div>
           </div>
 
         </div>
@@ -1325,9 +1344,12 @@ function loadUsername() {
 
 function setQueueState(state, data = {}) {
   queueState = state;
+  const isMatchedish = state === 'matched-pending-confirm' || state === 'matched';
   document.getElementById('q-idle').style.display      = state === 'idle'     ? '' : 'none';
   document.getElementById('q-searching').style.display = state === 'waiting'  ? '' : 'none';
-  document.getElementById('q-matched').style.display   = state === 'matched'  ? '' : 'none';
+  document.getElementById('q-matched').style.display   = isMatchedish ? '' : 'none';
+  document.getElementById('q-pending-confirm').style.display   = state === 'matched-pending-confirm' ? '' : 'none';
+  document.getElementById('q-confirmed-content').style.display = state === 'matched' ? '' : 'none';
 
   if (state === 'waiting') {
     queueSeconds = 0;
@@ -1340,17 +1362,64 @@ function setQueueState(state, data = {}) {
     }, 1000);
   }
 
-  if (state === 'matched') {
+  if (isMatchedish) {
     clearInterval(queueInterval);
-    matchRoom     = data.room     || '';
-    matchOpponent = data.opponent || '';
-    document.getElementById('q-vs').textContent   = `You vs ${matchOpponent}`;
+    matchRoom     = data.room     || matchRoom || '';
+    matchOpponent = data.opponent || matchOpponent || '';
+    document.getElementById('q-vs').textContent       = `You vs ${matchOpponent}`;
+    document.getElementById('q-opp-name').textContent = matchOpponent;
+  }
+
+  // Manual confirm-to-join test (1v1 only, see /queue/confirm on the
+  // server): tickmarks reflect the real /stats-confirmed "joined" signal,
+  // not just "clicked the button" — falls back to a clicked/pending marker
+  // in between so it's clear the click registered while waiting on AqwBrowser
+  // to actually land in the room.
+  if (state === 'matched-pending-confirm') {
+    document.getElementById('q-self-tick').textContent = data.joined         ? '✅' : (data.confirmed         ? '🟡' : '⏳');
+    document.getElementById('q-opp-tick').textContent  = data.opponentJoined ? '✅' : (data.opponentConfirmed ? '🟡' : '⏳');
+    const btn = document.getElementById('q-join-btn');
+    if (data.confirmed) {
+      btn.disabled    = true;
+      btn.textContent = data.opponentConfirmed ? '⏳ Joining...' : ('✅ Waiting for ' + matchOpponent + '...');
+    } else {
+      btn.disabled    = false;
+      btn.textContent = '✅ Join Match';
+    }
+  }
+
+  if (state === 'matched') {
     document.getElementById('q-room').textContent = 'GunliveTest';
     showOneVOne(loadUsername(), matchOpponent, matchRoom);
     firstBloodDone = false;
+    const btn = document.getElementById('q-join-btn');
+    btn.disabled    = false;
+    btn.textContent = '✅ Join Match';
   }
 
   if (state === 'idle') clearInterval(queueInterval);
+}
+
+async function confirmJoin() {
+  const username = loadUsername();
+  if (!username) return;
+  const btn = document.getElementById('q-join-btn');
+  btn.disabled    = true;
+  btn.textContent = '⏳ Confirming...';
+  try {
+    const res  = await fetch(CENTRAL_SERVER + '/queue/confirm', {
+      method: 'POST', headers: { 'Content-Type':'application/json' },
+      body: JSON.stringify({ username })
+    });
+    const data = await res.json();
+    if (!data.ok) { btn.disabled = false; btn.textContent = '✅ Join Match'; }
+    // Otherwise leave the disabled "waiting..." state — the next
+    // pollQueueStatus tick (still running while matched-pending-confirm)
+    // will refresh tickmarks/button text from real server state.
+  } catch {
+    btn.disabled    = false;
+    btn.textContent = '✅ Join Match';
+  }
 }
 
 async function joinQueue() {
@@ -1363,7 +1432,7 @@ async function joinQueue() {
       body: JSON.stringify({ username })
     });
     const data = await res.json();
-    if (data.status === 'matched') setQueueState('matched', data);
+    if (data.status === 'matched' || data.status === 'matched-pending-confirm') setQueueState(data.status, data);
     else setQueueState('waiting');
   } catch { alert('Could not reach server'); }
 }
@@ -1428,13 +1497,20 @@ async function leaveQueue() {
 }
 
 async function pollQueueStatus() {
-  if (queueState !== 'waiting') return;
+  // Keep polling through the pending-confirm state too, so both players'
+  // tickmarks (and the eventual flip to real 'matched') update live without
+  // either of them needing to click anything else.
+  if (queueState !== 'waiting' && queueState !== 'matched-pending-confirm') return;
   const username = loadUsername();
   if (!username) return;
   try {
     const res  = await fetch(CENTRAL_SERVER + '/match?username=' + encodeURIComponent(username), { cache:'no-store' });
     const data = await res.json();
-    if (data.status === 'matched') setQueueState('matched', data);
+    if (data.status === 'matched' || data.status === 'matched-pending-confirm') setQueueState(data.status, data);
+    else if (queueState === 'matched-pending-confirm' && data.status !== 'matched-pending-confirm') {
+      // Match expired (no-show past CONFIRM_EXPIRE_MS server-side) — back to idle.
+      setQueueState('idle');
+    }
   } catch {}
 }
 

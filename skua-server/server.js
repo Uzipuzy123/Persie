@@ -296,7 +296,28 @@ app.post('/stats', (req, res) => {
         return res.json({ ok: true, matchEnded: true });
     }
 
-    players[data.username] = { ...data, lastSeen: Date.now() };
+    // Guard against out-of-order pushes: PushStatsAsync fires fire-and-forget
+    // on every kill/death plus every 1s tick, so multiple requests can be
+    // in-flight concurrently with no ordering guarantee — if an older
+    // snapshot's HTTP response happens to land at the server AFTER a newer
+    // one (pure network jitter), a blind overwrite here rolls the live
+    // stats backward, making it look like a hit/crit/kill was "lost" even
+    // though the client's own counters were correct the whole time.
+    // Cumulative stats can only increase within the same match (same
+    // room) — if the incoming push has any counter LOWER than what's
+    // already stored for this exact room, it's stale; keep the newer state
+    // instead of overwriting it. Still bump lastSeen either way so a
+    // stretch of stale-but-arriving pushes doesn't get this player pruned
+    // as inactive.
+    const existingPush = players[data.username];
+    const pushIsStale = existingPush && existingPush.map === data.map &&
+        ['kills', 'deaths', 'crits', 'dodges', 'misses', 'hits', 'dmgDealt', 'dmgTaken']
+            .some(k => (data[k] ?? 0) < (existingPush[k] ?? 0));
+    if (pushIsStale) {
+        existingPush.lastSeen = Date.now();
+    } else {
+        players[data.username] = { ...data, lastSeen: Date.now() };
+    }
     // First time we've seen a live push for this room — mark it as the
     // match's start, so Duration can be computed once it ends.
     if (data.map && data.map.startsWith('bludrutbrawl') && !roomStartTimes[data.map])
